@@ -16,11 +16,15 @@ var buildTime string = "unknowntime"
 // Build time -- supplied compile time
 var builder string = "unknownbuilder"
 
+// Go version -- supplied compile time
+var gover string = "unknownver"
+
 var RootCmdVersion string = prepareVersionString()
 
 func prepareVersionString() string {
 	var buffer bytes.Buffer
 	buffer.WriteString(ApplicationVersion + " build " + buildCommit)
 	buffer.WriteString("\ncompiled at " + buildTime + " by " + builder)
+	buffer.WriteString("\nusing " + gover)
 	return buffer.String()
 }

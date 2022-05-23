@@ -1,2 +1,11 @@
-network: ethereum
-start_block: 189110
+general:
+  network: ethereum
+  start_block: 189110
+db:
+  type: postgres
+  host: 127.0.0.1
+  port: 8788
+  user: pguser
+  pass: pgpass
+  dbname: bgidx
+  sslmode: disable

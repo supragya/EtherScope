@@ -9,8 +9,11 @@ import (
 
 var (
 	mandatoryFields = [...]string{
-		"network",
-		"start_block",
+		"general.network",
+		"general.start_block",
+
+		"db.type", "db.host", "db.port", "db.user",
+		"db.pass", "db.dbname", "db.sslmode",
 	}
 )
 
