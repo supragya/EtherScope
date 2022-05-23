@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
