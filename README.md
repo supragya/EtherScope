@@ -2,13 +2,13 @@
 `bgidx` program aims to index an EVM like chain using go-ethereum clients via RPCs.
 
 ## Building
-Build the application using (substitute `1.0.0` with version number of build):
+Build the application using:
 ```
-make build VER=1.0.0
+make build
 ```
 To force rebuilding, use `-B` make flag
 ```
-make build VER=1.0.0 -B
+make build -B
 ```
 This builds `build/bgidx`
 
@@ -20,8 +20,9 @@ To remove the artifact located at `/usr/local/bin/bgidx` use `make uninstall`
 `bgidx` while building is stamped with build information such as git commit, CI process, time of build etc. so as to allow identification while in production.
 ```
 $ bgidx --version
-bgidx version 1.0.0 build main@1923df1876d27fa0092089d665d38e0bfbe31aac
-compiled at 22-05-2022_03-14-39@UTC by travis
+bgidx version v0.0.1 build main@5c6c6c5
+compiled at 23-05-2022 04:29:22 by s20y671
+using go version go1.17.8 linux/amd64
 ```
 
 ## Running indexer "on-head"
