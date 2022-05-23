@@ -30,7 +30,7 @@ var RootCmd = &cobra.Command{
 }
 
 func init() {
-	// RootCmd.AddCommand(realtime.RealtimeCmd)
+	RootCmd.AddCommand(RealtimeCmd)
 	// RootCmd.AddCommand(backfill.BackfillCmd)
 
 	RootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "loglevel (default is INFO)")
