@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"time"
-
 	"github.com/Blockpour/Blockpour-Geth-Indexer/indexer"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	log "github.com/sirupsen/logrus"
@@ -20,11 +18,10 @@ var RealtimeCmd = &cobra.Command{
 
 func StartRealtimeNode(cmd *cobra.Command, args []string) {
 	log.Info("creating a new realtime indexer")
-	var ri indexer.Indexer = indexer.NewRealtimeIndexer(28705483, viper.GetStringSlice("rpc"))
+	// log.Info("transfer topic ", indexer.TransferTopic)
+	var ri indexer.Indexer = indexer.NewRealtimeIndexer(28705988, viper.GetStringSlice("rpc"))
 	ri.Init()
 	log.Info("starting realtime indexer")
 	util.ENOK(ri.Start())
-	log.Info("starting to sleep")
-	time.Sleep(time.Second * 10)
 	return
 }

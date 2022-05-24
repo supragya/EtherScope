@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -48,9 +52,21 @@ func (r *RealtimeIndexer) ridxLoop() {
 			if r.currentHeight == r.indexedHeight {
 				continue
 			}
-			for i := r.indexedHeight + 1; i <= r.currentHeight; i++ {
-				log.Info("indexing height: ", i)
+			log.Info("indexing height: ", r.indexedHeight+1, " to ", r.currentHeight)
+			logs, err := r.getLogs(ethereum.FilterQuery{
+				FromBlock: big.NewInt(r.indexedHeight + 1),
+				ToBlock:   big.NewInt(r.currentHeight),
+				Topics:    [][]common.Hash{{MintTopic, BurnTopic}},
+			})
+			if err != nil {
+				log.Error(err)
+				continue
 			}
+
+			for _, l := range logs {
+				log.Info("got log: ", l)
+			}
+
 			r.indexedHeight = r.currentHeight
 		case <-r.quitCh:
 			log.Info("quitting realtime indexer")
@@ -71,12 +87,33 @@ func (r *RealtimeIndexer) Init() error {
 	return nil
 }
 
+func (r *RealtimeIndexer) getLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
+	var logs []types.Log
+	var retries = 0
+	for {
+		if retries == WD {
+			return logs, errors.New("could not fetch logs, retried " + fmt.Sprint(WD) + " times")
+		}
+		cl := r.upstreams.GetItem()
+		var err error
+
+		start := time.Now()
+		logs, err = cl.FilterLogs(context.Background(), fq)
+		r.upstreams.Report(cl, time.Now().Sub(start).Seconds(), err != nil)
+		if err == nil {
+			break
+		}
+		retries++
+	}
+	return logs, nil
+}
+
 func (r *RealtimeIndexer) populateCurrentHeight() error {
 	var currentHeight uint64 = 0
 	var retries = 0
 	for {
 		if retries == WD {
-			log.Fatalln("could not init realtime indexer, retried " + fmt.Sprint(WD) + " times")
+			return errors.New("could not init realtime indexer, retried " + fmt.Sprint(WD) + " times")
 		}
 		cl := r.upstreams.GetItem()
 		var err error
