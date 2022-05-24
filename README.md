@@ -28,8 +28,9 @@ using go version go1.17.8 linux/amd64
 ## Running indexer "on-head"
 Run indexer in `realtime` mode using
 ```
-./build/bgids realtime -c <config_file.yaml>
+bgidx realtime -c <config_file.yaml>
 ```
+An example config file is available at `test/testcfg.yaml`
 
 ## Running indexer as a "backfiller"
 TODO

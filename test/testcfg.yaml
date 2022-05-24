@@ -1,5 +1,5 @@
 general:
-  network: ethereum
+  network: polygon
   start_block: 189110
 db:
   type: postgres
