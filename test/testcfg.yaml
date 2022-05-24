@@ -9,3 +9,5 @@ db:
   pass: pgpass
   dbname: bgidx
   sslmode: disable
+rpc:
+  - https://rpc.ankr.com/polygon/71227c13781149d44f60749f53d9016e3fe811d7fdcda09258cb429fa5419367

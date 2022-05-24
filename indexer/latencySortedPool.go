@@ -4,6 +4,9 @@ import (
 	"errors"
 	"sort"
 	"sync"
+
+	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 const (
@@ -12,7 +15,7 @@ const (
 )
 
 type LNode struct {
-	Item      string
+	Item      *ethclient.Client
 	Latency   float64
 	Window    [WD]float64
 	WindowPtr uint
@@ -24,7 +27,7 @@ type LatencySortedPool struct {
 	lock     *sync.Mutex
 	ctr      uint64
 	items    []*LNode
-	itemsMap map[string]*LNode
+	itemsMap map[*ethclient.Client]*LNode
 }
 
 func NewLatencySortedPool(items []string) *LatencySortedPool {
@@ -32,18 +35,20 @@ func NewLatencySortedPool(items []string) *LatencySortedPool {
 		lock:     &sync.Mutex{},
 		ctr:      0,
 		items:    []*LNode{},
-		itemsMap: make(map[string]*LNode),
+		itemsMap: make(map[*ethclient.Client]*LNode),
 	}
 	for _, item := range items {
+		cl, err := ethclient.Dial(item)
+		util.ENOK(err)
 		node := &LNode{
-			Item:      item,
+			Item:      cl,
 			Latency:   0,
 			Window:    [WD]float64{},
 			WindowPtr: 0,
 			ResetCtr:  WD / 2,
 		}
 		lsp.items = append(lsp.items, node)
-		lsp.itemsMap[item] = node
+		lsp.itemsMap[cl] = node
 	}
 	return lsp
 }
@@ -62,10 +67,10 @@ func (l *LatencySortedPool) Swap(i, j int) {
 	l.items[j] = temp
 }
 
-func (l *LatencySortedPool) Report(item string, latency float64, timedOut bool) error {
+func (l *LatencySortedPool) Report(item *ethclient.Client, latency float64, timedOut bool) error {
 	ptr, ok := l.itemsMap[item]
 	if !ok {
-		return errors.New("unknown item " + item)
+		return errors.New("unknown item ")
 	}
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -103,6 +108,6 @@ func (l *LatencySortedPool) Report(item string, latency float64, timedOut bool) 
 	return nil
 }
 
-func (l *LatencySortedPool) GetItem() string {
+func (l *LatencySortedPool) GetItem() *ethclient.Client {
 	return l.items[0].Item
 }
