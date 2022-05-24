@@ -26,7 +26,10 @@ using go version go1.17.8 linux/amd64
 ```
 
 ## Running indexer "on-head"
-TODO
+Run indexer in `realtime` mode using
+```
+./build/bgids realtime -c <config_file.yaml>
+```
 
 ## Running indexer as a "backfiller"
 TODO
