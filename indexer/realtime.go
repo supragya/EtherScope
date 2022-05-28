@@ -90,12 +90,12 @@ func (r *RealtimeIndexer) Init() error {
 func (r *RealtimeIndexer) getLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
 	var logs []types.Log
 	var retries = 0
+	var err error
 	for {
 		if retries == WD {
-			return logs, errors.New("could not fetch logs, retried " + fmt.Sprint(WD) + " times")
+			return logs, errors.New("could not fetch logs, retried " + fmt.Sprint(WD) + " times. Last err: " + err.Error())
 		}
 		cl := r.upstreams.GetItem()
-		var err error
 
 		start := time.Now()
 		logs, err = cl.FilterLogs(context.Background(), fq)
@@ -111,12 +111,12 @@ func (r *RealtimeIndexer) getLogs(fq ethereum.FilterQuery) ([]types.Log, error) 
 func (r *RealtimeIndexer) populateCurrentHeight() error {
 	var currentHeight uint64 = 0
 	var retries = 0
+	var err error
 	for {
 		if retries == WD {
-			return errors.New("could not init realtime indexer, retried " + fmt.Sprint(WD) + " times")
+			return errors.New("could not init realtime indexer, retried " + fmt.Sprint(WD) + " times. Last err: " + err.Error())
 		}
 		cl := r.upstreams.GetItem()
-		var err error
 
 		start := time.Now()
 		currentHeight, err = cl.BlockNumber(context.Background())

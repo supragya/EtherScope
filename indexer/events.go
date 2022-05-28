@@ -9,8 +9,6 @@ var (
 	MintTopic     common.Hash
 	BurnTopic     common.Hash
 	TransferTopic common.Hash
-	// V2SwapTopic   string
-	// V3SwapTopic   string
 )
 
 func init() {
