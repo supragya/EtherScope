@@ -19,7 +19,7 @@ var RealtimeCmd = &cobra.Command{
 func StartRealtimeNode(cmd *cobra.Command, args []string) {
 	log.Info("creating a new realtime indexer")
 	// log.Info("transfer topic ", indexer.TransferTopic)
-	var ri indexer.Indexer = indexer.NewRealtimeIndexer(28705988, viper.GetStringSlice("rpc"))
+	var ri indexer.Indexer = indexer.NewRealtimeIndexer(28870002, viper.GetStringSlice("rpc"))
 	ri.Init()
 	log.Info("starting realtime indexer")
 	util.ENOK(ri.Start())

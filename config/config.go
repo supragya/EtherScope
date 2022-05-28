@@ -11,6 +11,7 @@ var (
 	mandatoryFields = [...]string{
 		"general.network",
 		"general.start_block",
+		"general.maxBlockSpanPerCall",
 
 		"db.type", "db.host", "db.port", "db.user",
 		"db.pass", "db.dbname", "db.sslmode",

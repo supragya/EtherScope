@@ -1,6 +1,7 @@
 general:
   network: polygon
   start_block: 189110
+  maxBlockSpanPerCall: 500
 db:
   type: postgres
   host: 127.0.0.1

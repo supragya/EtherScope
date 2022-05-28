@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -45,6 +46,7 @@ func (r *RealtimeIndexer) Start() error {
 }
 
 func (r *RealtimeIndexer) ridxLoop() {
+	maxBlockSpanPerCall := viper.GetInt64("general.maxBlockSpanPerCall")
 	for {
 		select {
 		case <-time.After(time.Second):
@@ -52,10 +54,17 @@ func (r *RealtimeIndexer) ridxLoop() {
 			if r.currentHeight == r.indexedHeight {
 				continue
 			}
-			log.Info("indexing height: ", r.indexedHeight+1, " to ", r.currentHeight)
-			logs, err := r.getLogs(ethereum.FilterQuery{
+			endingBlock := r.currentHeight
+			if (endingBlock - r.indexedHeight) > maxBlockSpanPerCall {
+				endingBlock = r.indexedHeight + maxBlockSpanPerCall
+			}
+
+			log.Info(fmt.Sprintf("sync up: %d, indexed: %d, to: %d, dist: %d",
+				r.currentHeight, r.indexedHeight, endingBlock, r.currentHeight-r.indexedHeight))
+
+			_, err := r.getLogs(ethereum.FilterQuery{
 				FromBlock: big.NewInt(r.indexedHeight + 1),
-				ToBlock:   big.NewInt(r.currentHeight),
+				ToBlock:   big.NewInt(endingBlock),
 				Topics:    [][]common.Hash{{MintTopic, BurnTopic}},
 			})
 			if err != nil {
@@ -63,11 +72,11 @@ func (r *RealtimeIndexer) ridxLoop() {
 				continue
 			}
 
-			for _, l := range logs {
-				log.Info("got log: ", l)
-			}
+			// for _, l := range logs {
+			// 	log.Info("got log: ", l)
+			// }
 
-			r.indexedHeight = r.currentHeight
+			r.indexedHeight = endingBlock
 		case <-r.quitCh:
 			log.Info("quitting realtime indexer")
 		}
