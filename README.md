@@ -38,5 +38,8 @@ You should now have two users:
 - [x] Config checks for mandatory fields
 - [x] Realtime subcommand init
 - [x] Backfill subcommand init
-- [ ] Connection to backend DB: postresql
-- [ ] Custom datadir loading into start_db.sh
+- [x] Connection to backend DB: postresql
+- [x] Custom datadir loading into start_db.sh
+- [x] Fetch latest state to update on top of from DB
+- [x] Setup migrations for dev DB
+- [ ] Process logs and push onto DB
