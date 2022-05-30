@@ -31,4 +31,13 @@ sudo docker run -d \
 
 sudo docker ps -f "name=pg_*"
 
-echo -e "${HI}>> Connect using pgcli: ${NC}\npgcli postgresql://devuser:devpass@localhost:5432/devdb\n"
+if [ "$#" -eq 0 ]; then
+    sleep 2
+    echo -e "${HI}>> Running DB migrations ${NC}"
+    migrate \
+        -database postgresql://devuser:devpass@localhost:5432/devdb?sslmode=disable \
+        -path db/migrations up
+fi
+
+echo -e "${HI}>> Connect using pgcli for superuser: ${NC}\n\tpgcli postgresql://devuser:devpass@localhost:5432/devdb\n"
+echo -e "${HI}>> Connect using pgcli for realtime programmatic user: ${NC}\n\tpgcli postgresql://proguser:progpass@localhost:5432/devdb\n"
