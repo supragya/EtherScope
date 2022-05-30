@@ -1,14 +1,17 @@
 general:
-  network: polygon
+  network: evm
+  chainid: 137
   start_block: 189110
   maxBlockSpanPerCall: 500
 db:
   type: postgres
   host: 127.0.0.1
-  port: 8788
-  user: pguser
-  pass: pgpass
-  dbname: bgidx
+  port: 5432
+  user: proguser
+  pass: progpass
+  dbname: devdb
   sslmode: disable
+  datatable: pool_actions_geth
+  metatable: blocks
 rpc:
   - https://rpc.ankr.com/polygon/71227c13781149d44f60749f53d9016e3fe811d7fdcda09258cb429fa5419367

@@ -5,22 +5,39 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-func SetupConnection() (*sql.DB, error) {
+type DBConn struct {
+	conn       *sql.DB
+	dataTable  string
+	metaTable  string
+	StartBlock uint64
+	Network    string
+	ChainID    uint
+}
+
+func SetupConnection() (DBConn, error) {
 	dbType := viper.GetString("db.type")
 
 	switch dbType {
 	case "postgres":
-		return setupPostgres()
+		db, err := setupPostgres()
+		return DBConn{conn: db,
+			dataTable:  viper.GetString("db.datatable"),
+			metaTable:  viper.GetString("db.metatable"),
+			StartBlock: viper.GetUint64("general.start_block"),
+			Network:    viper.GetString("general.network"),
+			ChainID:    viper.GetUint("general.chainid"),
+		}, err
 	default:
 		break
 	}
 
-	return &sql.DB{}, errors.New("unsupported db: " + dbType)
+	return DBConn{}, errors.New("unsupported db: " + dbType)
 }
 
 func setupPostgres() (*sql.DB, error) {
@@ -48,4 +65,26 @@ func setupPostgres() (*sql.DB, error) {
 
 	log.Info("connected to the postgres database")
 	return db, nil
+}
+
+func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
+	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%x ORDER BY height DESC LIMIT 1",
+		d.metaTable, d.Network, d.ChainID)
+
+	rows, err := d.conn.Query(query)
+	util.ENOK(err)
+	defer rows.Close()
+
+	mostRecent := d.StartBlock - 1
+	foundRow := false
+	for rows.Next() {
+		err = rows.Scan(&mostRecent)
+		util.ENOK(err)
+		foundRow = true
+	}
+
+	if !foundRow {
+		log.Warn("no recent blocks found in db. assuming new db")
+	}
+	return mostRecent
 }

@@ -20,14 +20,14 @@ var (
 )
 
 type RealtimeIndexer struct {
-	currentHeight int64
-	indexedHeight int64
+	currentHeight uint64
+	indexedHeight uint64
 	upstreams     *LatencySortedPool
 
 	quitCh chan struct{}
 }
 
-func NewRealtimeIndexer(indexedHeight int64, upstreams []string) *RealtimeIndexer {
+func NewRealtimeIndexer(indexedHeight uint64, upstreams []string) *RealtimeIndexer {
 	return &RealtimeIndexer{
 		currentHeight: 0,
 		indexedHeight: indexedHeight,
@@ -46,7 +46,7 @@ func (r *RealtimeIndexer) Start() error {
 }
 
 func (r *RealtimeIndexer) ridxLoop() {
-	maxBlockSpanPerCall := viper.GetInt64("general.maxBlockSpanPerCall")
+	maxBlockSpanPerCall := viper.GetUint64("general.maxBlockSpanPerCall")
 	for {
 		select {
 		case <-time.After(time.Second):
@@ -63,8 +63,8 @@ func (r *RealtimeIndexer) ridxLoop() {
 				r.currentHeight, r.indexedHeight, endingBlock, r.currentHeight-r.indexedHeight))
 
 			_, err := r.getLogs(ethereum.FilterQuery{
-				FromBlock: big.NewInt(r.indexedHeight + 1),
-				ToBlock:   big.NewInt(endingBlock),
+				FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
+				ToBlock:   big.NewInt(int64(endingBlock)),
 				Topics:    [][]common.Hash{{MintTopic, BurnTopic}},
 			})
 			if err != nil {
@@ -135,7 +135,7 @@ func (r *RealtimeIndexer) populateCurrentHeight() error {
 		}
 		retries++
 	}
-	r.currentHeight = int64(currentHeight)
+	r.currentHeight = currentHeight
 	return nil
 }
 

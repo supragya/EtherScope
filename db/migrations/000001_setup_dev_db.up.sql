@@ -35,5 +35,5 @@ CREATE TABLE IF NOT EXISTS pool_actions_geth(
     height bigint NOT NULL
 );
 
-GRANT INSERT ON pool_actions_geth TO proguser;
-GRANT INSERT ON blocks TO proguser;
+GRANT SELECT, INSERT ON pool_actions_geth TO proguser;
+GRANT SELECT, INSERT ON blocks TO proguser;

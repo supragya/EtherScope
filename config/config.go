@@ -12,9 +12,11 @@ var (
 		"general.network",
 		"general.start_block",
 		"general.maxBlockSpanPerCall",
+		"general.chainid",
 
 		"db.type", "db.host", "db.port", "db.user",
 		"db.pass", "db.dbname", "db.sslmode",
+		"db.datatable", "db.metatable",
 
 		"rpc",
 	}

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
@@ -17,7 +19,9 @@ var RootCmd = &cobra.Command{
 	Short:   "bgidx is a go-ethereum indexer",
 	Long:    `bgidx is a go-ethereum indexer`,
 	Version: version.RootCmdVersion,
-	Run:     func(cmd *cobra.Command, args []string) {},
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Incorrect invocation. See bgidx --help for subcommands.")
+	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		util.ENOK(logger.SetLogLevel(logLevel))
 
