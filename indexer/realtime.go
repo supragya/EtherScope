@@ -62,7 +62,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 			log.Info(fmt.Sprintf("sync up: %d, indexed: %d, to: %d, dist: %d",
 				r.currentHeight, r.indexedHeight, endingBlock, r.currentHeight-r.indexedHeight))
 
-			_, err := r.getLogs(ethereum.FilterQuery{
+			logs, err := r.getLogs(ethereum.FilterQuery{
 				FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 				ToBlock:   big.NewInt(int64(endingBlock)),
 				Topics:    [][]common.Hash{{MintTopic, BurnTopic}},
@@ -72,6 +72,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 				continue
 			}
 
+			r.processBatchedBlockLogs(logs)
 			// for _, l := range logs {
 			// 	log.Info("got log: ", l)
 			// }
@@ -81,6 +82,12 @@ func (r *RealtimeIndexer) ridxLoop() {
 			log.Info("quitting realtime indexer")
 		}
 	}
+}
+
+func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log) {
+	// Assuming for any height H, either we will have all the concerned logs
+	// or not even one
+
 }
 
 func (r *RealtimeIndexer) Stop() error {
