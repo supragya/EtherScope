@@ -23,7 +23,9 @@ func StartRealtimeNode(cmd *cobra.Command, args []string) {
 	util.ENOK(err)
 	mostRecent := dbconn.GetMostRecentPostedBlockHeight()
 	log.Info("creating a new realtime indexer from ", mostRecent+1)
-	var ri indexer.Indexer = indexer.NewRealtimeIndexer(mostRecent, viper.GetStringSlice("rpc"))
+	var ri indexer.Indexer = indexer.NewRealtimeIndexer(mostRecent,
+		viper.GetStringSlice("rpc"),
+		&dbconn)
 	ri.Init()
 	log.Info("starting realtime indexer")
 	util.ENOK(ri.Start())

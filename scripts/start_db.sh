@@ -8,10 +8,10 @@ RAND_STR=`cat /proc/sys/kernel/random/uuid | sed 's/[-]//g' | head -c 5; echo;`
 
 if [ "$#" -ne 0 ]; then
     RAND_STR=$1
-    echo -e "${HI}>> Reusing previous data dir ${NC}pgdata/.pgdata_${RAND_STR}"
+    echo -e "${HI}>> Reusing previous data dir ${NC}_pgdata/.pgdata_${RAND_STR}"
 else
-    PSQLDIR="${PWD}/pgdata/.pgdata_${RAND_STR}"
-    echo -e "${HI}>> Create data dir for postgres ${NC}pgdata/.pgdata_${RAND_STR}"
+    PSQLDIR="${PWD}/_pgdata/.pgdata_${RAND_STR}"
+    echo -e "${HI}>> Create data dir for postgres ${NC}_pgdata/.pgdata_${RAND_STR}"
     mkdir -p ${PSQLDIR}
 fi
 

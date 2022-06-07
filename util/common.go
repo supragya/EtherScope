@@ -1,6 +1,8 @@
 package util
 
 import (
+	"math"
+	"math/big"
 	"os"
 	"os/user"
 	"runtime"
@@ -52,4 +54,10 @@ func GetUserHomedir() string {
 func VerifyFileExistence(file string) error {
 	_, err := os.Stat(file)
 	return err
+}
+
+func DivideBy10pow(num *big.Int, pow uint8) *big.Float {
+	pow10 := big.NewFloat(math.Pow10(int(pow)))
+	numfloat := new(big.Float).SetInt(num)
+	return new(big.Float).Quo(numfloat, pow10)
 }

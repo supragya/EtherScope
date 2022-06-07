@@ -12,7 +12,7 @@ import (
 )
 
 type DBConn struct {
-	conn       *sql.DB
+	Conn       *sql.DB
 	dataTable  string
 	metaTable  string
 	StartBlock uint64
@@ -26,7 +26,7 @@ func SetupConnection() (DBConn, error) {
 	switch dbType {
 	case "postgres":
 		db, err := setupPostgres()
-		return DBConn{conn: db,
+		return DBConn{Conn: db,
 			dataTable:  viper.GetString("db.datatable"),
 			metaTable:  viper.GetString("db.metatable"),
 			StartBlock: viper.GetUint64("general.start_block"),
@@ -71,7 +71,7 @@ func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
 	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%x ORDER BY height DESC LIMIT 1",
 		d.metaTable, d.Network, d.ChainID)
 
-	rows, err := d.conn.Query(query)
+	rows, err := d.Conn.Query(query)
 	util.ENOK(err)
 	defer rows.Close()
 
