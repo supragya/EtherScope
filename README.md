@@ -3,6 +3,7 @@
 
 ## Building
 Build the application using:
+- Setup golang abi modules via abigen using `./scripts/setup_abi.sh`.
 - `make build` or `make build -B` (force) to build `build/bgidx`
 - `make install` to install the built `bgidx` into `/usr/local/bin/bgidx` bringing it into $PATH.
 - `make uninstall` removes `/usr/local/bin/bgidx`
