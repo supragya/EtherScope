@@ -4,17 +4,19 @@ CREATE TYPE networktype AS ENUM ('evm', 'dot', 'sol', 'tm');
 
 CREATE TABLE IF NOT EXISTS blocks(
     nwtype networktype NOT NULL,
-    network smallint UNIQUE NOT NULL,
+    network smallint NOT NULL,
     height bigint NOT NULL,
     inserted_at timestamptz NOT NULL,
-    synopsis jsonb NOT NULL,
-    PRIMARY KEY(nwtype, network),
+    mint_logs int NOT NULL,
+    burn_logs int NOT NULL,
+    total_logs int NOT NULL,
+    PRIMARY KEY(nwtype, network, height),
     UNIQUE(nwtype, network, height)
 );
 
 CREATE TABLE IF NOT EXISTS pool_actions_geth(
     nwtype networktype NOT NULL,
-    network smallint UNIQUE NOT NULL,
+    network smallint NOT NULL,
     time timestamptz NOT NULL,
     inserted_at timestamptz NOT NULL,
     token0 VARCHAR(40) NOT NULL,
@@ -28,8 +30,6 @@ CREATE TABLE IF NOT EXISTS pool_actions_geth(
     reservesusd numeric,
     type VARCHAR(20) NOT NULL,
     sender VARCHAR(40) NOT NULL,
-    exchange VARCHAR(40),
-    id VARCHAR(40),
     transaction VARCHAR(64) NOT NULL,
     slippage numeric,
     height bigint NOT NULL

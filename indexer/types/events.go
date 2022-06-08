@@ -1,4 +1,4 @@
-package indexer
+package types
 
 import (
 	"math/big"
@@ -14,17 +14,24 @@ var (
 )
 
 type Mint struct {
-	logIdx       uint
-	transaction  common.Hash
-	height       uint64
-	sender       common.Address
-	pairContract common.Address
-	token0       common.Address
-	token1       common.Address
-	amount0      float64
-	amount1      float64
-	reserve0     *big.Float
-	reserve1     *big.Float
+	LogIdx       uint
+	Transaction  common.Hash
+	Time         int64
+	Height       uint64
+	Sender       common.Address
+	PairContract common.Address
+	Token0       common.Address
+	Token1       common.Address
+	Amount0      float64
+	Amount1      float64
+	Reserve0     *big.Float
+	Reserve1     *big.Float
+}
+
+type BlockSynopsis struct {
+	TotalLogs uint64
+	MintLogs  uint64
+	BurnLogs  uint64
 }
 
 func init() {

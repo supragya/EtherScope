@@ -1,10 +1,13 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
@@ -12,7 +15,7 @@ import (
 )
 
 type DBConn struct {
-	Conn       *sql.DB
+	conn       *sql.DB
 	dataTable  string
 	metaTable  string
 	StartBlock uint64
@@ -26,7 +29,7 @@ func SetupConnection() (DBConn, error) {
 	switch dbType {
 	case "postgres":
 		db, err := setupPostgres()
-		return DBConn{Conn: db,
+		return DBConn{conn: db,
 			dataTable:  viper.GetString("db.datatable"),
 			metaTable:  viper.GetString("db.metatable"),
 			StartBlock: viper.GetUint64("general.start_block"),
@@ -71,7 +74,7 @@ func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
 	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%x ORDER BY height DESC LIMIT 1",
 		d.metaTable, d.Network, d.ChainID)
 
-	rows, err := d.Conn.Query(query)
+	rows, err := d.conn.Query(query)
 	util.ENOK(err)
 	defer rows.Close()
 
@@ -87,4 +90,63 @@ func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
 		log.Warn("no recent blocks found in db. assuming new db")
 	}
 	return mostRecent
+}
+
+func (d *DBConn) BeginTx() (context.Context, *sql.Tx) {
+	ctx := context.Background()
+	tx, err := d.conn.BeginTx(ctx, nil)
+	util.ENOK(err)
+	return ctx, tx
+}
+
+func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface{}, bm itypes.BlockSynopsis, block uint64) {
+	currentTime := time.Now().Unix()
+	for _, item := range items {
+		switch item.(type) {
+		case itypes.Mint:
+			const insquery string = "INSERT INTO %s "
+			const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, transaction, slippage, height) "
+			const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',        %f,       %d    );"
+			item := item.(itypes.Mint)
+			query := fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
+				d.Network,                      // nwtype
+				d.ChainID,                      // network
+				item.Time,                      // time
+				currentTime,                    // inserted_at
+				item.Token0.String()[2:],       // token0 (removed 0x prefix)
+				item.Token1.String()[2:],       // token1 (removed 0x prefix)
+				item.PairContract.String()[2:], // pair
+				item.Amount0,                   // amount0
+				item.Amount1,                   // amount1
+				0.0,                            // amountusd, FIXME
+				item.Reserve0,                  // reserves0
+				item.Reserve1,                  // reserves1
+				0.0,                            // reservesusd, FIXME
+				"mint",                         // type
+				"",                             // sender FIXME
+				item.Transaction.String()[2:],  // transaction (removed 0x prefix)
+				0.0,                            // slippage
+				item.Height,                    // height
+			)
+			_, err := dbTx.ExecContext(*dbCtx, query)
+			util.ENOK(err)
+		}
+	}
+
+	// Add block synopsis
+	const insquery string = "INSERT INTO %s "
+	const fields string = "(nwtype, network, height, inserted_at, mint_logs, burn_logs, total_logs) "
+	const valuesfmt string = "VALUES ('%s', %d, %d,  TO_TIMESTAMP(%d), %d,   %d,        %d);"
+	query := fmt.Sprintf(insquery+fields+valuesfmt, d.metaTable, // table to insert to
+		d.Network,    // nwtype
+		d.ChainID,    // network
+		block,        // height
+		currentTime,  // inserted_at
+		bm.MintLogs,  // mint_logs
+		bm.BurnLogs,  // burn_logs
+		bm.TotalLogs, // total_logs
+	)
+	// log.Info(query)
+	_, err := dbTx.ExecContext(*dbCtx, query)
+	util.ENOK(err)
 }

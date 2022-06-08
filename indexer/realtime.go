@@ -11,6 +11,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ERC20"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -33,12 +34,6 @@ type RealtimeIndexer struct {
 	quitCh chan struct{}
 }
 
-type BlockSynopsis struct {
-	totalLogs uint64
-	MintLogs  uint64
-	BurnLogs  uint64
-}
-
 func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBConn) *RealtimeIndexer {
 	return &RealtimeIndexer{
 		currentHeight: 0,
@@ -57,6 +52,8 @@ func (r *RealtimeIndexer) Start() error {
 	time.Sleep(time.Second * 2)
 	return nil
 }
+
+var currentHeight uint64 = 0
 
 func (r *RealtimeIndexer) ridxLoop() {
 	maxBlockSpanPerCall := viper.GetUint64("general.maxBlockSpanPerCall")
@@ -78,7 +75,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 			logs, err := r.getLogs(ethereum.FilterQuery{
 				FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 				ToBlock:   big.NewInt(int64(endingBlock)),
-				Topics:    [][]common.Hash{{MintTopic, BurnTopic}},
+				Topics:    [][]common.Hash{{itypes.MintTopic, itypes.BurnTopic}},
 			})
 			if err != nil {
 				log.Error(err)
@@ -98,54 +95,39 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	// Assuming for any height H, either we will have all the concerned logs
 	// or not even one
 	kv := GroupByBlockNumber(logs)
+	dbCtx, dbTx := r.dbconn.BeginTx()
 
-	var dbwg sync.WaitGroup
 	for block := start; block <= end; block++ {
 		logs, ok := kv[block]
-		if !ok {
+		blockMeta := itypes.BlockSynopsis{}
+		if !ok || len(logs) == 0 {
+			r.dbconn.AddToTx(&dbCtx, dbTx, nil, blockMeta, block)
 			continue
 		}
 		var wg sync.WaitGroup
 		var mt sync.Mutex
 		var items []interface{}
-		blockMeta := BlockSynopsis{}
 		for _, log := range logs {
-			blockMeta.totalLogs++
 			go r.DecodeLog(&log, &mt, &items, &blockMeta, &wg)
 		}
 		wg.Wait()
-		log.Info(block, " done blockmeta ", blockMeta)
-		go r.persistToDB(&dbwg, items, blockMeta)
+		// log.Info(block, " done blockmeta ", blockMeta)
+		r.dbconn.AddToTx(&dbCtx, dbTx, items, blockMeta, block)
 	}
-	dbwg.Wait()
-}
-
-func (r *RealtimeIndexer) persistToDB(dbwg *sync.WaitGroup, items []interface{}, bm BlockSynopsis) {
-	dbwg.Add(1)
-	defer dbwg.Done()
-
-	// ctx := context.Background()
-	// tx, err := r.dbconn.Conn.BeginTx(ctx, nil)
-	// util.ENOK(err)
-	// for _, item := range items {
-	// 	switch item.(type) {
-	// 	case Mint:
-	// 		tx.ExecContext(ctx, "INSERT INTO ")
-	// 	}
-	// }
+	util.ENOK(dbTx.Commit())
 }
 
 func (r *RealtimeIndexer) DecodeLog(l *types.Log,
 	mt *sync.Mutex,
 	items *[]interface{},
-	bm *BlockSynopsis,
+	bm *itypes.BlockSynopsis,
 	wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
-	case MintTopic:
+	case itypes.MintTopic:
 		// Get an upstream
 		cl := r.upstreams.GetItem()
 		paircontract, err := univ2pair.NewUniv2pair(l.Address, cl)
@@ -191,23 +173,25 @@ func (r *RealtimeIndexer) DecodeLog(l *types.Log,
 		t0reserves := util.DivideBy10pow(reserves.Reserve0, t0Decimals)
 		t1reserves := util.DivideBy10pow(reserves.Reserve1, t1Decimals)
 
-		mint := Mint{
-			logIdx:       l.Index,
-			transaction:  l.TxHash,
-			height:       l.BlockNumber,
-			sender:       l.Address, // FIXME
-			pairContract: l.Address,
-			token0:       token0,
-			token1:       token1,
-			amount0:      0, // FIXME
-			amount1:      0, // FIXME
-			reserve0:     t0reserves,
-			reserve1:     t1reserves,
+		mint := itypes.Mint{
+			LogIdx:       l.Index,
+			Transaction:  l.TxHash,
+			Time:         time.Now().Unix(),
+			Height:       l.BlockNumber,
+			Sender:       l.Address, // FIXME
+			PairContract: l.Address,
+			Token0:       token0,
+			Token1:       token1,
+			Amount0:      0, // FIXME
+			Amount1:      0, // FIXME
+			Reserve0:     t0reserves,
+			Reserve1:     t1reserves,
 		}
 		mt.Lock()
 		defer mt.Unlock()
 		*items = append(*items, mint)
 		bm.MintLogs++
+		bm.TotalLogs++
 	}
 }
 
