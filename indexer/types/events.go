@@ -28,6 +28,21 @@ type Mint struct {
 	Reserve1     *big.Float
 }
 
+type Burn struct {
+	LogIdx       uint
+	Transaction  common.Hash
+	Time         int64
+	Height       uint64
+	Sender       common.Address
+	PairContract common.Address
+	Token0       common.Address
+	Token1       common.Address
+	Amount0      float64
+	Amount1      float64
+	Reserve0     *big.Float
+	Reserve1     *big.Float
+}
+
 type BlockSynopsis struct {
 	TotalLogs uint64
 	MintLogs  uint64

@@ -102,13 +102,14 @@ func (d *DBConn) BeginTx() (context.Context, *sql.Tx) {
 func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface{}, bm itypes.BlockSynopsis, block uint64) {
 	currentTime := time.Now().Unix()
 	for _, item := range items {
+		query := ""
 		switch item.(type) {
 		case itypes.Mint:
 			const insquery string = "INSERT INTO %s "
 			const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, transaction, slippage, height) "
 			const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',        %f,       %d    );"
 			item := item.(itypes.Mint)
-			query := fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
+			query = fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
 				d.Network,                      // nwtype
 				d.ChainID,                      // network
 				item.Time,                      // time
@@ -128,9 +129,35 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 				0.0,                            // slippage
 				item.Height,                    // height
 			)
-			_, err := dbTx.ExecContext(*dbCtx, query)
-			util.ENOK(err)
+		case itypes.Burn:
+			const insquery string = "INSERT INTO %s "
+			const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, transaction, slippage, height) "
+			const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',        %f,       %d    );"
+			item := item.(itypes.Mint)
+			query = fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
+				d.Network,                      // nwtype
+				d.ChainID,                      // network
+				item.Time,                      // time
+				currentTime,                    // inserted_at
+				item.Token0.String()[2:],       // token0 (removed 0x prefix)
+				item.Token1.String()[2:],       // token1 (removed 0x prefix)
+				item.PairContract.String()[2:], // pair
+				item.Amount0,                   // amount0
+				item.Amount1,                   // amount1
+				0.0,                            // amountusd, FIXME
+				item.Reserve0,                  // reserves0
+				item.Reserve1,                  // reserves1
+				0.0,                            // reservesusd, FIXME
+				"burn",                         // type
+				"",                             // sender FIXME
+				item.Transaction.String()[2:],  // transaction (removed 0x prefix)
+				0.0,                            // slippage
+				item.Height,                    // height
+			)
+
 		}
+		_, err := dbTx.ExecContext(*dbCtx, query)
+		util.ENOK(err)
 	}
 
 	// Add block synopsis
