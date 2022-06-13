@@ -71,7 +71,7 @@ func setupPostgres() (*sql.DB, error) {
 }
 
 func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
-	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%x ORDER BY height DESC LIMIT 1",
+	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%d ORDER BY height DESC LIMIT 1",
 		d.metaTable, d.Network, d.ChainID)
 
 	rows, err := d.conn.Query(query)
@@ -133,7 +133,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			const insquery string = "INSERT INTO %s "
 			const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, transaction, slippage, height) "
 			const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',        %f,       %d    );"
-			item := item.(itypes.Mint)
+			item := item.(itypes.Burn)
 			query = fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
 				d.Network,                      // nwtype
 				d.ChainID,                      // network
