@@ -5,10 +5,16 @@ import (
 	"math/big"
 	"os"
 	"os/user"
+	"regexp"
 	"runtime"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	AbiErrRegex *regexp.Regexp
+	NoContract  *regexp.Regexp
 )
 
 // Checks if error is nil or not. Kills process if not nil
@@ -24,6 +30,19 @@ func ENOK(err error) {
 		}
 		log.Fatalln(err)
 	}
+}
+
+// Check if error (if any) is ethereum error
+func IsEthErr(err error) bool {
+	if err != nil {
+		e := err.Error()
+		if e == "execution reverted" ||
+			AbiErrRegex.MatchString(e) ||
+			NoContract.MatchString(e) {
+			return true
+		}
+	}
+	return false
 }
 
 func GetUser() (*user.User, error) {
@@ -60,4 +79,9 @@ func DivideBy10pow(num *big.Int, pow uint8) *big.Float {
 	pow10 := big.NewFloat(math.Pow10(int(pow)))
 	numfloat := new(big.Float).SetInt(num)
 	return new(big.Float).Quo(numfloat, pow10)
+}
+
+func init() {
+	AbiErrRegex = regexp.MustCompile("abi: cannot marshal.*")
+	NoContract = regexp.MustCompile("no contract code at given address")
 }

@@ -1,15 +1,12 @@
 package indexer
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ERC20"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
@@ -28,8 +25,8 @@ var (
 type RealtimeIndexer struct {
 	currentHeight uint64
 	indexedHeight uint64
-	upstreams     *LatencySortedPool
 	dbconn        *db.DBConn
+	da            *DataAccess
 
 	quitCh chan struct{}
 }
@@ -38,14 +35,15 @@ func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBC
 	return &RealtimeIndexer{
 		currentHeight: 0,
 		indexedHeight: indexedHeight,
-		upstreams:     NewLatencySortedPool(upstreams),
 		dbconn:        dbconn,
-		quitCh:        make(chan struct{}),
+		da:            NewDataAccess(upstreams),
+
+		quitCh: make(chan struct{}),
 	}
 }
 
 func (r *RealtimeIndexer) Start() error {
-	if r.indexedHeight == 0 || r.upstreams.Len() == 0 {
+	if r.indexedHeight == 0 || r.da.Len() == 0 {
 		return EUninitialized
 	}
 	r.ridxLoop()
@@ -60,7 +58,10 @@ func (r *RealtimeIndexer) ridxLoop() {
 	for {
 		select {
 		case <-time.After(time.Second):
-			util.ENOK(r.populateCurrentHeight())
+			height, err := r.da.GetCurrentBlockHeight()
+			util.ENOK(err)
+			r.currentHeight = height
+
 			if r.currentHeight == r.indexedHeight {
 				continue
 			}
@@ -72,11 +73,12 @@ func (r *RealtimeIndexer) ridxLoop() {
 			log.Info(fmt.Sprintf("sync up: %d, indexed: %d, to: %d, dist: %d",
 				r.currentHeight, r.indexedHeight, endingBlock, r.currentHeight-r.indexedHeight))
 
-			logs, err := r.getLogs(ethereum.FilterQuery{
+			logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 				FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 				ToBlock:   big.NewInt(int64(endingBlock)),
 				Topics:    [][]common.Hash{{itypes.MintTopic, itypes.BurnTopic}},
 			})
+
 			if err != nil {
 				log.Error(err)
 				continue
@@ -139,64 +141,50 @@ func (r *RealtimeIndexer) processMint(
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
 ) {
-	// Get an upstream
-	cl := r.upstreams.GetItem()
-	paircontract, err := univ2pair.NewUniv2pair(l.Address, cl)
-	util.ENOK(err)
 	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
-	// check if token0 exists
-	// Break if topic is not a DEX liquidity add / removal
-	// Many DeFi apps that aren't dexes use Mint & Burn events
-	token0, err := paircontract.Token0(callopts)
-	if err != nil {
-		log.Trace("error while getting token0 ", err)
+	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
 		return
 	}
-	token1, err := paircontract.Token1(callopts)
-	if err != nil {
-		log.Trace("error while getting token1 ", err)
-		return
-	}
-
-	t0Contract, err := ERC20.NewERC20(token0, cl)
-	util.ENOK(err)
-	t1Contract, err := ERC20.NewERC20(token1, cl)
 	util.ENOK(err)
 
-	t0Decimals, err := t0Contract.Decimals(callopts)
-	if err != nil {
-		log.Trace("error while getting token0 decimals ", err)
+	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	if util.IsEthErr(err) {
 		return
 	}
+	util.ENOK(err)
 
-	t1Decimals, err := t1Contract.Decimals(callopts)
-	if err != nil {
-		log.Trace("error while getting token1 decimals ", err)
+	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	if util.IsEthErr(err) {
 		return
 	}
+	util.ENOK(err)
 
-	reserves, err := paircontract.GetReserves(callopts)
-	if err != nil {
-		log.Trace("error while retrieving reserves ", err)
+	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
 		return
 	}
+	util.ENOK(err)
 
-	t0reserves := util.DivideBy10pow(reserves.Reserve0, t0Decimals)
-	t1reserves := util.DivideBy10pow(reserves.Reserve1, t1Decimals)
+	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
 	mint := itypes.Mint{
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         time.Now().Unix(),
 		Height:       l.BlockNumber,
-		Sender:       l.Address, // FIXME
+		Sender:       sender,
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
 		Amount0:      0, // FIXME
 		Amount1:      0, // FIXME
-		Reserve0:     t0reserves,
-		Reserve1:     t1reserves,
+		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
 	mt.Lock()
 	defer mt.Unlock()
@@ -211,69 +199,55 @@ func (r *RealtimeIndexer) processBurn(
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
 ) {
-	// Get an upstream
-	cl := r.upstreams.GetItem()
-	paircontract, err := univ2pair.NewUniv2pair(l.Address, cl)
-	util.ENOK(err)
 	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
-	// check if token0 exists
-	// Break if topic is not a DEX liquidity add / removal
-	// Many DeFi apps that aren't dexes use Mint & Burn events
-	token0, err := paircontract.Token0(callopts)
-	if err != nil {
-		log.Trace("error while getting token0 ", err)
+	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
 		return
 	}
-	token1, err := paircontract.Token1(callopts)
-	if err != nil {
-		log.Trace("error while getting token1 ", err)
-		return
-	}
-
-	t0Contract, err := ERC20.NewERC20(token0, cl)
-	util.ENOK(err)
-	t1Contract, err := ERC20.NewERC20(token1, cl)
 	util.ENOK(err)
 
-	t0Decimals, err := t0Contract.Decimals(callopts)
-	if err != nil {
-		log.Trace("error while getting token0 decimals ", err)
+	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	if util.IsEthErr(err) {
 		return
 	}
+	util.ENOK(err)
 
-	t1Decimals, err := t1Contract.Decimals(callopts)
-	if err != nil {
-		log.Trace("error while getting token1 decimals ", err)
+	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	if util.IsEthErr(err) {
 		return
 	}
+	util.ENOK(err)
 
-	reserves, err := paircontract.GetReserves(callopts)
-	if err != nil {
-		log.Trace("error while retrieving reserves ", err)
+	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
 		return
 	}
+	util.ENOK(err)
 
-	t0reserves := util.DivideBy10pow(reserves.Reserve0, t0Decimals)
-	t1reserves := util.DivideBy10pow(reserves.Reserve1, t1Decimals)
+	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
 	mint := itypes.Burn{
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         time.Now().Unix(),
 		Height:       l.BlockNumber,
-		Sender:       l.Address, // FIXME
+		Sender:       sender,
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
 		Amount0:      0, // FIXME
 		Amount1:      0, // FIXME
-		Reserve0:     t0reserves,
-		Reserve1:     t1reserves,
+		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
 	mt.Lock()
 	defer mt.Unlock()
 	*items = append(*items, mint)
-	bm.BurnLogs++
+	bm.MintLogs++
 	bm.TotalLogs++
 }
 
@@ -282,54 +256,11 @@ func (r *RealtimeIndexer) Stop() error {
 }
 
 func (r *RealtimeIndexer) Init() error {
-	if err := r.populateCurrentHeight(); err != nil {
-		return err
-	}
+	height, err := r.da.GetCurrentBlockHeight()
+	util.ENOK(err)
+	r.currentHeight = height
 	log.Info("initializing realtime indexer, indexedHeight: "+fmt.Sprint(r.indexedHeight),
 		" currentHeight: "+fmt.Sprint(r.currentHeight))
-	return nil
-}
-
-func (r *RealtimeIndexer) getLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
-	var logs []types.Log
-	var retries = 0
-	var err error
-	for {
-		if retries == WD {
-			return logs, errors.New("could not fetch logs, retried " + fmt.Sprint(WD) + " times. Last err: " + err.Error())
-		}
-		cl := r.upstreams.GetItem()
-
-		start := time.Now()
-		logs, err = cl.FilterLogs(context.Background(), fq)
-		r.upstreams.Report(cl, time.Now().Sub(start).Seconds(), err != nil)
-		if err == nil {
-			break
-		}
-		retries++
-	}
-	return logs, nil
-}
-
-func (r *RealtimeIndexer) populateCurrentHeight() error {
-	var currentHeight uint64 = 0
-	var retries = 0
-	var err error
-	for {
-		if retries == WD {
-			return errors.New("could not init realtime indexer, retried " + fmt.Sprint(WD) + " times. Last err: " + err.Error())
-		}
-		cl := r.upstreams.GetItem()
-
-		start := time.Now()
-		currentHeight, err = cl.BlockNumber(context.Background())
-		r.upstreams.Report(cl, time.Now().Sub(start).Seconds(), err != nil)
-		if err == nil {
-			break
-		}
-		retries++
-	}
-	r.currentHeight = currentHeight
 	return nil
 }
 

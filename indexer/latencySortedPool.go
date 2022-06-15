@@ -2,8 +2,12 @@ package indexer
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -15,6 +19,7 @@ const (
 )
 
 type LNode struct {
+	Name      string
 	Item      *ethclient.Client
 	Latency   float64
 	Window    [WD]float64
@@ -41,6 +46,7 @@ func NewLatencySortedPool(items []string) *LatencySortedPool {
 		cl, err := ethclient.Dial(item)
 		util.ENOK(err)
 		node := &LNode{
+			Name:      item,
 			Item:      cl,
 			Latency:   0,
 			Window:    [WD]float64{},
@@ -65,6 +71,19 @@ func (l *LatencySortedPool) Swap(i, j int) {
 	temp := l.items[i]
 	l.items[i] = l.items[j]
 	l.items[j] = temp
+}
+
+func (l *LatencySortedPool) ShowStatus() {
+	t := time.NewTicker(10 * time.Second)
+	for {
+		<-t.C
+		best := l.GetItem()
+		ptr, ok := l.itemsMap[best]
+		if !ok {
+			log.Fatal("cannot show status")
+		}
+		log.Info("best upstream: ", ptr.Name, fmt.Sprintf(" (%dms) avg", int(ptr.Latency*1000)))
+	}
 }
 
 func (l *LatencySortedPool) Report(item *ethclient.Client, latency float64, timedOut bool) error {
