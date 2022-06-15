@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-type RealtimeIndexer struct {
+type BackfillIndexer struct {
 	currentHeight uint64
 	indexedHeight uint64
 	dbconn        *db.DBConn
@@ -26,8 +26,8 @@ type RealtimeIndexer struct {
 	quitCh chan struct{}
 }
 
-func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBConn) *RealtimeIndexer {
-	return &RealtimeIndexer{
+func NewBackfillIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBConn) *BackfillIndexer {
+	return &BackfillIndexer{
 		currentHeight: 0,
 		indexedHeight: indexedHeight,
 		dbconn:        dbconn,
@@ -37,7 +37,7 @@ func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBC
 	}
 }
 
-func (r *RealtimeIndexer) Start() error {
+func (r *BackfillIndexer) Start() error {
 	if r.indexedHeight == 0 || r.da.Len() == 0 {
 		return EUninitialized
 	}
@@ -46,7 +46,7 @@ func (r *RealtimeIndexer) Start() error {
 	return nil
 }
 
-func (r *RealtimeIndexer) ridxLoop() {
+func (r *BackfillIndexer) ridxLoop() {
 	maxBlockSpanPerCall := viper.GetUint64("general.maxBlockSpanPerCall")
 	for {
 		select {
@@ -86,7 +86,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 	}
 }
 
-func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64, end uint64) {
+func (r *BackfillIndexer) processBatchedBlockLogs(logs []types.Log, start uint64, end uint64) {
 	// Assuming for any height H, either we will have all the concerned logs
 	// or not even one
 	kv := GroupByBlockNumber(logs)
@@ -111,7 +111,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	util.ENOK(dbTx.Commit())
 }
 
-func (r *RealtimeIndexer) DecodeLog(l *types.Log,
+func (r *BackfillIndexer) DecodeLog(l *types.Log,
 	mt *sync.Mutex,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -128,7 +128,7 @@ func (r *RealtimeIndexer) DecodeLog(l *types.Log,
 	}
 }
 
-func (r *RealtimeIndexer) processMint(
+func (r *BackfillIndexer) processMint(
 	l *types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -186,7 +186,7 @@ func (r *RealtimeIndexer) processMint(
 	bm.TotalLogs++
 }
 
-func (r *RealtimeIndexer) processBurn(
+func (r *BackfillIndexer) processBurn(
 	l *types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -244,11 +244,11 @@ func (r *RealtimeIndexer) processBurn(
 	bm.TotalLogs++
 }
 
-func (r *RealtimeIndexer) Stop() error {
+func (r *BackfillIndexer) Stop() error {
 	return nil
 }
 
-func (r *RealtimeIndexer) Init() error {
+func (r *BackfillIndexer) Init() error {
 	height, err := r.da.GetCurrentBlockHeight()
 	util.ENOK(err)
 	r.currentHeight = height
@@ -257,10 +257,10 @@ func (r *RealtimeIndexer) Init() error {
 	return nil
 }
 
-func (r *RealtimeIndexer) Status() interface{} {
+func (r *BackfillIndexer) Status() interface{} {
 	return nil
 }
 
-func (r *RealtimeIndexer) Quit() {
+func (r *BackfillIndexer) Quit() {
 	r.quitCh <- struct{}{}
 }

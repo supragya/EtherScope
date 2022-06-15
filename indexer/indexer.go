@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"errors"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -12,6 +13,10 @@ type Indexer interface {
 	Init() error
 	Status() interface{}
 }
+
+var (
+	EUninitialized = errors.New("uninitialized indexer")
+)
 
 type CLogType []types.Log
 
