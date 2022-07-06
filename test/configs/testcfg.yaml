@@ -3,6 +3,7 @@ general:
   chainid: 137
   start_block: 189110
   maxBlockSpanPerCall: 500
+  failOnNonEthError: false
 db:
   type: postgres
   host: 127.0.0.1

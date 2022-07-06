@@ -43,4 +43,4 @@ You should now have two users:
 - [x] Custom datadir loading into start_db.sh
 - [x] Fetch latest state to update on top of from DB
 - [x] Setup migrations for dev DB
-- [ ] Process logs and push onto DB
+- [x] Process logs and push onto DB

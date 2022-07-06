@@ -10,11 +10,16 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 var (
-	AbiErrRegex *regexp.Regexp
-	NoContract  *regexp.Regexp
+	ExecutionReverted    *regexp.Regexp
+	AbiErrRegex          *regexp.Regexp
+	NoContract           *regexp.Regexp
+	ErrUnmarshal         *regexp.Regexp
+	FailOnNonEthError    bool
+	FailOnNonEthErrorSet bool
 )
 
 // Checks if error is nil or not. Kills process if not nil
@@ -33,12 +38,25 @@ func ENOK(err error) {
 }
 
 // Check if error (if any) is ethereum error
+// Also takes into account boolean flag `failOnNonEthError` in cfg
+// If false, silently fail and continue to next event
 func IsEthErr(err error) bool {
+	if !FailOnNonEthErrorSet {
+		FailOnNonEthError = viper.GetBool("general.failOnNonEthError")
+		FailOnNonEthErrorSet = true
+	}
+
 	if err != nil {
+		// Everything is EthError if `failOnNonEthError` is false
+		if !FailOnNonEthError {
+			return true
+		}
+		// Else, actually check if known Eth error.
 		e := err.Error()
-		if e == "execution reverted" ||
+		if ExecutionReverted.MatchString(e) ||
 			AbiErrRegex.MatchString(e) ||
-			NoContract.MatchString(e) {
+			NoContract.MatchString(e) ||
+			ErrUnmarshal.MatchString(e) {
 			return true
 		}
 	}
@@ -82,6 +100,8 @@ func DivideBy10pow(num *big.Int, pow uint8) *big.Float {
 }
 
 func init() {
-	AbiErrRegex = regexp.MustCompile("abi: cannot marshal.*")
+	ExecutionReverted = regexp.MustCompile("execution reverted")
+	AbiErrRegex = regexp.MustCompile("abi: cannot marshal")
 	NoContract = regexp.MustCompile("no contract code at given address")
+	ErrUnmarshal = regexp.MustCompile("abi: attempting to unmarshall")
 }

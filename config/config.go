@@ -13,6 +13,7 @@ var (
 		"general.start_block",
 		"general.maxBlockSpanPerCall",
 		"general.chainid",
+		"general.failOnNonEthError",
 
 		"db.type", "db.host", "db.port", "db.user",
 		"db.pass", "db.dbname", "db.sslmode",
