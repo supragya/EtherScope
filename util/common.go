@@ -50,15 +50,15 @@ func IsEthErr(err error) bool {
 
 		// Else, actually check if known Eth error.
 		e := err.Error()
-		// Everything is EthError if `failOnNonEthError` is false
-		if !FailOnNonEthError {
-			log.Warn("EthErrNoFail: ", e)
-			return true
-		}
 		if ExecutionReverted.MatchString(e) ||
 			AbiErrRegex.MatchString(e) ||
 			NoContract.MatchString(e) ||
 			ErrUnmarshal.MatchString(e) {
+			return true
+		}
+		// Everything is EthError if `failOnNonEthError` is false
+		if !FailOnNonEthError {
+			log.Warn("NoFail umatched: ", e)
 			return true
 		}
 	}
