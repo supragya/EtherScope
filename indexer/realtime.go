@@ -89,6 +89,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64, end uint64) {
 	// Assuming for any height H, either we will have all the concerned logs
 	// or not even one
+	log.Info("found logs for batch: ", len(logs))
 	kv := GroupByBlockNumber(logs)
 	dbCtx, dbTx := r.dbconn.BeginTx()
 
