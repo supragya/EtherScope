@@ -47,12 +47,14 @@ func IsEthErr(err error) bool {
 	}
 
 	if err != nil {
-		// Everything is EthError if `failOnNonEthError` is false
-		if !FailOnNonEthError {
-			return true
-		}
+
 		// Else, actually check if known Eth error.
 		e := err.Error()
+		// Everything is EthError if `failOnNonEthError` is false
+		if !FailOnNonEthError {
+			log.Warn("EthErrNoFail: ", e)
+			return true
+		}
 		if ExecutionReverted.MatchString(e) ||
 			AbiErrRegex.MatchString(e) ||
 			NoContract.MatchString(e) ||
