@@ -112,7 +112,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			query = d.getQueryStringSwap(item.(itypes.Swap), currentTime)
 		}
 		_, err := dbTx.ExecContext(*dbCtx, query)
-		util.ENOK(err)
+		util.ENOKF(err, query)
 	}
 
 	// Add block synopsis
@@ -140,7 +140,7 @@ func (d *DBConn) getQueryStringMint(item itypes.Mint, currentTime int64) string 
 		item.Reserve1,                  // reserves1
 		0.0,                            // reservesusd, FIXME
 		"mint",                         // type
-		"",                             // sender FIXME
+		item.Sender.Hex()[2:],          // sender FIXME (removed 0x prefix)
 		item.Transaction.String()[2:],  // transaction (removed 0x prefix)
 		0.0,                            // slippage
 		item.Height,                    // height
@@ -166,7 +166,7 @@ func (d *DBConn) getQueryStringBurn(item itypes.Burn, currentTime int64) string 
 		item.Reserve1,                  // reserves1
 		0.0,                            // reservesusd, FIXME
 		"burn",                         // type
-		"",                             // sender FIXME
+		item.Sender.Hex()[2:],          // sender FIXME (removed 0x prefix)
 		item.Transaction.String()[2:],  // transaction (removed 0x prefix)
 		0.0,                            // slippage
 		item.Height,                    // height
@@ -192,8 +192,8 @@ func (d *DBConn) getQueryStringSwap(item itypes.Swap, currentTime int64) string 
 		item.Reserve1,                  // reserves1
 		0.0,                            // reservesusd, FIXME
 		"swap",                         // type
-		"",                             // sender FIXME
-		"",                             // recipient FIXME
+		item.Sender.Hex()[2:],          // sender (removed 0x prefix)
+		item.Receiver.Hex()[2:],        // recipient (removed 0x prefix)
 		item.Transaction.String()[2:],  // transaction (removed 0x prefix)
 		0.0,                            // slippage
 		item.Height,                    // height

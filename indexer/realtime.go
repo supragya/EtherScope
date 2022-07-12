@@ -69,7 +69,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 			logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 				FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 				ToBlock:   big.NewInt(int64(endingBlock)),
-				Topics:    [][]common.Hash{{ /*itypes.MintTopic, itypes.BurnTopic, */ itypes.UniV2Swap}},
+				Topics:    [][]common.Hash{{itypes.MintTopic, itypes.BurnTopic, itypes.UniV2Swap}},
 			})
 
 			if err != nil {

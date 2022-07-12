@@ -1,6 +1,8 @@
 package util
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"os"
@@ -15,10 +17,11 @@ import (
 )
 
 var (
-	ExecutionReverted    *regexp.Regexp
-	AbiErrRegex          *regexp.Regexp
-	NoContract           *regexp.Regexp
-	ErrUnmarshal         *regexp.Regexp
+	EthErrorRegexes []*regexp.Regexp
+	// ExecutionReverted    *regexp.Regexp
+	// AbiErrRegex          *regexp.Regexp
+	// NoContract           *regexp.Regexp
+	// ErrUnmarshal         *regexp.Regexp
 	FailOnNonEthError    bool
 	FailOnNonEthErrorSet bool
 )
@@ -38,6 +41,12 @@ func ENOK(err error) {
 	}
 }
 
+func ENOKF(err error, info interface{}) {
+	if err != nil {
+		ENOK(errors.New(fmt.Sprintf("%s: %v", err.Error(), info)))
+	}
+}
+
 // Check if error (if any) is ethereum error
 // Also takes into account boolean flag `failOnNonEthError` in cfg
 // If false, silently fail and continue to next event
@@ -51,12 +60,12 @@ func IsEthErr(err error) bool {
 
 		// Else, actually check if known Eth error.
 		e := err.Error()
-		if ExecutionReverted.MatchString(e) ||
-			AbiErrRegex.MatchString(e) ||
-			NoContract.MatchString(e) ||
-			ErrUnmarshal.MatchString(e) {
-			return true
+		for _, r := range EthErrorRegexes {
+			if r.MatchString(e) {
+				return true
+			}
 		}
+
 		// Everything is EthError if `failOnNonEthError` is false
 		if !FailOnNonEthError {
 			log.Warn("NoFail umatched: ", e)
@@ -113,8 +122,14 @@ func ExtractUintFromBytes(_bytes []byte) *big.Int {
 }
 
 func init() {
-	ExecutionReverted = regexp.MustCompile("execution reverted")
-	AbiErrRegex = regexp.MustCompile("abi: cannot marshal")
-	NoContract = regexp.MustCompile("no contract code at given address")
-	ErrUnmarshal = regexp.MustCompile("abi: attempting to unmarshall")
+	EthErrors := []string{
+		"execution reverted",
+		"abi: cannot marshal",
+		"no contract code at given address",
+		"abi: attempting to unmarshall",
+		"missing trie node",
+	}
+	for _, e := range EthErrors {
+		EthErrorRegexes = append(EthErrorRegexes, regexp.MustCompile(e))
+	}
 }
