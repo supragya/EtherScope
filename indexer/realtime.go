@@ -69,7 +69,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 			logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 				FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 				ToBlock:   big.NewInt(int64(endingBlock)),
-				Topics:    [][]common.Hash{{itypes.MintTopic, itypes.BurnTopic}},
+				Topics:    [][]common.Hash{{ /*itypes.MintTopic, itypes.BurnTopic, */ itypes.UniV2Swap}},
 			})
 
 			if err != nil {
@@ -126,6 +126,8 @@ func (r *RealtimeIndexer) DecodeLog(l *types.Log,
 		r.processMint(l, items, bm, mt)
 	case itypes.BurnTopic:
 		r.processBurn(l, items, bm, mt)
+	case itypes.UniV2Swap:
+		r.processUniV2Swap(l, items, bm, mt)
 	}
 }
 
@@ -175,8 +177,8 @@ func (r *RealtimeIndexer) processMint(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      0, // FIXME
-		Amount1:      0, // FIXME
+		Amount0:      big.NewFloat(0.0), // FIXME
+		Amount1:      big.NewFloat(0.0), // FIXME
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
@@ -233,8 +235,8 @@ func (r *RealtimeIndexer) processBurn(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      0, // FIXME
-		Amount1:      0, // FIXME
+		Amount0:      big.NewFloat(0.0), // FIXME
+		Amount1:      big.NewFloat(0.0), // FIXME
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
@@ -242,6 +244,78 @@ func (r *RealtimeIndexer) processBurn(
 	defer mt.Unlock()
 	*items = append(*items, mint)
 	bm.MintLogs++
+	bm.TotalLogs++
+}
+
+func (r *RealtimeIndexer) processUniV2Swap(
+	l *types.Log,
+	items *[]interface{},
+	bm *itypes.BlockSynopsis,
+	mt *sync.Mutex,
+) {
+	if len(l.Data) != 128 {
+		log.Warn("unknown swap event data len: ", len(l.Data), " expected 128")
+		return
+	}
+
+	am0In := util.ExtractUintFromBytes(l.Data[0:32])
+	am1In := util.ExtractUintFromBytes(l.Data[32:64])
+	am0Out := util.ExtractUintFromBytes(l.Data[64:96])
+	am1Out := util.ExtractUintFromBytes(l.Data[96:128])
+
+	am0, am1 := big.NewInt(0), big.NewInt(0)
+	if am0In.Cmp(big.NewInt(0)) == 0 {
+		am0 = am0.Neg(am0Out)
+		am1 = am1In
+	} else {
+		am0 = am0In
+		am1 = am1.Neg(am1Out)
+	}
+
+	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
+	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	swap := itypes.Swap{
+		LogIdx:       l.Index,
+		Transaction:  l.TxHash,
+		Time:         time.Now().Unix(),
+		Height:       l.BlockNumber,
+		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
+		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
+		PairContract: l.Address,
+		Token0:       token0,
+		Token1:       token1,
+		Amount0:      util.DivideBy10pow(am0, token0Decimals),
+		Amount1:      util.DivideBy10pow(am1, token1Decimals),
+		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
+	}
+	mt.Lock()
+	defer mt.Unlock()
+	*items = append(*items, swap)
+	bm.SwapLogs++
 	bm.TotalLogs++
 }
 

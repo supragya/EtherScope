@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -99,6 +100,16 @@ func DivideBy10pow(num *big.Int, pow uint8) *big.Float {
 	pow10 := big.NewFloat(math.Pow10(int(pow)))
 	numfloat := new(big.Float).SetInt(num)
 	return new(big.Float).Quo(numfloat, pow10)
+}
+
+func ExtractAddressFromLogTopic(hash common.Hash) common.Address {
+	return common.BytesToAddress(hash[12:])
+}
+
+func ExtractUintFromBytes(_bytes []byte) *big.Int {
+	a := big.NewInt(0)
+	a = a.SetBytes(_bytes)
+	return a
 }
 
 func init() {

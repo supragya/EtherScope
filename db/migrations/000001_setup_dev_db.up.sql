@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS blocks(
     inserted_at timestamptz NOT NULL,
     mint_logs int NOT NULL,
     burn_logs int NOT NULL,
+    swap_logs int NOT NULL,
     total_logs int NOT NULL,
     PRIMARY KEY(nwtype, network, height),
     UNIQUE(nwtype, network, height)
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS pool_actions_geth(
     reservesusd numeric,
     type VARCHAR(20) NOT NULL,
     sender VARCHAR(40) NOT NULL,
+    recipient VARCHAR(40),
     transaction VARCHAR(64) NOT NULL,
     slippage numeric,
     height bigint NOT NULL

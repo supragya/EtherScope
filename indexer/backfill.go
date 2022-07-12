@@ -174,8 +174,8 @@ func (r *BackfillIndexer) processMint(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      0, // FIXME
-		Amount1:      0, // FIXME
+		Amount0:      big.NewFloat(0.0), // FIXME
+		Amount1:      big.NewFloat(0.0), // FIXME
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
@@ -232,8 +232,8 @@ func (r *BackfillIndexer) processBurn(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      0, // FIXME
-		Amount1:      0, // FIXME
+		Amount0:      big.NewFloat(0.0), // FIXME
+		Amount1:      big.NewFloat(0.0), // FIXME
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
