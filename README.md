@@ -25,7 +25,8 @@ using go version go1.17.8 linux/amd64
 Example config file(s) is available at `test/configs/testcfg.yaml`
 
 ## Development database
-- Install docker via `paru -S docker` (arch linux)
+- Install docker via `paru -S docker` (arch linux) and run it using `sudo systemctl start docker`
+- Install psycopg2 using `sudo pacman -S python-psycopg2`
 - Install `pgcli` for interacting with a postgres instance via cli using `pip3 install pgcli`
 - Install migrate using `./scripts/setup_migrate.sh`
 - Setup a pgsql docker container using `./scripts/start_db.sh`. This will generate a new `pgdata/.pgdata_XXXX` directory (XXXXX being random for each invocation) which will be used by postgresql. Every time this script is invoked, the DB is launched anew with no data.
@@ -34,13 +35,3 @@ Example config file(s) is available at `test/configs/testcfg.yaml`
 You should now have two users:
 - **devuser**: Accessible via `pgcli postgresql://devuser:devpass@localhost:5432/devdb` for DB superuser access.
 - **proguser**: Accessible via `pgcli postgresql://proguser:progpass@localhost:5432/devdb` for insert only access to `blocks` and `pool_actions_geth` tables.
-
-## Checklist
-- [x] Config checks for mandatory fields
-- [x] Realtime subcommand init
-- [x] Backfill subcommand init
-- [x] Connection to backend DB: postresql
-- [x] Custom datadir loading into start_db.sh
-- [x] Fetch latest state to update on top of from DB
-- [x] Setup migrations for dev DB
-- [x] Process logs and push onto DB
