@@ -6,8 +6,13 @@ PWD=`pwd`
 # -------------------------
 
 if ! command -v abigen &> /dev/null; then
-    echo "Error: cannot find command: abigen"
-    exit
+    echo -e "${CI}Warning: cannot find command: abigen, setting up${NC}"
+    cd /tmp
+    git clone https://github.com/ethereum/go-ethereum.git --depth 1
+    cd go-ethereum
+    make all
+    sudo cp build/bin/abigen /usr/bin/abigen
+    cd $PWD
 fi
 
 rm -rf abi/*
