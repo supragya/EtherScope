@@ -17,7 +17,9 @@ fi
 
 echo -e "${HI}>> (Re)spawning postgres instance${NC}"
 EXISTING_CONTAINERS=`sudo docker ps -f "name=pg_*" -a -q`
+# sudo docker stop ${EXISTING_CONTAINERS}
 sudo docker kill ${EXISTING_CONTAINERS} &> /dev/null
+sleep 1
 sudo docker rm ${EXISTING_CONTAINERS} &> /dev/null
 
 sudo docker run -d \
@@ -29,15 +31,14 @@ sudo docker run -d \
     -p 5432:5432 \
     postgres &> /dev/null
 
+sleep 1
 sudo docker ps -f "name=pg_*"
 
-if [ "$#" -eq 0 ]; then
-    sleep 2
-    echo -e "${HI}>> Running DB migrations ${NC}"
-    migrate \
-        -database postgresql://devuser:devpass@localhost:5432/devdb?sslmode=disable \
-        -path db/migrations up
-fi
+sleep 2
+echo -e "${HI}>> Running DB migrations ${NC}"
+migrate \
+    -database postgresql://devuser:devpass@localhost:5432/devdb?sslmode=disable \
+    -path db/migrations up
 
 echo -e "${HI}>> Connect using pgcli for superuser: ${NC}\n\tpgcli postgresql://devuser:devpass@localhost:5432/devdb\n"
 echo -e "${HI}>> Connect using pgcli for realtime programmatic user: ${NC}\n\tpgcli postgresql://proguser:progpass@localhost:5432/devdb\n"
