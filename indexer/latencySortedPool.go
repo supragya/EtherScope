@@ -29,18 +29,20 @@ type LNode struct {
 }
 
 type LatencySortedPool struct {
-	lock     *sync.Mutex
-	ctr      uint64
-	items    []*LNode
-	itemsMap map[*ethclient.Client]*LNode
+	singleUpstream bool
+	lock           *sync.Mutex
+	ctr            uint64
+	items          []*LNode
+	itemsMap       map[*ethclient.Client]*LNode
 }
 
 func NewLatencySortedPool(items []string) *LatencySortedPool {
 	lsp := &LatencySortedPool{
-		lock:     &sync.Mutex{},
-		ctr:      0,
-		items:    []*LNode{},
-		itemsMap: make(map[*ethclient.Client]*LNode),
+		singleUpstream: len(items) == 1,
+		lock:           &sync.Mutex{},
+		ctr:            0,
+		items:          []*LNode{},
+		itemsMap:       make(map[*ethclient.Client]*LNode),
 	}
 	for _, item := range items {
 		cl, err := ethclient.Dial(item)
@@ -87,6 +89,10 @@ func (l *LatencySortedPool) ShowStatus() {
 }
 
 func (l *LatencySortedPool) Report(item *ethclient.Client, latency float64, timedOut bool) error {
+	// short circuit if only one upstream
+	if l.singleUpstream {
+		return nil
+	}
 	ptr, ok := l.itemsMap[item]
 	if !ok {
 		return errors.New("unknown item ")

@@ -91,7 +91,6 @@ func (r *RealtimeIndexer) ridxLoop() {
 func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64, end uint64) {
 	// Assuming for any height H, either we will have all the concerned logs
 	// or not even one
-	log.Info("found logs for batch: ", len(logs))
 	kv := GroupByBlockNumber(logs)
 	dbCtx, dbTx := r.dbconn.BeginTx()
 
@@ -184,8 +183,7 @@ func (r *RealtimeIndexer) processMint(
 			PairContract: l.Address,
 			Token0:       l.Address,
 			Token1:       common.Address{},
-			Amount0:      amount0, // FIXME
-			Amount1:      zeroFloat,
+			Amount0:      amount0,
 			Reserve0:     zeroFloat,
 			Reserve1:     zeroFloat,
 		}
@@ -205,22 +203,20 @@ func (r *RealtimeIndexer) processMint(
 	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
 
 	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
-	if err != nil {
-		log.Warn("stage 2")
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token0Decimals = 0
+	} else {
+		util.ENOK(err)
 	}
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
 
 	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
-	if err != nil {
-		log.Warn("stage 3")
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token1Decimals = 0
+	} else {
+		util.ENOK(err)
 	}
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
 
 	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
 	if err != nil {
@@ -240,8 +236,7 @@ func (r *RealtimeIndexer) processMint(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      amount0,   // FIXME
-		Amount1:      zeroFloat, // FIXME
+		Amount0:      amount0,
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
