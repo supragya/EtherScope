@@ -75,6 +75,10 @@ func IsEthErr(err error) bool {
 	return false
 }
 
+func IsExecutionReverted(err error) bool {
+	return err != nil && EthErrorRegexes[0].MatchString(err.Error())
+}
+
 func GetUser() (*user.User, error) {
 	usr, err := user.Current()
 	if err != nil {
@@ -123,7 +127,7 @@ func ExtractUintFromBytes(_bytes []byte) *big.Int {
 
 func init() {
 	EthErrors := []string{
-		"execution reverted",
+		"execution reverted", // Should always be kept at idx 0
 		"abi: cannot marshal",
 		"no contract code at given address",
 		"abi: attempting to unmarshall",

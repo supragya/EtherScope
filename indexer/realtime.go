@@ -26,6 +26,8 @@ type RealtimeIndexer struct {
 	quitCh chan struct{}
 }
 
+var zeroFloat = big.NewFloat(0.0)
+
 func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBConn) *RealtimeIndexer {
 	return &RealtimeIndexer{
 		currentHeight: 0,
@@ -50,7 +52,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 	maxBlockSpanPerCall := viper.GetUint64("general.maxBlockSpanPerCall")
 	for {
 		select {
-		case <-time.After(time.Second):
+		case <-time.After(time.Second * 3):
 			height, err := r.da.GetCurrentBlockHeight()
 			util.ENOK(err)
 			r.currentHeight = height
@@ -69,7 +71,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 			logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 				FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 				ToBlock:   big.NewInt(int64(endingBlock)),
-				Topics:    [][]common.Hash{{itypes.MintTopic, itypes.BurnTopic, itypes.UniV2Swap}},
+				Topics:    [][]common.Hash{{itypes.MintTopic /*, itypes.BurnTopic, itypes.UniV2Swap */}},
 			})
 
 			if err != nil {
@@ -103,8 +105,13 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 		var wg sync.WaitGroup
 		var mt sync.Mutex
 		var items []interface{}
-		for _, log := range logs {
-			go r.DecodeLog(&log, &mt, &items, &blockMeta, &wg)
+		for _, _log := range logs {
+			// first := sha256.New()
+			// m, _ := _log.MarshalJSON()
+			// first.Write(m)
+			// log.Info("tw ", hex.EncodeToString(first.Sum(nil)))
+			wg.Add(1)
+			go r.DecodeLog(_log, &mt, &items, &blockMeta, &wg)
 		}
 		wg.Wait()
 		r.dbconn.AddToTx(&dbCtx, dbTx, items, blockMeta, block)
@@ -112,57 +119,113 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	util.ENOK(dbTx.Commit())
 }
 
-func (r *RealtimeIndexer) DecodeLog(l *types.Log,
+func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	mt *sync.Mutex,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
 	wg *sync.WaitGroup) {
-	wg.Add(1)
 	defer wg.Done()
+
+	// first := sha256.New()
+	// m, _ := l.MarshalJSON()
+	// first.Write(m)
+	// log.Info("add ", hex.EncodeToString(first.Sum(nil)))
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
 	case itypes.MintTopic:
 		r.processMint(l, items, bm, mt)
-	case itypes.BurnTopic:
-		r.processBurn(l, items, bm, mt)
-	case itypes.UniV2Swap:
-		r.processUniV2Swap(l, items, bm, mt)
+		// case itypes.BurnTopic:
+		// 	r.processBurn(l, items, bm, mt)
+		// case itypes.UniV2Swap:
+		// 	r.processUniV2Swap(l, items, bm, mt)
 	}
 }
 
 func (r *RealtimeIndexer) processMint(
-	l *types.Log,
+	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
 ) {
+	// first := sha256.New()
+	// m, _ := l.MarshalJSON()
+	// first.Write(m)
+
+	// log.Info("adding ", hex.EncodeToString(first.Sum(nil)))
 	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
-	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
+
+	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
+	// Test if the contract is a UniswapV2 type contract
+	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
+
+	if util.IsExecutionReverted(err) {
+		// Could be a non uniswap contract. Example log:
+		// https://etherscan.io/tx/0x4d37570b1af74ef890c2304f07698a4a6d242af12c07d25ffca069de7d334120#eventlog IDX 196
+
+		// Check if we have enough data to retrieve amount of token being minted
+		if len(l.Data) < 32 {
+			return
+		}
+
+		amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
+
+		mint := itypes.Mint{
+			LogIdx:       l.Index,
+			Transaction:  l.TxHash,
+			Time:         time.Now().Unix(),
+			Height:       l.BlockNumber,
+			Sender:       sender,
+			PairContract: l.Address,
+			Token0:       l.Address,
+			Token1:       common.Address{},
+			Amount0:      amount0, // FIXME
+			Amount1:      zeroFloat,
+			Reserve0:     zeroFloat,
+			Reserve1:     zeroFloat,
+		}
+		mt.Lock()
+		defer mt.Unlock()
+		*items = append(*items, mint)
+		bm.MintLogs++
+		bm.TotalLogs++
+		return
+	}
+
+	// Check if we have enough data to retrieve amount of token being minted
+	if len(l.Data) < 32 {
+		return
+	}
+
+	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
+
 	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	if err != nil {
+		log.Warn("stage 2")
+	}
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
 	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	if err != nil {
+		log.Warn("stage 3")
+	}
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
 	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
-	if util.IsEthErr(err) {
-		return
+	if err != nil {
+		log.Warn("stage 4")
 	}
-	util.ENOK(err)
-
-	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -177,8 +240,8 @@ func (r *RealtimeIndexer) processMint(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      big.NewFloat(0.0), // FIXME
-		Amount1:      big.NewFloat(0.0), // FIXME
+		Amount0:      amount0,   // FIXME
+		Amount1:      zeroFloat, // FIXME
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
