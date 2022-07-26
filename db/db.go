@@ -112,7 +112,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			query = d.getQueryStringMint(item.(itypes.Mint), currentTime)
 		case itypes.Burn:
 			query = d.getQueryStringBurn(item.(itypes.Burn), currentTime)
-		case *itypes.Swap:
+		case itypes.Swap:
 			query = d.getQueryStringSwap(item.(itypes.Swap), currentTime)
 		}
 		_, err := dbTx.ExecContext(*dbCtx, query)

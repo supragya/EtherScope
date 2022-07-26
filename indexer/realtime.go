@@ -79,7 +79,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 				logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 					FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 					ToBlock:   big.NewInt(int64(endingBlock)),
-					Topics:    [][]common.Hash{{itypes.MintTopic, itypes.BurnTopic /*, itypes.UniV2Swap */}},
+					Topics:    [][]common.Hash{{itypes.MintTopic, itypes.BurnTopic, itypes.UniV2Swap}},
 				})
 
 				if err != nil {
@@ -149,8 +149,8 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 		r.processMint(l, items, bm, mt)
 	case itypes.BurnTopic:
 		r.processBurn(l, items, bm, mt)
-		// case itypes.UniV2Swap:
-		// 	r.processUniV2Swap(l, items, bm, mt)
+	case itypes.UniV2Swap:
+		r.processUniV2Swap(l, items, bm, mt)
 	}
 }
 
@@ -370,8 +370,6 @@ func (r *RealtimeIndexer) processBurn(
 		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
 
-	// log.Info("log burn: ", burn.LogIdx, " ", burn.Transaction)
-
 	mt.Lock()
 	defer mt.Unlock()
 	*items = append(*items, burn)
@@ -380,7 +378,7 @@ func (r *RealtimeIndexer) processBurn(
 }
 
 func (r *RealtimeIndexer) processUniV2Swap(
-	l *types.Log,
+	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
