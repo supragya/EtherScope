@@ -132,6 +132,7 @@ func init() {
 		"no contract code at given address",
 		"abi: attempting to unmarshall",
 		"missing trie node",
+		"no contract code at given address",
 	}
 	for _, e := range EthErrors {
 		EthErrorRegexes = append(EthErrorRegexes, regexp.MustCompile(e))

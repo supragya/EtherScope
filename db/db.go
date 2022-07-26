@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -23,6 +24,8 @@ type DBConn struct {
 	Network    string
 	ChainID    uint
 }
+
+var zeroFloat = big.NewFloat(0.0)
 
 func SetupConnection() (DBConn, error) {
 	dbType := viper.GetString("db.type")
@@ -135,7 +138,7 @@ func (d *DBConn) getQueryStringMint(item itypes.Mint, currentTime int64) string 
 		strings.ToLower(item.Token1.String()[2:]),       // token1 (removed 0x prefix)
 		strings.ToLower(item.PairContract.String()[2:]), // pair
 		item.Amount0,                           // amount0
-		item.Amount1,                           // amount1
+		zeroFloat,                              // amount1
 		0.0,                                    // amountusd, FIXME
 		item.Reserve0,                          // reserves0
 		item.Reserve1,                          // reserves1

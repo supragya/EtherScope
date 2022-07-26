@@ -76,6 +76,10 @@ func (l *LatencySortedPool) Swap(i, j int) {
 }
 
 func (l *LatencySortedPool) ShowStatus() {
+	if l.singleUpstream {
+		// No status is shown if only single upstream
+		return
+	}
 	t := time.NewTicker(10 * time.Second)
 	for {
 		<-t.C
