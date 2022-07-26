@@ -3,7 +3,6 @@ module github.com/Blockpour/Blockpour-Geth-Indexer
 go 1.18
 
 require (
-	github.com/banzaicloud/logrus-runtime-formatter v0.0.0-20190729070250-5ae5475bae5e
 	github.com/ethereum/go-ethereum v1.10.20
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/lib/pq v1.10.6
