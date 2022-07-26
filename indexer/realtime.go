@@ -134,8 +134,8 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	switch primaryTopic {
 	case itypes.MintTopic:
 		r.processMint(l, items, bm, mt)
-		// case itypes.BurnTopic:
-		// 	r.processBurn(l, items, bm, mt)
+	case itypes.BurnTopic:
+		r.processBurn(l, items, bm, mt)
 		// case itypes.UniV2Swap:
 		// 	r.processUniV2Swap(l, items, bm, mt)
 	}
@@ -248,35 +248,17 @@ func (r *RealtimeIndexer) processMint(
 }
 
 func (r *RealtimeIndexer) processBurn(
-	l *types.Log,
+	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
 ) {
+	// first := sha256.New()
+	// m, _ := l.MarshalJSON()
+	// first.Write(m)
+
+	// log.Info("adding ", hex.EncodeToString(first.Sum(nil)))
 	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
-	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
 
 	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
 	if util.IsEthErr(err) {
@@ -284,7 +266,74 @@ func (r *RealtimeIndexer) processBurn(
 	}
 	util.ENOK(err)
 
-	mint := itypes.Burn{
+	// Test if the contract is a UniswapV2 type contract
+	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
+
+	if util.IsExecutionReverted(err) {
+		// Could be a non uniswap contract. Example log:
+		// https://etherscan.io/tx/0x4d37570b1af74ef890c2304f07698a4a6d242af12c07d25ffca069de7d334120#eventlog IDX 196
+
+		// Check if we have enough data to retrieve amount of token being minted
+		if len(l.Data) < 32 {
+			return
+		}
+
+		amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
+
+		burn := itypes.Burn{
+			LogIdx:       l.Index,
+			Transaction:  l.TxHash,
+			Time:         time.Now().Unix(),
+			Height:       l.BlockNumber,
+			Sender:       sender,
+			PairContract: l.Address,
+			Token0:       l.Address,
+			Token1:       common.Address{},
+			Amount0:      amount0,
+			Reserve0:     zeroFloat,
+			Reserve1:     zeroFloat,
+		}
+		mt.Lock()
+		defer mt.Unlock()
+		*items = append(*items, burn)
+		bm.BurnLogs++
+		bm.TotalLogs++
+		return
+	}
+
+	// Check if we have enough data to retrieve amount of token being minted
+	if len(l.Data) < 32 {
+		return
+	}
+
+	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
+
+	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token0Decimals = 0
+	} else {
+		util.ENOK(err)
+	}
+
+	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token1Decimals = 0
+	} else {
+		util.ENOK(err)
+	}
+
+	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	if err != nil {
+		log.Warn("stage 4")
+	}
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	burn := itypes.Burn{
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         time.Now().Unix(),
@@ -293,16 +342,66 @@ func (r *RealtimeIndexer) processBurn(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      big.NewFloat(0.0), // FIXME
-		Amount1:      big.NewFloat(0.0), // FIXME
+		Amount0:      amount0,
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
 	}
 	mt.Lock()
 	defer mt.Unlock()
-	*items = append(*items, mint)
-	bm.MintLogs++
+	*items = append(*items, burn)
+	bm.BurnLogs++
 	bm.TotalLogs++
+
+	// callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
+	// token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
+	// if util.IsEthErr(err) {
+	// 	return
+	// }
+	// util.ENOK(err)
+
+	// token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	// if util.IsEthErr(err) {
+	// 	return
+	// }
+	// util.ENOK(err)
+
+	// token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	// if util.IsEthErr(err) {
+	// 	return
+	// }
+	// util.ENOK(err)
+
+	// reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	// if util.IsEthErr(err) {
+	// 	return
+	// }
+	// util.ENOK(err)
+
+	// sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	// if util.IsEthErr(err) {
+	// 	return
+	// }
+	// util.ENOK(err)
+
+	// mint := itypes.Burn{
+	// 	LogIdx:       l.Index,
+	// 	Transaction:  l.TxHash,
+	// 	Time:         time.Now().Unix(),
+	// 	Height:       l.BlockNumber,
+	// 	Sender:       sender,
+	// 	PairContract: l.Address,
+	// 	Token0:       token0,
+	// 	Token1:       token1,
+	// 	Amount0:      big.NewFloat(0.0), // FIXME
+	// 	Amount1:      big.NewFloat(0.0), // FIXME
+	// 	Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
+	// 	Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
+	// }
+	// mt.Lock()
+	// defer mt.Unlock()
+	// *items = append(*items, mint)
+	// bm.MintLogs++
+	// bm.TotalLogs++
 }
 
 func (r *RealtimeIndexer) processUniV2Swap(
