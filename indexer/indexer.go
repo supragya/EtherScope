@@ -33,7 +33,7 @@ func (l CLogType) Less(i, j int) bool {
 
 func (l CLogType) Swap(i, j int) {
 	temp := l[i]
-	l[j] = l[i]
+	l[i] = l[j]
 	l[i] = temp
 }
 
