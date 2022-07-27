@@ -118,10 +118,6 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 		var mt sync.Mutex
 		var items []interface{}
 		for _, _log := range logs {
-			// first := sha256.New()
-			// m, _ := _log.MarshalJSON()
-			// first.Write(m)
-			// log.Info("tw ", hex.EncodeToString(first.Sum(nil)))
 			wg.Add(1)
 			go r.DecodeLog(_log, &mt, &items, &blockMeta, &wg)
 		}
@@ -137,11 +133,6 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	bm *itypes.BlockSynopsis,
 	wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	// first := sha256.New()
-	// m, _ := l.MarshalJSON()
-	// first.Write(m)
-	// log.Info("add ", hex.EncodeToString(first.Sum(nil)))
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
@@ -160,11 +151,6 @@ func (r *RealtimeIndexer) processMint(
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
 ) {
-	// first := sha256.New()
-	// m, _ := l.MarshalJSON()
-	// first.Write(m)
-
-	// log.Info("adding ", hex.EncodeToString(first.Sum(nil)))
 	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
 
 	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
@@ -269,11 +255,6 @@ func (r *RealtimeIndexer) processBurn(
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
 ) {
-	// first := sha256.New()
-	// m, _ := l.MarshalJSON()
-	// first.Write(m)
-
-	// log.Info("adding ", hex.EncodeToString(first.Sum(nil)))
 	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
 
 	if len(l.Topics) < 3 {
