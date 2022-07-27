@@ -153,8 +153,8 @@ func (d *DBConn) getQueryStringMint(item itypes.Mint, currentTime int64) string 
 
 func (d *DBConn) getQueryStringBurn(item itypes.Burn, currentTime int64) string {
 	const insquery string = "INSERT INTO %s "
-	const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, transaction, slippage, height) "
-	const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',        %f,       %d    );"
+	const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, recipient, transaction, slippage, height) "
+	const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',  '%s',      %f,       %d    );"
 	return fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
 		d.Network,   // nwtype
 		d.ChainID,   // network
@@ -163,14 +163,15 @@ func (d *DBConn) getQueryStringBurn(item itypes.Burn, currentTime int64) string 
 		strings.ToLower(item.Token0.String()[2:]),       // token0 (removed 0x prefix)
 		strings.ToLower(item.Token1.String()[2:]),       // token1 (removed 0x prefix)
 		strings.ToLower(item.PairContract.String()[2:]), // pair
-		item.Amount0,                           // amount0
-		item.Amount1,                           // amount1
-		0.0,                                    // amountusd, FIXME
-		item.Reserve0,                          // reserves0
-		item.Reserve1,                          // reserves1
-		0.0,                                    // reservesusd, FIXME
-		"burn",                                 // type
-		strings.ToLower(item.Sender.Hex()[2:]), // sender FIXME (removed 0x prefix)
+		item.Amount0,                             // amount0
+		item.Amount1,                             // amount1
+		0.0,                                      // amountusd, FIXME
+		item.Reserve0,                            // reserves0
+		item.Reserve1,                            // reserves1
+		0.0,                                      // reservesusd, FIXME
+		"burn",                                   // type
+		strings.ToLower(item.Sender.Hex()[2:]),   // sender FIXME (removed 0x prefix)
+		strings.ToLower(item.Receiver.Hex()[2:]), // recipient (removed 0x prefix)
 		strings.ToLower(item.Transaction.String()[2:]), // transaction (removed 0x prefix)
 		0.0,         // slippage
 		item.Height, // height

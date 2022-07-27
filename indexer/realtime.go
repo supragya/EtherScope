@@ -276,26 +276,29 @@ func (r *RealtimeIndexer) processBurn(
 	// log.Info("adding ", hex.EncodeToString(first.Sum(nil)))
 	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
 
-	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-	if util.IsEthErr(err) {
+	if len(l.Topics) < 3 {
 		return
 	}
-	util.ENOK(err)
+
+	sender := util.ExtractAddressFromLogTopic(l.Topics[1])
+	recipient := util.ExtractAddressFromLogTopic(l.Topics[2])
+
+	// Check if we have enough data to retrieve amount of token being minted
+	if len(l.Data) < 64 {
+		return
+	}
+
+	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
+	amount1 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[32:64]))
 
 	// Test if the contract is a UniswapV2 type contract
 	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
 
 	if util.IsExecutionReverted(err) {
-		// Could be a non uniswap contract. Example log:
-		// https://etherscan.io/tx/0x4d37570b1af74ef890c2304f07698a4a6d242af12c07d25ffca069de7d334120#eventlog IDX 196
+		// Could be a non uniswap contract (Seen seldom in practice). Example log:
+		// TODO
 
-		// Check if we have enough data to retrieve amount of token being minted
-		if len(l.Data) < 64 {
-			return
-		}
-
-		amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
-		amount1 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[32:64]))
+		log.Info("burn revert ", l)
 
 		burn := itypes.Burn{
 			LogIdx:       l.Index,
@@ -303,6 +306,7 @@ func (r *RealtimeIndexer) processBurn(
 			Time:         time.Now().Unix(),
 			Height:       l.BlockNumber,
 			Sender:       sender,
+			Receiver:     recipient,
 			PairContract: l.Address,
 			Token0:       l.Address,
 			Token1:       common.Address{},
@@ -318,14 +322,6 @@ func (r *RealtimeIndexer) processBurn(
 		bm.TotalLogs++
 		return
 	}
-
-	// Check if we have enough data to retrieve amount of token being minted
-	if len(l.Data) < 64 {
-		return
-	}
-
-	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
-	amount1 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[32:64]))
 
 	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
 	if util.IsExecutionReverted(err) {
@@ -361,6 +357,7 @@ func (r *RealtimeIndexer) processBurn(
 		Time:         time.Now().Unix(),
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		Receiver:     recipient,
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,

@@ -35,6 +35,7 @@ type Burn struct {
 	Time         int64
 	Height       uint64
 	Sender       common.Address
+	Receiver     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address
