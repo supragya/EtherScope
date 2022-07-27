@@ -254,7 +254,7 @@ func (r *RealtimeIndexer) processMint(
 		Token1:       token1,
 		Amount0:      amount0,
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
-		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
 	}
 	mt.Lock()
 	defer mt.Unlock()
@@ -367,7 +367,7 @@ func (r *RealtimeIndexer) processBurn(
 		Amount0:      amount0,
 		Amount1:      amount1,
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
-		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
 	}
 
 	mt.Lock()
@@ -440,7 +440,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 		Amount0:      util.DivideBy10pow(am0, token0Decimals),
 		Amount1:      util.DivideBy10pow(am1, token1Decimals),
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
-		Reserve1:     util.DivideBy10pow(reserves.Reserve0, token1Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
 	}
 	mt.Lock()
 	defer mt.Unlock()
