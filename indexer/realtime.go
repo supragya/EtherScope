@@ -163,34 +163,9 @@ func (r *RealtimeIndexer) processMint(
 	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
 
 	if util.IsExecutionReverted(err) {
-		// Could be a non uniswap contract. Example log:
-		// TODO
-
-		// Check if we have enough data to retrieve amount of token being minted
-		if len(l.Data) < 32 {
-			return
-		}
-
-		amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
-
-		mint := itypes.Mint{
-			LogIdx:       l.Index,
-			Transaction:  l.TxHash,
-			Time:         time.Now().Unix(),
-			Height:       l.BlockNumber,
-			Sender:       sender,
-			PairContract: l.Address,
-			Token0:       l.Address,
-			Token1:       common.Address{},
-			Amount0:      amount0,
-			Reserve0:     zeroFloat,
-			Reserve1:     zeroFloat,
-		}
-		mt.Lock()
-		defer mt.Unlock()
-		*items = append(*items, mint)
-		bm.MintLogs++
-		bm.TotalLogs++
+		// Could be a non uniswap contract (like AAVE V2). Example log:
+		// https://etherscan.io/tx/0x65ed6ba09f2a22805b772ff607f81fa4bb5d93ce287ecf05ab5ad97cab34c97c#eventlog logIdx 180
+		// not handled currently
 		return
 	}
 
@@ -276,31 +251,10 @@ func (r *RealtimeIndexer) processBurn(
 	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
 
 	if util.IsExecutionReverted(err) {
-		// Could be a non uniswap contract (Seen seldom in practice). Example log:
-		// TODO
+		// Could be a non uniswap contract (Seen seldom in practice).
+		// TODO document any such logs in code
 
-		log.Info("burn revert ", l)
-
-		burn := itypes.Burn{
-			LogIdx:       l.Index,
-			Transaction:  l.TxHash,
-			Time:         time.Now().Unix(),
-			Height:       l.BlockNumber,
-			Sender:       sender,
-			Receiver:     recipient,
-			PairContract: l.Address,
-			Token0:       l.Address,
-			Token1:       common.Address{},
-			Amount0:      amount0,
-			Amount1:      amount1,
-			Reserve0:     zeroFloat,
-			Reserve1:     zeroFloat,
-		}
-		mt.Lock()
-		defer mt.Unlock()
-		*items = append(*items, burn)
-		bm.BurnLogs++
-		bm.TotalLogs++
+		log.Info("Burn execution revert. ADD THIS TRANSACTION TO CODE COMMENT, CONTACT AUTHOR, details: [", l.TxHash, " idx ", l.Index, "]")
 		return
 	}
 
