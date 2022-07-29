@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -14,31 +15,51 @@ import (
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/streadway/amqp"
 )
 
 type DBConn struct {
-	conn       *sql.DB
-	dataTable  string
-	metaTable  string
-	StartBlock uint64
-	Network    string
-	ChainID    uint
+	isDB        bool
+	conn        *sql.DB
+	mq          *amqp.Channel
+	mqQueueName string
+	dataTable   string
+	metaTable   string
+	StartBlock  uint64
+	Network     string
+	ChainID     uint
+	store       [][]byte
 }
 
 var zeroFloat = big.NewFloat(0.0)
 
 func SetupConnection() (DBConn, error) {
-	dbType := viper.GetString("db.type")
+	dbType := viper.GetString("persistence")
 
 	switch dbType {
 	case "postgres":
 		db, err := setupPostgres()
-		return DBConn{conn: db,
-			dataTable:  viper.GetString("db.datatable"),
-			metaTable:  viper.GetString("db.metatable"),
-			StartBlock: viper.GetUint64("general.start_block"),
-			Network:    viper.GetString("general.network"),
-			ChainID:    viper.GetUint("general.chainid"),
+		return DBConn{isDB: true,
+			conn:        db,
+			mq:          nil,
+			mqQueueName: "",
+			dataTable:   viper.GetString("postgres.datatable"),
+			metaTable:   viper.GetString("postgres.metatable"),
+			StartBlock:  viper.GetUint64("general.start_block"),
+			Network:     viper.GetString("general.network"),
+			ChainID:     viper.GetUint("general.chainid"),
+		}, err
+	case "rabbitmq":
+		mq, err := setupRabbitMQ()
+		return DBConn{isDB: false,
+			conn:        nil,
+			mq:          mq,
+			mqQueueName: viper.GetString("mq.queue"),
+			dataTable:   "",
+			metaTable:   "",
+			StartBlock:  viper.GetUint64("general.start_block"),
+			Network:     viper.GetString("general.network"),
+			ChainID:     viper.GetUint("general.chainid"),
 		}, err
 	default:
 		break
@@ -49,12 +70,12 @@ func SetupConnection() (DBConn, error) {
 
 func setupPostgres() (*sql.DB, error) {
 	var (
-		host   = viper.GetString("db.host")
-		port   = viper.GetInt64("db.port")
-		user   = viper.GetString("db.user")
-		pass   = viper.GetString("db.pass")
-		dbname = viper.GetString("db.dbname")
-		ssl    = viper.GetString("db.sslmode")
+		host   = viper.GetString("postgres.host")
+		port   = viper.GetUint64("postgres.port")
+		user   = viper.GetString("postgres.user")
+		pass   = viper.GetString("postgres.pass")
+		dbname = viper.GetString("postgres.dbname")
+		ssl    = viper.GetString("postgres.sslmode")
 	)
 
 	psqlconn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
@@ -74,7 +95,46 @@ func setupPostgres() (*sql.DB, error) {
 	return db, nil
 }
 
+func setupRabbitMQ() (*amqp.Channel, error) {
+	var (
+		host = viper.GetString("mq.host")
+		port = viper.GetUint64("mq.port")
+		user = viper.GetString("mq.user")
+		pass = viper.GetString("mq.pass")
+	)
+	mqConnStr := fmt.Sprintf("amqp://%s:%s@%s:%d/", user, pass, host, port)
+
+	connectRabbitMQ, err := amqp.Dial(mqConnStr)
+	if err != nil {
+		return &amqp.Channel{}, err
+	}
+
+	channelRabbitMQ, err := connectRabbitMQ.Channel()
+	if err != nil {
+		return &amqp.Channel{}, err
+	}
+
+	_, err = channelRabbitMQ.QueueDeclare(
+		viper.GetString("mq.queue"), // queue name
+		true,                        // durable
+		false,                       // auto delete
+		false,                       // exclusive
+		false,                       // no wait
+		nil,                         // arguments
+	)
+	if err != nil {
+		return &amqp.Channel{}, err
+	}
+	return channelRabbitMQ, nil
+}
+
 func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
+	if d.isDB {
+		log.Warn("Resume feature unavailable in non postgres database. Assuming new DB")
+		log.Warn("Transaction support unavailable for the given persistence backend")
+		return 0
+	}
+
 	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%d ORDER BY height DESC LIMIT 1",
 		d.metaTable, d.Network, d.ChainID)
 
@@ -97,32 +157,88 @@ func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
 }
 
 func (d *DBConn) BeginTx() (context.Context, *sql.Tx) {
+	if !d.isDB {
+		return nil, nil
+	}
 	ctx := context.Background()
 	tx, err := d.conn.BeginTx(ctx, nil)
 	util.ENOK(err)
 	return ctx, tx
 }
 
+func (d *DBConn) CommitTx(dbTx *sql.Tx) error {
+	if d.isDB {
+		return dbTx.Commit()
+	}
+	// In case of mq
+	for _, item := range d.store {
+		err := d.mq.Publish(
+			"",            // exchange
+			d.mqQueueName, // queue name
+			false,         // mandatory
+			false,         // immediate
+			amqp.Publishing{
+				ContentType:     "application/json",
+				ContentEncoding: "application/json",
+				Timestamp:       time.Now(),
+				Body:            item,
+			}, // message to publish
+		)
+		if err != nil {
+			return err
+		}
+	}
+	// reset the store
+	d.store = [][]byte{}
+	return nil
+}
+
 func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface{}, bm itypes.BlockSynopsis, blockHeight uint64) {
 	currentTime := time.Now().Unix()
 	for _, item := range items {
 		query := ""
-		switch item.(type) {
+		switch it := item.(type) {
 		case itypes.Mint:
-			query = d.getQueryStringMint(item.(itypes.Mint), currentTime)
+			if d.isDB {
+				query = d.getQueryStringMint(it, currentTime)
+			} else {
+				mqMessage, err := json.Marshal(it)
+				util.ENOK(err)
+				d.store = append(d.store, mqMessage)
+			}
 		case itypes.Burn:
-			query = d.getQueryStringBurn(item.(itypes.Burn), currentTime)
+			if d.isDB {
+				query = d.getQueryStringBurn(it, currentTime)
+			} else {
+				mqMessage, err := json.Marshal(it)
+				util.ENOK(err)
+				d.store = append(d.store, mqMessage)
+			}
 		case itypes.Swap:
-			query = d.getQueryStringSwap(item.(itypes.Swap), currentTime)
+			if d.isDB {
+				query = d.getQueryStringSwap(it, currentTime)
+			} else {
+				mqMessage, err := json.Marshal(it)
+				util.ENOK(err)
+				d.store = append(d.store, mqMessage)
+			}
 		}
-		_, err := dbTx.ExecContext(*dbCtx, query)
-		util.ENOKF(err, query)
+		if d.isDB {
+			_, err := dbTx.ExecContext(*dbCtx, query)
+			util.ENOKF(err, query)
+		}
 	}
 
 	// Add block synopsis
-	query := d.getQueryStringBlockSynopsis(blockHeight, currentTime, bm)
-	_, err := dbTx.ExecContext(*dbCtx, query)
-	util.ENOK(err)
+	if d.isDB {
+		query := d.getQueryStringBlockSynopsis(blockHeight, currentTime, bm)
+		_, err := dbTx.ExecContext(*dbCtx, query)
+		util.ENOK(err)
+	} else {
+		mqMessage, err := json.Marshal(bm)
+		util.ENOK(err)
+		d.store = append(d.store, mqMessage)
+	}
 }
 
 func (d *DBConn) getQueryStringMint(item itypes.Mint, currentTime int64) string {

@@ -124,7 +124,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 		wg.Wait()
 		r.dbconn.AddToTx(&dbCtx, dbTx, items, blockMeta, block)
 	}
-	util.ENOK(dbTx.Commit())
+	util.ENOK(r.dbconn.CommitTx(dbTx))
 }
 
 func (r *RealtimeIndexer) DecodeLog(l types.Log,

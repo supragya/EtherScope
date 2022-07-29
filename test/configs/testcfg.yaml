@@ -4,8 +4,8 @@ general:
   start_block: 189110
   maxBlockSpanPerCall: 500
   failOnNonEthError: false
-db:
-  type: postgres
+  persistence: postgres #
+postgres:
   host: 127.0.0.1
   port: 5432
   user: proguser
@@ -14,5 +14,12 @@ db:
   sslmode: disable
   datatable: pool_actions_geth
   metatable: blocks
+mq:
+  host: 127.0.0.1
+  port: 5432
+  user: proguser
+  pass: progpass
+  queue: "eth-indexer"
+
 rpc:
   - https://rpc.ankr.com/polygon/71227c13781149d44f60749f53d9016e3fe811d7fdcda09258cb429fa5419367
