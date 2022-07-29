@@ -35,3 +35,7 @@ Example config file(s) is available at `test/configs/testcfg.yaml`
 You should now have two users:
 - **devuser**: Accessible via `pgcli postgresql://devuser:devpass@localhost:5432/devdb` for DB superuser access.
 - **proguser**: Accessible via `pgcli postgresql://proguser:progpass@localhost:5432/devdb` for insert only access to `blocks` and `pool_actions_geth` tables.
+
+## Development rabbit mq
+- Install docker via `paru -S docker` (arch linux) and run it using `sudo systemctl start docker`
+- Setup a rabbit MQ container using `./scripts/start_rmq.sh`. This will create a fresh cluster each time it is invoked.

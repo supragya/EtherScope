@@ -93,11 +93,19 @@ func ensureFieldIntegrity(f Field) error {
 	case "string":
 		_, castOK = item.(string)
 	case "uint64":
-		_, castOK = item.(uint64)
+		_, castOK = item.(int)
 	case "bool":
 		_, castOK = item.(bool)
 	case "[]string":
-		_, castOK = item.([]string)
+		var subItems []interface{}
+		subItems, castOK = item.([]interface{})
+		if !castOK {
+			break
+		}
+		for _, subItem := range subItems {
+			_, cOK := subItem.(string)
+			castOK = castOK && cOK
+		}
 	}
 
 	if !castOK {

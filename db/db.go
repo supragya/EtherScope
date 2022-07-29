@@ -34,7 +34,7 @@ type DBConn struct {
 var zeroFloat = big.NewFloat(0.0)
 
 func SetupConnection() (DBConn, error) {
-	dbType := viper.GetString("persistence")
+	dbType := viper.GetString("general.persistence")
 
 	switch dbType {
 	case "postgres":
@@ -45,11 +45,11 @@ func SetupConnection() (DBConn, error) {
 			mqQueueName: "",
 			dataTable:   viper.GetString("postgres.datatable"),
 			metaTable:   viper.GetString("postgres.metatable"),
-			StartBlock:  viper.GetUint64("general.start_block"),
+			StartBlock:  viper.GetUint64("general.startBlock"),
 			Network:     viper.GetString("general.network"),
 			ChainID:     viper.GetUint("general.chainid"),
 		}, err
-	case "rabbitmq":
+	case "mq":
 		mq, err := setupRabbitMQ()
 		return DBConn{isDB: false,
 			conn:        nil,
@@ -57,7 +57,7 @@ func SetupConnection() (DBConn, error) {
 			mqQueueName: viper.GetString("mq.queue"),
 			dataTable:   "",
 			metaTable:   "",
-			StartBlock:  viper.GetUint64("general.start_block"),
+			StartBlock:  viper.GetUint64("general.startBlock"),
 			Network:     viper.GetString("general.network"),
 			ChainID:     viper.GetUint("general.chainid"),
 		}, err
@@ -129,10 +129,10 @@ func setupRabbitMQ() (*amqp.Channel, error) {
 }
 
 func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
-	if d.isDB {
+	if !d.isDB {
 		log.Warn("Resume feature unavailable in non postgres database. Assuming new DB")
 		log.Warn("Transaction support unavailable for the given persistence backend")
-		return 0
+		return d.StartBlock
 	}
 
 	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%d ORDER BY height DESC LIMIT 1",

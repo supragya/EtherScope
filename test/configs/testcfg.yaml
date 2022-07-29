@@ -1,10 +1,20 @@
+# Subsection General
+# Needed always.
 general:
   network: evm
-  chainid: 137
-  start_block: 189110
-  maxBlockSpanPerCall: 500
+  chainid: 1
+  startBlock: 15236215
+  maxBlockSpanPerCall: 10
   failOnNonEthError: false
-  persistence: postgres #
+  persistence: mq # either postgres or mq
+
+# Subsection RPC upstreams
+# Needed always.
+rpc:
+  - https://rpc.ankr.com/eth
+
+# Subsection postgres
+# Needed only if general.persistence == "postgres".
 postgres:
   host: 127.0.0.1
   port: 5432
@@ -14,12 +24,12 @@ postgres:
   sslmode: disable
   datatable: pool_actions_geth
   metatable: blocks
+
+# Subsection message queue
+# Needed only if general.persistence == "mq".
 mq:
   host: 127.0.0.1
-  port: 5432
-  user: proguser
-  pass: progpass
+  port: 5672
+  user: user
+  pass: password
   queue: "eth-indexer"
-
-rpc:
-  - https://rpc.ankr.com/polygon/71227c13781149d44f60749f53d9016e3fe811d7fdcda09258cb429fa5419367

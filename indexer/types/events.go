@@ -62,6 +62,7 @@ type Swap struct {
 }
 
 type BlockSynopsis struct {
+	Height    uint64
 	TotalLogs uint64
 	MintLogs  uint64
 	BurnLogs  uint64

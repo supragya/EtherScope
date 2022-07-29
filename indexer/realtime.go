@@ -26,8 +26,6 @@ type RealtimeIndexer struct {
 	quitCh chan struct{}
 }
 
-var zeroFloat = big.NewFloat(0.0)
-
 func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBConn) *RealtimeIndexer {
 	return &RealtimeIndexer{
 		currentHeight: 0,
@@ -40,7 +38,7 @@ func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBC
 }
 
 func (r *RealtimeIndexer) Start() error {
-	if r.indexedHeight == 0 || r.da.Len() == 0 {
+	if r.da.Len() == 0 {
 		return EUninitialized
 	}
 	r.ridxLoop()
@@ -109,7 +107,9 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 
 	for block := start; block <= end; block++ {
 		logs, ok := kv[block]
-		blockMeta := itypes.BlockSynopsis{}
+		blockMeta := itypes.BlockSynopsis{
+			Height: block,
+		}
 		if !ok || len(logs) == 0 {
 			r.dbconn.AddToTx(&dbCtx, dbTx, nil, blockMeta, block)
 			continue
