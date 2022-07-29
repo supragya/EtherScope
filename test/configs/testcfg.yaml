@@ -30,6 +30,6 @@ postgres:
 mq:
   host: 127.0.0.1
   port: 5672
-  user: user
-  pass: password
+  user: devuser
+  pass: devpass
   queue: "eth-indexer"

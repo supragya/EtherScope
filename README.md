@@ -39,3 +39,5 @@ You should now have two users:
 ## Development rabbit mq
 - Install docker via `paru -S docker` (arch linux) and run it using `sudo systemctl start docker`
 - Setup a rabbit MQ container using `./scripts/start_rmq.sh`. This will create a fresh cluster each time it is invoked.
+
+Single user for all access to rmq in dev mode. Acess management console in browser using: `http://devuser:devpass@localhost:15672/#/queues`

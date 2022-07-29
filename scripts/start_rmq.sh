@@ -16,8 +16,8 @@ sudo docker rm ${EXISTING_CONTAINERS} &> /dev/null
 sudo docker run -d \
     --name rmq_${RAND_STR} \
     --hostname rmq_${RAND_STR} \
-    -e RABBITMQ_DEFAULT_USER=user \
-    -e RABBITMQ_DEFAULT_PASS=password \
+    -e RABBITMQ_DEFAULT_USER=devuser \
+    -e RABBITMQ_DEFAULT_PASS=devpass \
     -p 5672:5672 \
     -p 15672:15672 \
     rabbitmq:3-management &> /dev/null
@@ -25,5 +25,4 @@ sudo docker run -d \
 sleep 1
 sudo docker ps -f "name=rmq_*"
 
-# echo -e "${HI}>> Connect using pgcli for superuser: ${NC}\n\tpgcli postgresql://devuser:devpass@localhost:5432/devdb\n"
-# echo -e "${HI}>> Connect using pgcli for realtime programmatic user: ${NC}\n\tpgcli postgresql://proguser:progpass@localhost:5432/devdb\n"
+echo -e "${HI}>> Access management console in browser: ${NC}\n\thttp://devuser:devpass@localhost:15672/#/queues\n"
