@@ -93,23 +93,26 @@ func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.
 	return token0, token1, errors.New("Fetch error: " + err.Error())
 }
 
-func (d *DataAccess) GetReservesUniV2(pairContract common.Address, callopts *bind.CallOpts) (UniV2Reserves, error) {
+func (d *DataAccess) GetDEXReserves(pairContract common.Address, token0 common.Address, token1 common.Address, callopts *bind.CallOpts) (UniV2Reserves, error) {
 	var reserves UniV2Reserves
 	var err error
-	var pc *univ2pair.Univ2pair
-
+	var token0Contract *ERC20.ERC20
+	var token1Contract *ERC20.ERC20
 	for retries := 0; retries < WD; retries++ {
 		cl := d.upstreams.GetItem()
-		pc, err = univ2pair.NewUniv2pair(pairContract, cl)
 
 		start := time.Now()
-		reserves, err = pc.GetReserves(callopts)
+		token0Contract, err = ERC20.NewERC20(token0, cl)
+		token1Contract, err = ERC20.NewERC20(token1, cl)
+		balToken0, err := token0Contract.BalanceOf(callopts, pairContract)
+		balToken1, err := token1Contract.BalanceOf(callopts, pairContract)
+
 		elapsed := time.Now().Sub(start).Seconds()
 		if err == nil {
 			d.upstreams.Report(cl, elapsed, false)
 			return UniV2Reserves{
-				Reserve0:           reserves.Reserve0,
-				Reserve1:           reserves.Reserve1,
+				Reserve0:           balToken0,
+				Reserve1:           balToken1,
 				BlockTimestampLast: reserves.BlockTimestampLast,
 			}, nil
 		}

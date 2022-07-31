@@ -153,7 +153,7 @@ func (r *BackfillIndexer) processMint(
 	}
 	util.ENOK(err)
 
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, token0, token1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -211,7 +211,7 @@ func (r *BackfillIndexer) processBurn(
 	}
 	util.ENOK(err)
 
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, token0, token1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}

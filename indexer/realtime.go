@@ -198,7 +198,7 @@ func (r *RealtimeIndexer) processMint(
 		util.ENOK(err)
 	}
 
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, token0, token1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -280,7 +280,7 @@ func (r *RealtimeIndexer) processBurn(
 		util.ENOK(err)
 	}
 
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, token0, token1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -353,7 +353,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	}
 	util.ENOK(err)
 
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, token0, token1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
