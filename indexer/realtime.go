@@ -176,7 +176,10 @@ func (r *RealtimeIndexer) processMint(
 
 	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
 
-	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token0Decimals = 0
@@ -187,7 +190,7 @@ func (r *RealtimeIndexer) processMint(
 		util.ENOK(err)
 	}
 
-	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token1Decimals = 0
@@ -198,7 +201,7 @@ func (r *RealtimeIndexer) processMint(
 		util.ENOK(err)
 	}
 
-	reserves, err := r.da.GetDEXReserves(l.Address, token0, token1, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -258,7 +261,10 @@ func (r *RealtimeIndexer) processBurn(
 		return
 	}
 
-	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token0Decimals = 0
@@ -269,7 +275,7 @@ func (r *RealtimeIndexer) processBurn(
 		util.ENOK(err)
 	}
 
-	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token1Decimals = 0
@@ -280,7 +286,7 @@ func (r *RealtimeIndexer) processBurn(
 		util.ENOK(err)
 	}
 
-	reserves, err := r.da.GetDEXReserves(l.Address, token0, token1, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -341,19 +347,22 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	}
 	util.ENOK(err)
 
-	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	reserves, err := r.da.GetDEXReserves(l.Address, token0, token1, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}

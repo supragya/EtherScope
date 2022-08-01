@@ -93,6 +93,14 @@ func (l *LatencySortedPool) ShowStatus() {
 }
 
 func (l *LatencySortedPool) Report(item *ethclient.Client, latency float64, timedOut bool) error {
+	if timedOut {
+		ptr, ok := l.itemsMap[item]
+		if !ok {
+			return errors.New("unknown item ")
+		}
+		log.Warn("rpc timeout reported for: " + ptr.Name)
+	}
+
 	// short circuit if only one upstream
 	if l.singleUpstream {
 		return nil
