@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	lru "github.com/hashicorp/golang-lru"
 )
 
@@ -93,63 +94,81 @@ func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.
 	return token0, token1, errors.New("Fetch error: " + err.Error())
 }
 
-func (d *DataAccess) GetReservesUniV2(pairContract common.Address, callopts *bind.CallOpts) (UniV2Reserves, error) {
+func (d *DataAccess) GetDEXReserves(
+	pairContract common.Address,
+	token0 *ERC20.ERC20,
+	client0 *ethclient.Client,
+	token1 *ERC20.ERC20,
+	client1 *ethclient.Client,
+	callopts *bind.CallOpts) (UniV2Reserves, error) {
 	var reserves UniV2Reserves
 	var err error
-	var pc *univ2pair.Univ2pair
-
 	for retries := 0; retries < WD; retries++ {
-		cl := d.upstreams.GetItem()
-		pc, err = univ2pair.NewUniv2pair(pairContract, cl)
-
+		// Get Balance 0
 		start := time.Now()
-		reserves, err = pc.GetReserves(callopts)
+		balToken0, err := token0.BalanceOf(callopts, pairContract)
 		elapsed := time.Now().Sub(start).Seconds()
 		if err == nil {
-			d.upstreams.Report(cl, elapsed, false)
-			return UniV2Reserves{
-				Reserve0:           reserves.Reserve0,
-				Reserve1:           reserves.Reserve1,
-				BlockTimestampLast: reserves.BlockTimestampLast,
-			}, nil
+			d.upstreams.Report(client0, elapsed, false)
+		} else {
+			// Early exit
+			if util.IsEthErr(err) {
+				d.upstreams.Report(client0, elapsed, false)
+				break
+			}
+			d.upstreams.Report(client0, elapsed, true)
 		}
 
+		// Get Balance 1
+		start = time.Now()
+		balToken1, err := token1.BalanceOf(callopts, pairContract)
+		elapsed = time.Now().Sub(start).Seconds()
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(client1, elapsed, false)
 				break
 			}
-			d.upstreams.Report(cl, elapsed, true)
+			d.upstreams.Report(client1, elapsed, true)
 		}
+		d.upstreams.Report(client1, elapsed, false)
+
+		return UniV2Reserves{
+			Reserve0:           balToken0,
+			Reserve1:           balToken1,
+			BlockTimestampLast: reserves.BlockTimestampLast,
+		}, nil
 	}
 
 	return reserves, errors.New("Fetch error: " + err.Error())
 }
 
-func (d *DataAccess) GetERC20Decimals(erc20Address common.Address, callopts *bind.CallOpts) (uint8, error) {
+func (d *DataAccess) GetERC20(erc20Address common.Address) (*ERC20.ERC20, *ethclient.Client) {
+	cl := d.upstreams.GetItem()
+	obj, err := ERC20.NewERC20(erc20Address, cl)
+	util.ENOK(err)
+	return obj, cl
+}
+
+func (d *DataAccess) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Client, callopts *bind.CallOpts) (uint8, error) {
 	var decimals uint8
 	var err error
-	var token *ERC20.ERC20
 
 	for retries := 0; retries < WD; retries++ {
-		cl := d.upstreams.GetItem()
-		token, err = ERC20.NewERC20(erc20Address, cl)
-
 		start := time.Now()
-		decimals, err = token.Decimals(callopts)
+		decimals, err = erc20.Decimals(callopts)
 		elapsed := time.Now().Sub(start).Seconds()
 		if err == nil {
-			d.upstreams.Report(cl, elapsed, false)
+			d.upstreams.Report(client, elapsed, false)
 			return decimals, nil
 		}
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(client, elapsed, false)
 				break
 			}
-			d.upstreams.Report(cl, elapsed, true)
+			d.upstreams.Report(client, elapsed, true)
 		}
 	}
 

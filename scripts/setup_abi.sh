@@ -26,3 +26,7 @@ abigen --abi=contracts/erc20abi.json --pkg=ERC20 --out=abi/ERC20/generated_do_no
 echo -e "${HI}>> Generating code for Uniswap V2 pair${NC}"
 mkdir -p abi/univ2pair
 abigen --abi=contracts/uniswapv2pair.json --pkg=univ2pair --out=abi/univ2pair/generated_do_not_edit.go
+
+echo -e "${HI}>> Generating code for Uniswap V3 pair${NC}"
+mkdir -p abi/univ3pair
+abigen --abi=contracts/uniswapv3pair.json --pkg=univ3pair --out=abi/univ3pair/generated_do_not_edit.go

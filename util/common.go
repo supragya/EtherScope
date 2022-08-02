@@ -119,7 +119,7 @@ func ExtractAddressFromLogTopic(hash common.Hash) common.Address {
 	return common.BytesToAddress(hash[12:])
 }
 
-func ExtractUintFromBytes(_bytes []byte) *big.Int {
+func ExtractIntFromBytes(_bytes []byte) *big.Int {
 	a := big.NewInt(0)
 	a = a.SetBytes(_bytes)
 	return a

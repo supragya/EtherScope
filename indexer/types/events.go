@@ -12,6 +12,7 @@ var (
 	BurnTopic     common.Hash
 	TransferTopic common.Hash
 	UniV2Swap     common.Hash
+	UniV3Swap     common.Hash
 )
 
 type Mint struct {
@@ -74,4 +75,5 @@ func init() {
 	BurnTopic = *(*common.Hash)(crypto.Keccak256([]byte("Burn(address,uint256,uint256,address)")))
 	TransferTopic = *(*common.Hash)(crypto.Keccak256([]byte("Transfer(address,address,uint256)")))
 	UniV2Swap = *(*common.Hash)(crypto.Keccak256([]byte("Swap(address,uint256,uint256,uint256,uint256,address)")))
+	UniV3Swap = *(*common.Hash)(crypto.Keccak256([]byte("Swap(address,address,int256,int256,uint160,uint128,int24)")))
 }

@@ -77,7 +77,12 @@ func (r *RealtimeIndexer) ridxLoop() {
 				logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 					FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 					ToBlock:   big.NewInt(int64(endingBlock)),
-					Topics:    [][]common.Hash{{itypes.MintTopic, itypes.BurnTopic, itypes.UniV2Swap}},
+					Topics: [][]common.Hash{{
+						itypes.MintTopic,
+						itypes.BurnTopic,
+						itypes.UniV2Swap,
+						itypes.UniV3Swap,
+					}},
 				})
 
 				if err != nil {
@@ -142,6 +147,8 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 		r.processBurn(l, items, bm, mt)
 	case itypes.UniV2Swap:
 		r.processUniV2Swap(l, items, bm, mt)
+	case itypes.UniV3Swap:
+		r.processUniV3Swap(l, items, bm, mt)
 	}
 }
 
@@ -176,7 +183,10 @@ func (r *RealtimeIndexer) processMint(
 
 	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
 
-	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token0Decimals = 0
@@ -187,7 +197,7 @@ func (r *RealtimeIndexer) processMint(
 		util.ENOK(err)
 	}
 
-	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token1Decimals = 0
@@ -198,7 +208,7 @@ func (r *RealtimeIndexer) processMint(
 		util.ENOK(err)
 	}
 
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -258,7 +268,10 @@ func (r *RealtimeIndexer) processBurn(
 		return
 	}
 
-	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token0Decimals = 0
@@ -269,7 +282,7 @@ func (r *RealtimeIndexer) processBurn(
 		util.ENOK(err)
 	}
 
-	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token1Decimals = 0
@@ -280,7 +293,7 @@ func (r *RealtimeIndexer) processBurn(
 		util.ENOK(err)
 	}
 
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -320,10 +333,10 @@ func (r *RealtimeIndexer) processUniV2Swap(
 		return
 	}
 
-	am0In := util.ExtractUintFromBytes(l.Data[0:32])
-	am1In := util.ExtractUintFromBytes(l.Data[32:64])
-	am0Out := util.ExtractUintFromBytes(l.Data[64:96])
-	am1Out := util.ExtractUintFromBytes(l.Data[96:128])
+	am0In := util.ExtractIntFromBytes(l.Data[0:32])
+	am1In := util.ExtractIntFromBytes(l.Data[32:64])
+	am0Out := util.ExtractIntFromBytes(l.Data[64:96])
+	am1Out := util.ExtractIntFromBytes(l.Data[96:128])
 
 	am0, am1 := big.NewInt(0), big.NewInt(0)
 	if am0In.Cmp(big.NewInt(0)) == 0 {
@@ -341,19 +354,86 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	}
 	util.ENOK(err)
 
-	token0Decimals, err := r.da.GetERC20Decimals(token0, callopts)
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	token1Decimals, err := r.da.GetERC20Decimals(token1, callopts)
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	reserves, err := r.da.GetReservesUniV2(l.Address, callopts)
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	swap := itypes.Swap{
+		LogIdx:       l.Index,
+		Transaction:  l.TxHash,
+		Time:         time.Now().Unix(),
+		Height:       l.BlockNumber,
+		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
+		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
+		PairContract: l.Address,
+		Token0:       token0,
+		Token1:       token1,
+		Amount0:      util.DivideBy10pow(am0, token0Decimals),
+		Amount1:      util.DivideBy10pow(am1, token1Decimals),
+		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
+	}
+	mt.Lock()
+	defer mt.Unlock()
+	*items = append(*items, swap)
+	bm.SwapLogs++
+	bm.TotalLogs++
+}
+
+func (r *RealtimeIndexer) processUniV3Swap(
+	l types.Log,
+	items *[]interface{},
+	bm *itypes.BlockSynopsis,
+	mt *sync.Mutex,
+) {
+	if len(l.Data) != 160 {
+		log.Warn("unknown swap event data len: ", len(l.Data), " expected 160")
+		return
+	}
+
+	am0 := util.ExtractIntFromBytes(l.Data[0:32])
+	am1 := util.ExtractIntFromBytes(l.Data[32:64])
+
+	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
+	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
