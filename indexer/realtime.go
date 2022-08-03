@@ -217,7 +217,7 @@ func (r *RealtimeIndexer) processMint(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	mint := itypes.Mint{
 		LogIdx:       l.Index,
@@ -235,6 +235,7 @@ func (r *RealtimeIndexer) processMint(
 		AmountUSD:    amountusd,
 		Price0:       token0Price,
 		Price1:       token1Price,
+		Meta:         tokenMeta,
 	}
 	mt.Lock()
 	defer mt.Unlock()
@@ -310,7 +311,7 @@ func (r *RealtimeIndexer) processBurn(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	burn := itypes.Burn{
 		LogIdx:       l.Index,
@@ -329,6 +330,7 @@ func (r *RealtimeIndexer) processBurn(
 		AmountUSD:    amountusd,
 		Price0:       token0Price,
 		Price1:       token1Price,
+		Meta:         tokenMeta,
 	}
 
 	mt.Lock()
@@ -394,7 +396,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	swap := itypes.Swap{
 		LogIdx:       l.Index,
@@ -413,6 +415,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 		AmountUSD:    amountusd,
 		Price0:       token0Price,
 		Price1:       token1Price,
+		Meta:         tokenMeta,
 	}
 
 	mt.Lock()
@@ -466,7 +469,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	swap := itypes.Swap{
 		LogIdx:       l.Index,
@@ -485,6 +488,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		AmountUSD:    amountusd,
 		Price0:       token0Price,
 		Price1:       token1Price,
+		Meta:         tokenMeta,
 	}
 
 	mt.Lock()

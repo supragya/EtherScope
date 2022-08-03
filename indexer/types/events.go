@@ -15,6 +15,14 @@ var (
 	UniV3Swap     common.Hash
 )
 
+type tokenMeta struct {
+	RoundId         *big.Int
+	Answer          *big.Int
+	StartedAt       *big.Int
+	UpdatedAt       *big.Int
+	AnsweredInRound *big.Int
+}
+
 type Mint struct {
 	LogIdx       uint
 	Transaction  common.Hash
@@ -31,6 +39,7 @@ type Mint struct {
 	AmountUSD    float64
 	Price0       float64
 	Price1       float64
+	Meta         tokenMeta
 }
 
 type Burn struct {
@@ -50,6 +59,7 @@ type Burn struct {
 	AmountUSD    float64
 	Price0       float64
 	Price1       float64
+	Meta         tokenMeta
 }
 
 type Swap struct {
@@ -69,6 +79,7 @@ type Swap struct {
 	AmountUSD    float64
 	Price0       float64
 	Price1       float64
+	Meta         tokenMeta
 }
 
 type BlockSynopsis struct {

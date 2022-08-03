@@ -40,7 +40,13 @@ func fetchBaseCurrency(callopts *bind.CallOpts, cl *ethclient.Client) float64 {
 }
 
 func (d *DataAccess) GetPricesForBlock(
-	callopts *bind.CallOpts, token0 common.Address, token1 common.Address, amount0 *big.Float, amount1 *big.Float) (float64, float64, float64) {
+	callopts *bind.CallOpts, token0 common.Address, token1 common.Address, amount0 *big.Float, amount1 *big.Float) (float64, float64, float64, struct {
+	RoundId         *big.Int
+	Answer          *big.Int
+	StartedAt       *big.Int
+	UpdatedAt       *big.Int
+	AnsweredInRound *big.Int
+}) {
 
 	networkID := viper.GetUint("general.chainid")
 	oracleMap, err := util.GetOracleContracts(networkID)
@@ -55,6 +61,13 @@ func (d *DataAccess) GetPricesForBlock(
 	var token1Price float64
 	var amountusd float64
 	var isUSD bool
+	var oracleMetaData struct {
+		RoundId         *big.Int
+		Answer          *big.Int
+		StartedAt       *big.Int
+		UpdatedAt       *big.Int
+		AnsweredInRound *big.Int
+	}
 
 	if token0OracleAddress, token0Oracle := oracleMap[token0]; token0Oracle {
 
@@ -65,7 +78,8 @@ func (d *DataAccess) GetPricesForBlock(
 		if err != nil {
 			log.Fatal(err)
 		}
-		token0LastPrice, _ := instance.LatestAnswer(callopts)
+		oracleMetaData, _ = instance.LatestRoundData(callopts)
+		token0LastPrice := oracleMetaData.Answer
 		decimals, _ := instance.Decimals(callopts)
 
 		token0Formatted := util.DivideBy10pow(token0LastPrice, decimals)
@@ -92,7 +106,8 @@ func (d *DataAccess) GetPricesForBlock(
 		if err != nil {
 			log.Fatal(err)
 		}
-		token1LastPrice, _ := instance.LatestAnswer(callopts)
+		oracleMetaData, _ = instance.LatestRoundData(callopts)
+		token1LastPrice := oracleMetaData.Answer
 		decimals, _ := instance.Decimals(callopts)
 
 		token1Formatted := util.DivideBy10pow(token1LastPrice, decimals)
@@ -118,5 +133,5 @@ func (d *DataAccess) GetPricesForBlock(
 		amountusd = 0
 	}
 
-	return math.Abs(token0Price), math.Abs(token1Price), math.Abs(amountusd)
+	return math.Abs(token0Price), math.Abs(token1Price), math.Abs(amountusd), oracleMetaData
 }
