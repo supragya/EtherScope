@@ -181,7 +181,8 @@ func (r *RealtimeIndexer) processMint(
 		return
 	}
 
-	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
+	am0 := util.ExtractIntFromBytes(l.Data[:32])
+	am1 := util.ExtractIntFromBytes(l.Data[32:64])
 
 	erc0, client0 := r.da.GetERC20(token0)
 	erc1, client1 := r.da.GetERC20(token1)
@@ -214,6 +215,10 @@ func (r *RealtimeIndexer) processMint(
 	}
 	util.ENOK(err)
 
+	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
+	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
+	token0Price, token1Price, amountusd := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+
 	mint := itypes.Mint{
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -223,9 +228,13 @@ func (r *RealtimeIndexer) processMint(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      amount0,
+		Amount0:      formattedAmount0,
+		Amount1:      formattedAmount1,
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
+		AmountUSD:    amountusd,
+		Price0:       token0Price,
+		Price1:       token1Price,
 	}
 	mt.Lock()
 	defer mt.Unlock()
@@ -254,8 +263,8 @@ func (r *RealtimeIndexer) processBurn(
 		return
 	}
 
-	amount0 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[:32]))
-	amount1 := big.NewFloat(0.0).SetInt(big.NewInt(0).SetBytes(l.Data[32:64]))
+	am0 := util.ExtractIntFromBytes(l.Data[:32])
+	am1 := util.ExtractIntFromBytes(l.Data[32:64])
 
 	// Test if the contract is a UniswapV2 type contract
 	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
@@ -299,6 +308,10 @@ func (r *RealtimeIndexer) processBurn(
 	}
 	util.ENOK(err)
 
+	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
+	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
+	token0Price, token1Price, amountusd := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+
 	burn := itypes.Burn{
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -309,10 +322,13 @@ func (r *RealtimeIndexer) processBurn(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      amount0,
-		Amount1:      amount1,
+		Amount0:      formattedAmount0,
+		Amount1:      formattedAmount1,
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
+		AmountUSD:    amountusd,
+		Price0:       token0Price,
+		Price1:       token1Price,
 	}
 
 	mt.Lock()
@@ -352,6 +368,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	if util.IsEthErr(err) {
 		return
 	}
+
 	util.ENOK(err)
 
 	erc0, client0 := r.da.GetERC20(token0)
@@ -375,6 +392,10 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	}
 	util.ENOK(err)
 
+	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
+	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
+	token0Price, token1Price, amountusd := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+
 	swap := itypes.Swap{
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -385,11 +406,15 @@ func (r *RealtimeIndexer) processUniV2Swap(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      util.DivideBy10pow(am0, token0Decimals),
-		Amount1:      util.DivideBy10pow(am1, token1Decimals),
+		Amount0:      formattedAmount0,
+		Amount1:      formattedAmount1,
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
+		AmountUSD:    amountusd,
+		Price0:       token0Price,
+		Price1:       token1Price,
 	}
+
 	mt.Lock()
 	defer mt.Unlock()
 	*items = append(*items, swap)
@@ -439,6 +464,10 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	}
 	util.ENOK(err)
 
+	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
+	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
+	token0Price, token1Price, amountusd := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+
 	swap := itypes.Swap{
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -449,11 +478,15 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		PairContract: l.Address,
 		Token0:       token0,
 		Token1:       token1,
-		Amount0:      util.DivideBy10pow(am0, token0Decimals),
-		Amount1:      util.DivideBy10pow(am1, token1Decimals),
+		Amount0:      formattedAmount0,
+		Amount1:      formattedAmount1,
 		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
 		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
+		AmountUSD:    amountusd,
+		Price0:       token0Price,
+		Price1:       token1Price,
 	}
+
 	mt.Lock()
 	defer mt.Unlock()
 	*items = append(*items, swap)

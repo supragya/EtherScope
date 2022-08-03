@@ -28,6 +28,9 @@ type Mint struct {
 	Amount1      *big.Float
 	Reserve0     *big.Float
 	Reserve1     *big.Float
+	AmountUSD    float64
+	Price0       float64
+	Price1       float64
 }
 
 type Burn struct {
@@ -44,6 +47,9 @@ type Burn struct {
 	Amount1      *big.Float
 	Reserve0     *big.Float
 	Reserve1     *big.Float
+	AmountUSD    float64
+	Price0       float64
+	Price1       float64
 }
 
 type Swap struct {
@@ -60,6 +66,9 @@ type Swap struct {
 	Amount1      *big.Float
 	Reserve0     *big.Float
 	Reserve1     *big.Float
+	AmountUSD    float64
+	Price0       float64
+	Price1       float64
 }
 
 type BlockSynopsis struct {

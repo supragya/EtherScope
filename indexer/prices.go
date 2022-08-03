@@ -15,6 +15,7 @@ import (
 )
 
 func fetchBaseCurrency(callopts *bind.CallOpts, cl *ethclient.Client) float64 {
+	// Returns native currency USD value at specific block, on Ethereum network this function would return the USD price of Ethereum at specific block #
 	networkID := viper.GetUint("general.chainid")
 
 	nativeTokenUSD := util.BaseNativeToken(networkID)
@@ -55,7 +56,6 @@ func (d *DataAccess) GetPricesForBlock(
 	var amountusd float64
 	var isUSD bool
 
-	// Run function if token0 maps to an oracle
 	if token0OracleAddress, token0Oracle := oracleMap[token0]; token0Oracle {
 
 		isUSD = util.IsUSDOracle(token0OracleAddress)
@@ -76,6 +76,7 @@ func (d *DataAccess) GetPricesForBlock(
 		ratioToInt, _ := strconv.ParseFloat(ratio.String(), 64)
 
 		if !isUSD {
+			// If oracle is not USD based, we need to derive the USD value by fetching native token USD price (EX. ETH / USD)
 			baseCurrency := fetchBaseCurrency(callopts, cl)
 			token0Price = baseCurrency * token0Price
 			token1Price = ratioToInt
@@ -85,7 +86,6 @@ func (d *DataAccess) GetPricesForBlock(
 			amountusd = token0Price * token0Amount
 		}
 	} else if token1OracleAddress, token1Oracle := oracleMap[token1]; token1Oracle {
-
 		isUSD = util.IsUSDOracle(token1OracleAddress)
 		tokenAddress := common.HexToAddress(token1OracleAddress)
 		instance, err := ChainLink.NewChainLink(tokenAddress, cl)
@@ -112,9 +112,10 @@ func (d *DataAccess) GetPricesForBlock(
 			amountusd = token1Price * token1Amount
 		}
 	} else {
-		token0Price = 1
-		token1Price = 1
-		amountusd = 1
+		// TODO: Values should be NULL as we can't dervive USD price for token0 or token1
+		token0Price = 0
+		token1Price = 0
+		amountusd = 0
 	}
 
 	return math.Abs(token0Price), math.Abs(token1Price), math.Abs(amountusd)

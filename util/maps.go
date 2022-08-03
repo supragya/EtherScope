@@ -34,6 +34,7 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 }
 
 func IsUSDOracle(contract string) bool {
+	// Includes USD based oracle smart contracts across all networks
 	switch contract {
 	case
 		"0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419",
@@ -44,8 +45,8 @@ func IsUSDOracle(contract string) bool {
 	return false
 }
 
-func BaseNativeToken(network uint) string {
-	switch network {
+func BaseNativeToken(chain uint) string {
+	switch chain {
 	case
 		1:
 		return "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419" // WETH / USD Oracle
