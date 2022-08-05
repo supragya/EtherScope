@@ -120,9 +120,37 @@ func ExtractAddressFromLogTopic(hash common.Hash) common.Address {
 }
 
 func ExtractIntFromBytes(_bytes []byte) *big.Int {
+	isNeg := (_bytes[0] >> 7) == 1
+
+	var magnitude []byte
+	if isNeg {
+		magnitude = GetMagnitudeForNeg(_bytes)
+	} else {
+		magnitude = _bytes
+	}
+
 	a := big.NewInt(0)
-	a = a.SetBytes(_bytes)
+	a = a.SetBytes(magnitude)
+	if isNeg {
+		a = a.Neg(a)
+	}
 	return a
+}
+
+func GetMagnitudeForNeg(_bytes []byte) []byte {
+	foundOne := false
+	for byteIdx := len(_bytes) - 1; byteIdx >= 0; byteIdx-- {
+		for bitIdx := 0; bitIdx < 8; bitIdx++ {
+			if foundOne {
+				// Flip
+				_bytes[byteIdx] ^= 1 << bitIdx
+			} else if ((_bytes[byteIdx] << (7 - bitIdx)) >> 7) == 1 {
+				// Spare this one
+				foundOne = true
+			}
+		}
+	}
+	return _bytes
 }
 
 func init() {

@@ -2,7 +2,7 @@
 # Needed always.
 general:
   network: evm
-  chainid: 1
+  chainID: 1
   startBlock: 15236215
   maxBlockSpanPerCall: 10
   failOnNonEthError: false
