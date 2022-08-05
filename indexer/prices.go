@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ChainLink"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/chainlink"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,12 +16,12 @@ import (
 
 func fetchBaseCurrency(callopts *bind.CallOpts, cl *ethclient.Client) float64 {
 	// Returns native currency USD value at specific block, on Ethereum network this function would return the USD price of Ethereum at specific block #
-	networkID := viper.GetUint("general.chainid")
+	networkID := viper.GetUint("general.chainID")
 
 	nativeTokenUSD := util.BaseNativeToken(networkID)
 
 	tokenAddress := common.HexToAddress(nativeTokenUSD)
-	instance, err := ChainLink.NewChainLink(tokenAddress, cl)
+	instance, err := chainlink.NewChainlink(tokenAddress, cl)
 	decimals, _ := instance.Decimals(callopts)
 
 	if err != nil {
@@ -48,7 +48,7 @@ func (d *DataAccess) GetPricesForBlock(
 	AnsweredInRound *big.Int
 }) {
 
-	networkID := viper.GetUint("general.chainid")
+	networkID := viper.GetUint("general.chainID")
 	oracleMap, err := util.GetOracleContracts(networkID)
 
 	token0Amount, _ := strconv.ParseFloat(amount0.String(), 64)
@@ -74,7 +74,7 @@ func (d *DataAccess) GetPricesForBlock(
 		isUSD = util.IsUSDOracle(token0OracleAddress)
 
 		tokenAddress := common.HexToAddress(token0OracleAddress)
-		instance, err := ChainLink.NewChainLink(tokenAddress, cl)
+		instance, err := chainlink.NewChainlink(tokenAddress, cl)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -102,7 +102,7 @@ func (d *DataAccess) GetPricesForBlock(
 	} else if token1OracleAddress, token1Oracle := oracleMap[token1]; token1Oracle {
 		isUSD = util.IsUSDOracle(token1OracleAddress)
 		tokenAddress := common.HexToAddress(token1OracleAddress)
-		instance, err := ChainLink.NewChainLink(tokenAddress, cl)
+		instance, err := chainlink.NewChainlink(tokenAddress, cl)
 		if err != nil {
 			log.Fatal(err)
 		}
