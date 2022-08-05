@@ -47,7 +47,7 @@ func SetupConnection() (DBConn, error) {
 			metaTable:   viper.GetString("postgres.metatable"),
 			StartBlock:  viper.GetUint64("general.startBlock"),
 			Network:     viper.GetString("general.network"),
-			ChainID:     viper.GetUint("general.chainid"),
+			ChainID:     viper.GetUint("general.chainID"),
 		}, err
 	case "mq":
 		mq, err := setupRabbitMQ()
@@ -59,7 +59,7 @@ func SetupConnection() (DBConn, error) {
 			metaTable:   "",
 			StartBlock:  viper.GetUint64("general.startBlock"),
 			Network:     viper.GetString("general.network"),
-			ChainID:     viper.GetUint("general.chainid"),
+			ChainID:     viper.GetUint("general.chainID"),
 		}, err
 	default:
 		break
