@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -113,6 +114,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	for block := start; block <= end; block++ {
 		logs, ok := kv[block]
 		blockMeta := itypes.BlockSynopsis{
+			Type:   "stats",
 			Height: block,
 		}
 		if !ok || len(logs) == 0 {
@@ -218,8 +220,11 @@ func (r *RealtimeIndexer) processMint(
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
 	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	networkID := viper.GetUint("general.chainID")
 
 	mint := itypes.Mint{
+		Type:         "mint",
+		Network:      networkID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         time.Now().Unix(),
@@ -239,9 +244,13 @@ func (r *RealtimeIndexer) processMint(
 	}
 	mt.Lock()
 	defer mt.Unlock()
-	*items = append(*items, mint)
-	bm.MintLogs++
-	bm.TotalLogs++
+	is0Nan := math.IsInf(token0Price, 0)
+	is1Nan := math.IsInf(token1Price, 0)
+	if amountusd > -1 && !is0Nan && !is1Nan {
+		*items = append(*items, mint)
+		bm.MintLogs++
+		bm.TotalLogs++
+	}
 }
 
 func (r *RealtimeIndexer) processBurn(
@@ -312,8 +321,11 @@ func (r *RealtimeIndexer) processBurn(
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
 	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	networkID := viper.GetUint("general.chainID")
 
 	burn := itypes.Burn{
+		Type:         "burn",
+		Network:      networkID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         time.Now().Unix(),
@@ -335,9 +347,13 @@ func (r *RealtimeIndexer) processBurn(
 
 	mt.Lock()
 	defer mt.Unlock()
-	*items = append(*items, burn)
-	bm.BurnLogs++
-	bm.TotalLogs++
+	is0Nan := math.IsInf(token0Price, 0)
+	is1Nan := math.IsInf(token1Price, 0)
+	if amountusd > -1 && !is0Nan && !is1Nan {
+		*items = append(*items, burn)
+		bm.BurnLogs++
+		bm.TotalLogs++
+	}
 }
 
 func (r *RealtimeIndexer) processUniV2Swap(
@@ -397,8 +413,11 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
 	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	networkID := viper.GetUint("general.chainID")
 
 	swap := itypes.Swap{
+		Type:         "swap",
+		Network:      networkID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         time.Now().Unix(),
@@ -420,9 +439,13 @@ func (r *RealtimeIndexer) processUniV2Swap(
 
 	mt.Lock()
 	defer mt.Unlock()
-	*items = append(*items, swap)
-	bm.SwapLogs++
-	bm.TotalLogs++
+	is0Nan := math.IsInf(token0Price, 0)
+	is1Nan := math.IsInf(token1Price, 0)
+	if amountusd > -1 && !is0Nan && !is1Nan {
+		*items = append(*items, swap)
+		bm.SwapLogs++
+		bm.TotalLogs++
+	}
 }
 
 func (r *RealtimeIndexer) processUniV3Swap(
@@ -470,8 +493,11 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
 	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	networkID := viper.GetUint("general.chainID")
 
 	swap := itypes.Swap{
+		Type:         "swap",
+		Network:      networkID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         time.Now().Unix(),
@@ -493,9 +519,13 @@ func (r *RealtimeIndexer) processUniV3Swap(
 
 	mt.Lock()
 	defer mt.Unlock()
-	*items = append(*items, swap)
-	bm.SwapLogs++
-	bm.TotalLogs++
+	is0Nan := math.IsInf(token0Price, 0)
+	is1Nan := math.IsInf(token1Price, 0)
+	if amountusd > -1 && !is0Nan && !is1Nan {
+		*items = append(*items, swap)
+		bm.SwapLogs++
+		bm.TotalLogs++
+	}
 }
 
 func (r *RealtimeIndexer) Stop() error {

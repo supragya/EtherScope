@@ -130,7 +130,7 @@ func (d *DataAccess) GetPricesForBlock(
 		// TODO: Values should be NULL as we can't dervive USD price for token0 or token1
 		token0Price = 0
 		token1Price = 0
-		amountusd = 0
+		amountusd = -1
 	}
 
 	return math.Abs(token0Price), math.Abs(token1Price), math.Abs(amountusd), oracleMetaData
