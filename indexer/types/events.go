@@ -24,6 +24,8 @@ type tokenMeta struct {
 }
 
 type Mint struct {
+	Type         string
+	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
 	Time         int64
@@ -43,6 +45,8 @@ type Mint struct {
 }
 
 type Burn struct {
+	Type         string
+	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
 	Time         int64
@@ -63,6 +67,8 @@ type Burn struct {
 }
 
 type Swap struct {
+	Type         string
+	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
 	Time         int64
@@ -83,6 +89,8 @@ type Swap struct {
 }
 
 type BlockSynopsis struct {
+	Type      string
+	Network   uint
 	Height    uint64
 	TotalLogs uint64
 	MintLogs  uint64
