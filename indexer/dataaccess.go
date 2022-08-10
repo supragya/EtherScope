@@ -241,3 +241,29 @@ func (d *DataAccess) GetCurrentBlockHeight() (uint64, error) {
 
 	return height, errors.New("Fetch error: " + err.Error())
 }
+
+func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
+	var err error
+
+	for retries := 0; retries < WD; retries++ {
+		cl := d.upstreams.GetItem()
+
+		start := time.Now()
+		bl, err := cl.BlockByNumber(context.Background(), big.NewInt(int64(height)))
+		elapsed := time.Now().Sub(start).Seconds()
+		if err == nil {
+			d.upstreams.Report(cl, elapsed, false)
+			return bl.Header().Time, nil
+		}
+		if err != nil {
+			// Early exit
+			if util.IsEthErr(err) {
+				d.upstreams.Report(cl, elapsed, false)
+				break
+			}
+			d.upstreams.Report(cl, elapsed, true)
+		}
+	}
+
+	return 0, errors.New("Fetch error: " + err.Error())
+}

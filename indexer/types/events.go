@@ -28,7 +28,7 @@ type Mint struct {
 	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
-	Time         int64
+	Time         uint64
 	Height       uint64
 	Sender       common.Address
 	PairContract common.Address
@@ -49,7 +49,7 @@ type Burn struct {
 	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
-	Time         int64
+	Time         uint64
 	Height       uint64
 	Sender       common.Address
 	Receiver     common.Address
@@ -71,7 +71,7 @@ type Swap struct {
 	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
-	Time         int64
+	Time         uint64
 	Height       uint64
 	Sender       common.Address
 	Receiver     common.Address
@@ -92,6 +92,7 @@ type BlockSynopsis struct {
 	Type      string
 	Network   uint
 	Height    uint64
+	Time      uint64
 	TotalLogs uint64
 	MintLogs  uint64
 	BurnLogs  uint64

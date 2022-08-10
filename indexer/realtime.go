@@ -112,10 +112,14 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	dbCtx, dbTx := r.dbconn.BeginTx()
 
 	for block := start; block <= end; block++ {
+		time, err := r.da.GetBlockTimestamp(block)
+		util.ENOK(err)
+
 		logs, ok := kv[block]
 		blockMeta := itypes.BlockSynopsis{
 			Type:   "stats",
 			Height: block,
+			Time:   time,
 		}
 		if !ok || len(logs) == 0 {
 			r.dbconn.AddToTx(&dbCtx, dbTx, nil, blockMeta, block)
@@ -227,7 +231,7 @@ func (r *RealtimeIndexer) processMint(
 		Network:      networkID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
-		Time:         time.Now().Unix(),
+		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
 		PairContract: l.Address,
@@ -328,7 +332,7 @@ func (r *RealtimeIndexer) processBurn(
 		Network:      networkID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
-		Time:         time.Now().Unix(),
+		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
 		Receiver:     recipient,
@@ -420,7 +424,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 		Network:      networkID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
-		Time:         time.Now().Unix(),
+		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
 		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
@@ -500,7 +504,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		Network:      networkID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
-		Time:         time.Now().Unix(),
+		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
 		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
