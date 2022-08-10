@@ -101,7 +101,7 @@ func (d *DataAccess) GetDEXReserves(
 	token1 *ERC20.ERC20,
 	client1 *ethclient.Client,
 	callopts *bind.CallOpts) (UniV2Reserves, error) {
-	var reserves UniV2Reserves
+	reserves := UniV2Reserves{}
 	var err error
 	for retries := 0; retries < WD; retries++ {
 		// Get Balance 0
