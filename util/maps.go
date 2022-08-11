@@ -10,6 +10,7 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	// Maps token address -> smart contract address for the oracle price of that token
 	ethereum := make(map[common.Address]string)
 	bsc := make(map[common.Address]string)
+	moonbeam := make(map[common.Address]string)
 	ethereum[common.HexToAddress("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")] = "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419" // WETH / USD
 	ethereum[common.HexToAddress("0x2260fac5e5542a773aa44fbcfedf7c193bc2c599")] = "0xf4030086522a5beea4988f8ca5b36dbc97bee88c" // WBTC / USD
 	ethereum[common.HexToAddress("0x514910771af9ca656af840dff83e8264ecf986ca")] = "0x2c1d072e956affc0d435cb7ac38ef18d24d9127c" // LINK / USD
@@ -32,11 +33,19 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	bsc[common.HexToAddress("0x55d398326f99059ff775485246999027b3197955")] = "0xd5c40f5144848bd4ef08a9605d860e727b991513" // USDT / BNB
 	bsc[common.HexToAddress("0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d")] = "0x45f86ca2a8bc9ebd757225b19a1a0d7051be46db" // USDC / BNB
 
+	moonbeam[common.HexToAddress("0x818ec0a7fe18ff94269904fced6ae3dae6d6dc0b")] = "0xA122591F60115D63421f66F752EF9f6e0bc73abC" // USDC / USD
+	moonbeam[common.HexToAddress("0xacc15dc74880c9944775448304b263d191c6077f")] = "0x4497B606be93e773bbA5eaCFCb2ac5E2214220Eb" // GLMR / USD
+	moonbeam[common.HexToAddress("0xfa9343c3897324496a05fc75abed6bac29f8a40f")] = "0x9ce2388a1696e22F870341C3FC1E89710C7569B5" // ETH / USD
+	moonbeam[common.HexToAddress("0x922d641a426dcffaef11680e5358f34d97d112e1")] = "0x8c4425e141979c66423A83bE2ee59135864487Eb" // BTC / USD
+	// moonbeam[common.HexToAddress("0x922d641a426dcffaef11680e5358f34d97d112e1")] = "0xd61D7398B7734aBe7C4B143fE57dC666D2fe83aD" // LINK / USD
+
 	switch chain {
 	case 1:
 		return ethereum, nil
 	case 56:
 		return bsc, nil
+	case 1284:
+		return moonbeam, nil
 	}
 	err := errors.New("Cannot find oracle map for provided Chain")
 	return nil, err
@@ -51,7 +60,11 @@ func IsUSDOracle(contract string) bool {
 		"0x2c1d072e956affc0d435cb7ac38ef18d24d9127c",
 		"0x0567f2323251f0aab15c8dfb1967e4e8a7d42aee",
 		"0x9ef1b8c0e4f7dc8bf5719ea496883dc6401d5b2e",
-		"0x264990fbd0a4796a3e3d8e37c4d5f87a3aca5ebf":
+		"0x264990fbd0a4796a3e3d8e37c4d5f87a3aca5ebf",
+		"0xA122591F60115D63421f66F752EF9f6e0bc73abC",
+		"0x4497B606be93e773bbA5eaCFCb2ac5E2214220Eb",
+		"0x9ce2388a1696e22F870341C3FC1E89710C7569B5",
+		"0x8c4425e141979c66423A83bE2ee59135864487Eb":
 		return true
 	}
 	return false
@@ -64,6 +77,8 @@ func BaseNativeToken(chain uint) string {
 		return "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419" // WETH / USD Oracle
 	case 56:
 		return "0x0567f2323251f0aab15c8dfb1967e4e8a7d42aee"
+	case 1284:
+		return "0x4497B606be93e773bbA5eaCFCb2ac5E2214220Eb"
 	}
 	return "null"
 }
