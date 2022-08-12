@@ -110,6 +110,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	// or not even one
 	kv := GroupByBlockNumber(logs)
 	dbCtx, dbTx := r.dbconn.BeginTx()
+	networkID := viper.GetUint("general.chainID")
 
 	for block := start; block <= end; block++ {
 		time, err := r.da.GetBlockTimestamp(block)
@@ -117,9 +118,10 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 
 		logs, ok := kv[block]
 		blockMeta := itypes.BlockSynopsis{
-			Type:   "stats",
-			Height: block,
-			Time:   time,
+			Type:    "stats",
+			Network: networkID,
+			Height:  block,
+			Time:    time,
 		}
 		if !ok || len(logs) == 0 {
 			r.dbconn.AddToTx(&dbCtx, dbTx, nil, blockMeta, block)
