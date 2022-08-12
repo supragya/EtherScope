@@ -11,6 +11,7 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	ethereum := make(map[common.Address]string)
 	bsc := make(map[common.Address]string)
 	moonbeam := make(map[common.Address]string)
+	polygon := make(map[common.Address]string)
 	ethereum[common.HexToAddress("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")] = "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419" // WETH / USD
 	ethereum[common.HexToAddress("0x2260fac5e5542a773aa44fbcfedf7c193bc2c599")] = "0xf4030086522a5beea4988f8ca5b36dbc97bee88c" // WBTC / USD
 	ethereum[common.HexToAddress("0x514910771af9ca656af840dff83e8264ecf986ca")] = "0x2c1d072e956affc0d435cb7ac38ef18d24d9127c" // LINK / USD
@@ -39,6 +40,13 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	moonbeam[common.HexToAddress("0x922d641a426dcffaef11680e5358f34d97d112e1")] = "0x8c4425e141979c66423A83bE2ee59135864487Eb" // BTC / USD
 	// moonbeam[common.HexToAddress("0x922d641a426dcffaef11680e5358f34d97d112e1")] = "0xd61D7398B7734aBe7C4B143fE57dC666D2fe83aD" // LINK / USD
 
+	polygon[common.HexToAddress("0xc2132d05d31c914a87c6611c10748aeb04b58e8f")] = "0x0a6513e40db6eb1b165753ad52e80663aea50545" // USDT / USD
+	polygon[common.HexToAddress("0x8f3cf7ad23cd3cadbd9735aff958023239c6a063")] = "0x4746dec9e833a82ec7c2c1356372ccf2cfcd2f3d" // DAI / USD
+	polygon[common.HexToAddress("0x2791bca1f2de4661ed88a30c99a7a9449aa84174")] = "0xfe4a8cc5b5b2366c1b58bea3858e81843581b2f7" // USDC / USD
+	polygon[common.HexToAddress("0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270")] = "0xab594600376ec9fd91f8e885dadf0ce036862de0" // MATIC / USD
+	polygon[common.HexToAddress("0x7ceb23fd6bc0add59e62ac25578270cff1b9f619")] = "0xf9680d99d6c9589e2a93a78a04a279e509205945" // ETH / USD
+	polygon[common.HexToAddress("0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6")] = "0xc907e116054ad103354f2d350fd2514433d57f6f" // WBTC / USD
+
 	switch chain {
 	case 1:
 		return ethereum, nil
@@ -46,6 +54,8 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 		return bsc, nil
 	case 1284:
 		return moonbeam, nil
+	case 137:
+		return polygon, nil
 	}
 	err := errors.New("Cannot find oracle map for provided Chain")
 	return nil, err
@@ -64,7 +74,13 @@ func IsUSDOracle(contract string) bool {
 		"0xA122591F60115D63421f66F752EF9f6e0bc73abC",
 		"0x4497B606be93e773bbA5eaCFCb2ac5E2214220Eb",
 		"0x9ce2388a1696e22F870341C3FC1E89710C7569B5",
-		"0x8c4425e141979c66423A83bE2ee59135864487Eb":
+		"0x8c4425e141979c66423A83bE2ee59135864487Eb",
+		"0x0a6513e40db6eb1b165753ad52e80663aea50545",
+		"0x4746dec9e833a82ec7c2c1356372ccf2cfcd2f3d",
+		"0xfe4a8cc5b5b2366c1b58bea3858e81843581b2f7",
+		"0xab594600376ec9fd91f8e885dadf0ce036862de0",
+		"0xf9680d99d6c9589e2a93a78a04a279e509205945",
+		"0xc907e116054ad103354f2d350fd2514433d57f6f":
 		return true
 	}
 	return false
@@ -79,6 +95,8 @@ func BaseNativeToken(chain uint) string {
 		return "0x0567f2323251f0aab15c8dfb1967e4e8a7d42aee"
 	case 1284:
 		return "0x4497B606be93e773bbA5eaCFCb2ac5E2214220Eb"
+	case 137:
+		return "0xab594600376ec9fd91f8e885dadf0ce036862de0"
 	}
 	return "null"
 }
