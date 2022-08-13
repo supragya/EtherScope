@@ -192,6 +192,10 @@ func (r *RealtimeIndexer) processMint(
 	am0 := util.ExtractIntFromBytes(l.Data[:32])
 	am1 := util.ExtractIntFromBytes(l.Data[32:64])
 
+	if len(am0.Bits()) == 0 || len(am1.Bits()) == 0 {
+		return
+	}
+
 	erc0, client0 := r.da.GetERC20(token0)
 	erc1, client1 := r.da.GetERC20(token1)
 
@@ -282,6 +286,10 @@ func (r *RealtimeIndexer) processBurn(
 
 	am0 := util.ExtractIntFromBytes(l.Data[:32])
 	am1 := util.ExtractIntFromBytes(l.Data[32:64])
+
+	if len(am0.Bits()) == 0 || len(am1.Bits()) == 0 {
+		return
+	}
 
 	// Test if the contract is a UniswapV2 type contract
 	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
