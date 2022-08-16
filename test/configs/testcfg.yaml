@@ -7,6 +7,14 @@ general:
   maxBlockSpanPerCall: 10
   failOnNonEthError: false
   persistence: mq # either postgres or mq
+  eventsToIndex:
+    - UniswapV2Swap
+    - UniswapV2Mint
+    - UniswapV2Burn
+    - UniswapV3Swap
+    - UniswapV3IncreaseLiquidity
+    - UniswapV3DecreaseLiquidity
+    - Transfer
 
 # Subsection RPC upstreams
 # Needed always.

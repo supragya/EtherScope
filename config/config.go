@@ -21,6 +21,7 @@ var (
 		{"general.chainID", "uint64", "ChainID of the synced chain"},
 		{"general.failOnNonEthError", "bool", "Fail on catastrophic error on a log event"},
 		{"general.persistence", "string", "Persistence object: one of (\"postgres\", \"mq\"). MQ doesn't suppport atomic transactions"},
+		{"general.eventsToIndex", "[]string", "Events to index"},
 
 		{"rpc", "[]string", "Remote upstreams for RPC access"},
 	}

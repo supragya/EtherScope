@@ -23,19 +23,47 @@ type RealtimeIndexer struct {
 	indexedHeight uint64
 	dbconn        *db.DBConn
 	da            *DataAccess
+	eventsToIndex []common.Hash
 
 	quitCh chan struct{}
 }
 
-func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBConn) *RealtimeIndexer {
+func NewRealtimeIndexer(indexedHeight uint64,
+	upstreams []string,
+	dbconn *db.DBConn,
+	eventsToIndex []string) *RealtimeIndexer {
 	return &RealtimeIndexer{
 		currentHeight: 0,
 		indexedHeight: indexedHeight,
 		dbconn:        dbconn,
 		da:            NewDataAccess(upstreams),
+		eventsToIndex: ConstructTopics(eventsToIndex),
 
 		quitCh: make(chan struct{}),
 	}
+}
+
+func ConstructTopics(eventsToIndex []string) []common.Hash {
+	topicsList := []common.Hash{}
+	for _, t := range eventsToIndex {
+		switch t {
+		case "UniswapV2Swap":
+			topicsList = append(topicsList, itypes.UniV2Swap)
+		case "UniswapV2Mint":
+			topicsList = append(topicsList, itypes.MintTopic)
+		case "UniswapV2Burn":
+			topicsList = append(topicsList, itypes.BurnTopic)
+		case "UniswapV3Swap":
+			topicsList = append(topicsList, itypes.UniV3Swap)
+		case "UniswapV3IncreaseLiquidity":
+			topicsList = append(topicsList, itypes.IncreaseLiquidityTopic)
+		case "UniswapV3DecreaseLiquidity":
+			topicsList = append(topicsList, itypes.DecreaseLiquidityTopic)
+		case "Transfer":
+			topicsList = append(topicsList, itypes.TransferTopic)
+		}
+	}
+	return topicsList
 }
 
 func (r *RealtimeIndexer) Start() error {
@@ -78,15 +106,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 				logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 					FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 					ToBlock:   big.NewInt(int64(endingBlock)),
-					Topics: [][]common.Hash{{
-						itypes.MintTopic,
-						itypes.IncreaseLiquidityTopic,
-						itypes.BurnTopic,
-						itypes.DecreaseLiquidityTopic,
-						itypes.UniV2Swap,
-						itypes.UniV3Swap,
-						itypes.TransferTopic,
-					}},
+					Topics:    [][]common.Hash{r.eventsToIndex},
 				})
 
 				if err != nil {
