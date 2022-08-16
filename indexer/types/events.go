@@ -23,6 +23,20 @@ type tokenMeta struct {
 	AnsweredInRound *big.Int
 }
 
+type Transfer struct {
+	Type        string
+	Network     uint
+	LogIdx      uint
+	Transaction common.Hash
+	Time        uint64
+	Height      uint64
+	Token       common.Address
+	Sender      common.Address
+	Receiver    common.Address
+	Amount      *big.Float
+	AmountUSD   float64
+}
+
 type Mint struct {
 	Type         string
 	Network      uint
@@ -90,14 +104,15 @@ type Swap struct {
 }
 
 type BlockSynopsis struct {
-	Type      string
-	Network   uint
-	Height    uint64
-	Time      uint64
-	TotalLogs uint64
-	MintLogs  uint64
-	BurnLogs  uint64
-	SwapLogs  uint64
+	Type         string
+	Network      uint
+	Height       uint64
+	Time         uint64
+	TotalLogs    uint64
+	MintLogs     uint64
+	BurnLogs     uint64
+	SwapLogs     uint64
+	TransferLogs uint64
 }
 
 func init() {
