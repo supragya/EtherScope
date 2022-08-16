@@ -12,6 +12,7 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	bsc := make(map[common.Address]string)
 	moonbeam := make(map[common.Address]string)
 	polygon := make(map[common.Address]string)
+	avax := make(map[common.Address]string)
 	ethereum[common.HexToAddress("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")] = "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419" // WETH / USD
 	ethereum[common.HexToAddress("0x2260fac5e5542a773aa44fbcfedf7c193bc2c599")] = "0xf4030086522a5beea4988f8ca5b36dbc97bee88c" // WBTC / USD
 	ethereum[common.HexToAddress("0x514910771af9ca656af840dff83e8264ecf986ca")] = "0x2c1d072e956affc0d435cb7ac38ef18d24d9127c" // LINK / USD
@@ -47,6 +48,16 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	polygon[common.HexToAddress("0x7ceb23fd6bc0add59e62ac25578270cff1b9f619")] = "0xf9680d99d6c9589e2a93a78a04a279e509205945" // ETH / USD
 	polygon[common.HexToAddress("0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6")] = "0xc907e116054ad103354f2d350fd2514433d57f6f" // WBTC / USD
 
+	avax[common.HexToAddress("0x5947bb275c521040051d82396192181b413227a3")] = "0x49ccd9ca821efeab2b98c60dc60f518e765ede9a" // LINK / USD
+	avax[common.HexToAddress("0xd586e7f844cea2f87f50152665bcbc2c279d8d70")] = "0x51d7180eda2260cc4f6e4eebb82fef5c3c2b8300" // DAI / USD
+	avax[common.HexToAddress("0xc7198437980c041c805a1edcba50c1ce5db95118")] = "0xebe676ee90fe1112671f19b6b7459bc678b67e8a" // USDT / USD
+	avax[common.HexToAddress("0x50b7545627a5162f82a992c33b87adc75187b218")] = "0x2779d32d5166baaa2b2b658333ba7e6ec0c65743" // BTC / USD
+	avax[common.HexToAddress("0x152b9d0FdC40C096757F570A51E494bd4b943E50")] = "0x2779d32d5166baaa2b2b658333ba7e6ec0c65743" // BTC / USD
+	avax[common.HexToAddress("0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab")] = "0x976b3d034e162d8bd72d6b9c989d545b839003b0" // ETH / USD
+	avax[common.HexToAddress("0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7")] = "0x0a77230d17318075983913bc2145db16c7366156" // AVAX / USD
+	avax[common.HexToAddress("0x63a72806098bd3d9520cc43356dd78afe5d386d9")] = "0x3ca13391e9fb38a75330fb28f8cc2eb3d9ceceed" // AAVE / USD
+	avax[common.HexToAddress("0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e")] = "0xf096872672f44d6eba71458d74fe67f9a77a23b9" // USDC / USD
+	avax[common.HexToAddress("0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664")] = "0xf096872672f44d6eba71458d74fe67f9a77a23b9" // USDC / USD
 	switch chain {
 	case 1:
 		return ethereum, nil
@@ -56,6 +67,8 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 		return moonbeam, nil
 	case 137:
 		return polygon, nil
+	case 43114:
+		return avax, nil
 	}
 	err := errors.New("Cannot find oracle map for provided Chain")
 	return nil, err
@@ -80,7 +93,16 @@ func IsUSDOracle(contract string) bool {
 		"0xfe4a8cc5b5b2366c1b58bea3858e81843581b2f7",
 		"0xab594600376ec9fd91f8e885dadf0ce036862de0",
 		"0xf9680d99d6c9589e2a93a78a04a279e509205945",
-		"0xc907e116054ad103354f2d350fd2514433d57f6f":
+		"0xc907e116054ad103354f2d350fd2514433d57f6f",
+		"0x49ccd9ca821efeab2b98c60dc60f518e765ede9a",
+		"0x51d7180eda2260cc4f6e4eebb82fef5c3c2b8300",
+		"0xebe676ee90fe1112671f19b6b7459bc678b67e8a",
+		"0x2779d32d5166baaa2b2b658333ba7e6ec0c65743",
+		"0x976b3d034e162d8bd72d6b9c989d545b839003b0",
+		"0x0a77230d17318075983913bc2145db16c7366156",
+		"0x3ca13391e9fb38a75330fb28f8cc2eb3d9ceceed",
+		"0xf096872672f44d6eba71458d74fe67f9a77a23b9":
+
 		return true
 	}
 	return false
@@ -97,6 +119,8 @@ func BaseNativeToken(chain uint) string {
 		return "0x4497B606be93e773bbA5eaCFCb2ac5E2214220Eb"
 	case 137:
 		return "0xab594600376ec9fd91f8e885dadf0ce036862de0"
+	case 43114:
+		return "0x0a77230d17318075983913bc2145db16c7366156"
 	}
 	return "null"
 }
