@@ -10,6 +10,7 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
 	github.com/streadway/amqp v1.0.0
+	golang.org/x/exp v0.0.0-20220426173459-3bcf042a4bf5
 )
 
 require (

@@ -166,43 +166,18 @@ func (r *RealtimeIndexer) processTransfer(
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
 ) {
-	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
+	ok, sender, recv, amt := InfoTransfer(l)
 
-	if len(l.Topics) < 3 {
+	if !ok {
 		return
 	}
 
-	sender := util.ExtractAddressFromLogTopic(l.Topics[1])
-	receiver := util.ExtractAddressFromLogTopic(l.Topics[2])
+	callopts := GetBlockCallOpts(l.BlockNumber)
+	ok, formattedAmount := r.GetFormattedAmount(amt, callopts, l.Address)
 
-	// Check if we have enough data to retrieve amount of token being minted
-	if len(l.Data) < 32 {
+	if !ok {
 		return
 	}
-
-	amount := util.ExtractIntFromBytes(l.Data[:32])
-
-	if len(amount.Bits()) == 0 {
-		return
-	}
-
-	erc, client := r.da.GetERC20(l.Address)
-
-	tokenDecimals, err := r.da.GetERC20Decimals(erc, client, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		tokenDecimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return
-		}
-		util.ENOK(err)
-	}
-
-	formattedAmount := util.DivideBy10pow(amount, tokenDecimals)
-	// token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)//TODO
-	amountUSD := 0
-	tokenPrice := 0
 
 	transfer := itypes.Transfer{
 		Type:        "transfer",
@@ -213,18 +188,12 @@ func (r *RealtimeIndexer) processTransfer(
 		Height:      l.BlockNumber,
 		Token:       l.Address,
 		Sender:      sender,
-		Receiver:    receiver,
+		Receiver:    recv,
 		Amount:      formattedAmount,
 		AmountUSD:   0, // TODO
 	}
-	mt.Lock()
-	defer mt.Unlock()
-	is0Nan := math.IsInf(float64(tokenPrice), 0)
-	if amountUSD > -1 && !is0Nan {
-		*items = append(*items, transfer)
-		bm.TransferLogs++
-		bm.TotalLogs++
-	}
+
+	AddToSynopsis(mt, bm, transfer, items, "transfer", true)
 }
 
 func (r *RealtimeIndexer) processMint(
@@ -829,4 +798,76 @@ func (r *RealtimeIndexer) Status() interface{} {
 
 func (r *RealtimeIndexer) Quit() {
 	r.quitCh <- struct{}{}
+}
+
+// ---- NEW
+
+func GetBlockCallOpts(blockNumber uint64) *bind.CallOpts {
+	return &bind.CallOpts{BlockNumber: big.NewInt(int64(blockNumber))}
+}
+
+func HasSufficientData(l types.Log,
+	requiredTopicLen int,
+	requiredDataLen int) bool {
+	return len(l.Topics) == requiredTopicLen && len(l.Data) == requiredDataLen
+}
+
+func InfoTransfer(l types.Log) (hasSufficientData bool,
+	sender common.Address,
+	receiver common.Address,
+	amount *big.Int) {
+	if !HasSufficientData(l, 3, 32) {
+		return false,
+			common.Address{},
+			common.Address{},
+			big.NewInt(0)
+	}
+	return true,
+		util.ExtractAddressFromLogTopic(l.Topics[1]),
+		util.ExtractAddressFromLogTopic(l.Topics[2]),
+		util.ExtractIntFromBytes(l.Data[:32])
+}
+
+func (r *RealtimeIndexer) GetFormattedAmount(amount *big.Int,
+	callopts *bind.CallOpts,
+	erc20Address common.Address) (ok bool,
+	formattedAmount *big.Float) {
+	erc, client := r.da.GetERC20(erc20Address)
+
+	tokenDecimals, err := r.da.GetERC20Decimals(erc, client, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		tokenDecimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return false, big.NewFloat(0.0)
+		}
+		util.ENOKS(2, err)
+	}
+
+	return true, util.DivideBy10pow(amount, tokenDecimals)
+}
+
+func AddToSynopsis(mt *sync.Mutex,
+	bm *itypes.BlockSynopsis,
+	item interface{},
+	items *[]interface{},
+	_type string,
+	condition bool) {
+	mt.Lock()
+	defer mt.Unlock()
+	if condition {
+		*items = append(*items, item)
+		switch _type {
+		case "transfer":
+			bm.TransferLogs++
+		case "mint":
+			bm.MintLogs++
+		case "burm":
+			bm.BurnLogs++
+		default:
+			util.ENOKS(2, fmt.Errorf("unknown add to synopsis: %s", _type))
+		}
+		bm.TotalLogs++
+	}
 }
