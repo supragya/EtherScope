@@ -37,33 +37,10 @@ func NewRealtimeIndexer(indexedHeight uint64,
 		indexedHeight: indexedHeight,
 		dbconn:        dbconn,
 		da:            NewDataAccess(upstreams),
-		eventsToIndex: ConstructTopics(eventsToIndex),
+		eventsToIndex: util.ConstructTopics(eventsToIndex),
 
 		quitCh: make(chan struct{}),
 	}
-}
-
-func ConstructTopics(eventsToIndex []string) []common.Hash {
-	topicsList := []common.Hash{}
-	for _, t := range eventsToIndex {
-		switch t {
-		case "UniswapV2Swap":
-			topicsList = append(topicsList, itypes.UniV2Swap)
-		case "UniswapV2Mint":
-			topicsList = append(topicsList, itypes.MintTopic)
-		case "UniswapV2Burn":
-			topicsList = append(topicsList, itypes.BurnTopic)
-		case "UniswapV3Swap":
-			topicsList = append(topicsList, itypes.UniV3Swap)
-		case "UniswapV3IncreaseLiquidity":
-			topicsList = append(topicsList, itypes.IncreaseLiquidityTopic)
-		case "UniswapV3DecreaseLiquidity":
-			topicsList = append(topicsList, itypes.DecreaseLiquidityTopic)
-		case "Transfer":
-			topicsList = append(topicsList, itypes.TransferTopic)
-		}
-	}
-	return topicsList
 }
 
 func (r *RealtimeIndexer) Start() error {
@@ -71,7 +48,6 @@ func (r *RealtimeIndexer) Start() error {
 		return EUninitialized
 	}
 	r.ridxLoop()
-	time.Sleep(time.Second * 2)
 	return nil
 }
 
@@ -95,13 +71,9 @@ func (r *RealtimeIndexer) ridxLoop() {
 					isOnHead = false
 					endingBlock = r.indexedHeight + maxBlockSpanPerCall
 				}
-				syncing := "head"
-				if !isOnHead {
-					syncing = "sync"
-				}
 
-				log.Info(fmt.Sprintf("%s curr: %d (+%d), processing [%d - %d]",
-					syncing, r.currentHeight, r.currentHeight-r.indexedHeight, r.indexedHeight, endingBlock))
+				log.Info(fmt.Sprintf("sync curr: %d (+%d), processing [%d - %d]",
+					r.currentHeight, r.currentHeight-r.indexedHeight, r.indexedHeight, endingBlock))
 
 				logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 					FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
