@@ -11,13 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
-func fetchBaseCurrency(callopts *bind.CallOpts, cl *ethclient.Client) float64 {
-	// Returns native currency USD value at specific block, on Ethereum network this function would return the USD price of Ethereum at specific block #
-	networkID := viper.GetUint("general.chainID")
-
+func fetchBaseCurrency(networkID uint, callopts *bind.CallOpts, cl *ethclient.Client) float64 {
 	nativeTokenUSD := util.BaseNativeToken(networkID)
 
 	tokenAddress := common.HexToAddress(nativeTokenUSD)
@@ -40,15 +36,18 @@ func fetchBaseCurrency(callopts *bind.CallOpts, cl *ethclient.Client) float64 {
 }
 
 func (d *DataAccess) GetPricesForBlock(
-	callopts *bind.CallOpts, token0 common.Address, token1 common.Address, amount0 *big.Float, amount1 *big.Float) (float64, float64, float64, struct {
+	networkID uint,
+	callopts *bind.CallOpts,
+	token0 common.Address,
+	token1 common.Address,
+	amount0 *big.Float,
+	amount1 *big.Float) (float64, float64, float64, struct {
 	RoundId         *big.Int
 	Answer          *big.Int
 	StartedAt       *big.Int
 	UpdatedAt       *big.Int
 	AnsweredInRound *big.Int
 }) {
-
-	networkID := viper.GetUint("general.chainID")
 	oracleMap, err := util.GetOracleContracts(networkID)
 
 	token0Amount, _ := strconv.ParseFloat(amount0.String(), 64)
@@ -91,7 +90,7 @@ func (d *DataAccess) GetPricesForBlock(
 
 		if !isUSD {
 			// If oracle is not USD based, we need to derive the USD value by fetching native token USD price (EX. ETH / USD)
-			baseCurrency := fetchBaseCurrency(callopts, cl)
+			baseCurrency := fetchBaseCurrency(networkID, callopts, cl)
 			token0Price = baseCurrency * token0Price
 			token1Price = ratioToInt
 			amountusd = token0Price * token0Amount
@@ -118,7 +117,7 @@ func (d *DataAccess) GetPricesForBlock(
 		ratioToInt, _ := strconv.ParseFloat(ratio.String(), 64)
 
 		if !isUSD {
-			baseCurrency := fetchBaseCurrency(callopts, cl)
+			baseCurrency := fetchBaseCurrency(networkID, callopts, cl)
 			token1Price = baseCurrency * token1Price
 			token0Price = ratioToInt
 			amountusd = token1Price * token1Amount

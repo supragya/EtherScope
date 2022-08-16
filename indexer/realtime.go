@@ -208,7 +208,7 @@ func (r *RealtimeIndexer) processTransfer(
 	}
 
 	formattedAmount := util.DivideBy10pow(amount, tokenDecimals)
-	// token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)//TODO
+	// token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)//TODO
 	amountUSD := 0
 	tokenPrice := 0
 
@@ -304,7 +304,7 @@ func (r *RealtimeIndexer) processMint(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	mint := itypes.Mint{
 		Type:         "mint",
@@ -406,7 +406,7 @@ func (r *RealtimeIndexer) processMintV3(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	mint := itypes.Mint{
 		Type:         "mint",
@@ -511,7 +511,7 @@ func (r *RealtimeIndexer) processBurn(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	burn := itypes.Burn{
 		Type:         "burn",
@@ -614,7 +614,7 @@ func (r *RealtimeIndexer) processBurnV3(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	mint := itypes.Burn{
 		Type:         "burn",
@@ -704,7 +704,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	swap := itypes.Swap{
 		Type:         "swap",
@@ -783,7 +783,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)
 
 	swap := itypes.Swap{
 		Type:         "swap",
