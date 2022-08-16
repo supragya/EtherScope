@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS blocks(
     mint_logs int NOT NULL,
     burn_logs int NOT NULL,
     swap_logs int NOT NULL,
+    transfer_logs int NOT NULL,
     total_logs int NOT NULL,
     PRIMARY KEY(nwtype, network, height),
     UNIQUE(nwtype, network, height)

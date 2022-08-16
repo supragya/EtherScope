@@ -198,6 +198,14 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 	for _, item := range items {
 		query := ""
 		switch it := item.(type) {
+		case itypes.Transfer:
+			if d.isDB {
+				query = d.getQueryStringTransfer(it, currentTime)
+			} else {
+				mqMessage, err := json.Marshal(it)
+				util.ENOK(err)
+				d.store = append(d.store, mqMessage)
+			}
 		case itypes.Mint:
 			if d.isDB {
 				query = d.getQueryStringMint(it, currentTime)
@@ -239,6 +247,27 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 		util.ENOK(err)
 		d.store = append(d.store, mqMessage)
 	}
+}
+
+func (d *DBConn) getQueryStringTransfer(item itypes.Transfer, currentTime int64) string {
+	const insquery string = "INSERT INTO %s "
+	const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, amount0, amountusd, type, sender, recipient, transaction, slippage, height) "
+	const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   %f,      %f,        '%s', '%s',   '%s',      '%s',        %f,       %d    );"
+	return fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
+		d.Network,                                // nwtype
+		d.ChainID,                                // network
+		item.Time,                                // time
+		currentTime,                              // inserted_at
+		strings.ToLower(item.Token.String()[2:]), // token0 (removed 0x prefix)
+		item.Amount,                              // amount0
+		item.AmountUSD,                           // amountusd, FIXME
+		"transfer",                               // type
+		strings.ToLower(item.Sender.Hex()[2:]),   // sender FIXME (removed 0x prefix)
+		strings.ToLower(item.Receiver.Hex()[2:]), // sender FIXME (removed 0x prefix)
+		strings.ToLower(item.Transaction.String()[2:]), // transaction (removed 0x prefix)
+		0.0,         // slippage
+		item.Height, // height
+	)
 }
 
 func (d *DBConn) getQueryStringMint(item itypes.Mint, currentTime int64) string {
@@ -326,16 +355,17 @@ func (d *DBConn) getQueryStringBlockSynopsis(blockHeight uint64, currentTime int
 		log.Fatal("arithmetic error for block synopsis: ", bm)
 	}
 	const insquery string = "INSERT INTO %s "
-	const fields string = "(nwtype, network, height, inserted_at, mint_logs, burn_logs, swap_logs, total_logs) "
-	const valuesfmt string = "VALUES ('%s', %d, %d,  TO_TIMESTAMP(%d), %d,   %d,        %d,        %d);"
+	const fields string = "(nwtype, network, height, inserted_at, mint_logs, burn_logs, swap_logs, transfer_logs, total_logs) "
+	const valuesfmt string = "VALUES ('%s', %d, %d,  TO_TIMESTAMP(%d), %d,   %d,        %d,        %d,            %d);"
 	return fmt.Sprintf(insquery+fields+valuesfmt, d.metaTable, // table to insert to
-		d.Network,    // nwtype
-		d.ChainID,    // network
-		blockHeight,  // height
-		currentTime,  // inserted_at
-		bm.MintLogs,  // mint_logs
-		bm.BurnLogs,  // burn_logs
-		bm.SwapLogs,  // swap_logs
-		bm.TotalLogs, // total_logs
+		d.Network,       // nwtype
+		d.ChainID,       // network
+		blockHeight,     // height
+		currentTime,     // inserted_at
+		bm.MintLogs,     // mint_logs
+		bm.BurnLogs,     // burn_logs
+		bm.SwapLogs,     // swap_logs
+		bm.TransferLogs, // transfer_logs
+		bm.TotalLogs,    // total_logs
 	)
 }

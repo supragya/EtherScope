@@ -79,10 +79,11 @@ func (r *RealtimeIndexer) ridxLoop() {
 					FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 					ToBlock:   big.NewInt(int64(endingBlock)),
 					Topics: [][]common.Hash{{
-						itypes.MintTopic,
-						itypes.BurnTopic,
-						itypes.UniV2Swap,
-						itypes.UniV3Swap,
+						// itypes.MintTopic,
+						// itypes.BurnTopic,
+						// itypes.UniV2Swap,
+						// itypes.UniV3Swap,
+						itypes.TransferTopic,
 					}},
 				})
 
@@ -149,6 +150,8 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
+	case itypes.TransferTopic:
+		r.processTransfer(l, items, bm, mt)
 	case itypes.MintTopic:
 		r.processMint(l, items, bm, mt)
 	case itypes.BurnTopic:
@@ -157,6 +160,73 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 		r.processUniV2Swap(l, items, bm, mt)
 	case itypes.UniV3Swap:
 		r.processUniV3Swap(l, items, bm, mt)
+	}
+}
+
+func (r *RealtimeIndexer) processTransfer(
+	l types.Log,
+	items *[]interface{},
+	bm *itypes.BlockSynopsis,
+	mt *sync.Mutex,
+) {
+	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
+
+	if len(l.Topics) < 3 {
+		return
+	}
+
+	sender := util.ExtractAddressFromLogTopic(l.Topics[1])
+	receiver := util.ExtractAddressFromLogTopic(l.Topics[2])
+
+	// Check if we have enough data to retrieve amount of token being minted
+	if len(l.Data) < 32 {
+		return
+	}
+
+	amount := util.ExtractIntFromBytes(l.Data[:32])
+
+	if len(amount.Bits()) == 0 {
+		return
+	}
+
+	erc, client := r.da.GetERC20(l.Address)
+
+	tokenDecimals, err := r.da.GetERC20Decimals(erc, client, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		tokenDecimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return
+		}
+		util.ENOK(err)
+	}
+
+	formattedAmount := util.DivideBy10pow(amount, tokenDecimals)
+	// token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)//TODO
+	amountUSD := 0
+	tokenPrice := 0
+
+	transfer := itypes.Transfer{
+		Type:        "transfer",
+		Network:     r.dbconn.ChainID,
+		LogIdx:      l.Index,
+		Transaction: l.TxHash,
+		Time:        bm.Time,
+		Height:      l.BlockNumber,
+		Token:       l.Address,
+		Sender:      sender,
+		Receiver:    receiver,
+		Amount:      formattedAmount,
+		AmountUSD:   0, // TODO
+	}
+	mt.Lock()
+	defer mt.Unlock()
+	is0Nan := math.IsInf(float64(tokenPrice), 0)
+	if amountUSD > -1 && !is0Nan {
+		*items = append(*items, transfer)
+		bm.TransferLogs++
+		bm.TotalLogs++
 	}
 }
 
@@ -185,7 +255,7 @@ func (r *RealtimeIndexer) processMint(
 	}
 
 	// Check if we have enough data to retrieve amount of token being minted
-	if len(l.Data) < 32 {
+	if len(l.Data) < 64 {
 		return
 	}
 
@@ -230,11 +300,10 @@ func (r *RealtimeIndexer) processMint(
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
 	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
-	networkID := viper.GetUint("general.chainID")
 
 	mint := itypes.Mint{
 		Type:         "mint",
-		Network:      networkID,
+		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
@@ -336,11 +405,10 @@ func (r *RealtimeIndexer) processBurn(
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
 	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
-	networkID := viper.GetUint("general.chainID")
 
 	burn := itypes.Burn{
 		Type:         "burn",
-		Network:      networkID,
+		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
@@ -428,11 +496,10 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
 	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
-	networkID := viper.GetUint("general.chainID")
 
 	swap := itypes.Swap{
 		Type:         "swap",
-		Network:      networkID,
+		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
@@ -508,11 +575,10 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
 	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
 	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
-	networkID := viper.GetUint("general.chainID")
 
 	swap := itypes.Swap{
 		Type:         "swap",
-		Network:      networkID,
+		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
