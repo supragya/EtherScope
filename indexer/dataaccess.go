@@ -8,6 +8,7 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ERC20"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3positionsnft"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -92,6 +93,47 @@ func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.
 	}
 
 	return token0, token1, errors.New("Fetch error: " + err.Error())
+}
+
+func (d *DataAccess) GetTokensUniV3(pairContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
+	type Positions struct {
+		Nonce                    *big.Int
+		Operator                 common.Address
+		Token0                   common.Address
+		Token1                   common.Address
+		Fee                      *big.Int
+		TickLower                *big.Int
+		TickUpper                *big.Int
+		Liquidity                *big.Int
+		FeeGrowthInside0LastX128 *big.Int
+		FeeGrowthInside1LastX128 *big.Int
+		TokensOwed0              *big.Int
+		TokensOwed1              *big.Int
+	}
+	var positions Positions
+	var err error
+	var pc *univ3positionsnft.Univ3positionsnftCaller
+
+	for retries := 0; retries < WD; retries++ {
+		cl := d.upstreams.GetItem()
+		pc, err = univ3positionsnft.NewUniv3positionsnftCaller(pairContract, cl)
+
+		start := time.Now()
+		positions, err = pc.Positions(callopts, tokenID)
+		elapsed := time.Now().Sub(start).Seconds()
+		if err != nil {
+			// Early exit
+			if util.IsEthErr(err) {
+				d.upstreams.Report(cl, elapsed, false)
+				return common.Address{}, common.Address{}, err
+			}
+			continue
+		}
+		d.upstreams.Report(cl, elapsed, err != nil)
+		break
+	}
+
+	return positions.Token0, positions.Token1, errors.New("Fetch error: " + err.Error())
 }
 
 func (d *DataAccess) GetDEXReserves(

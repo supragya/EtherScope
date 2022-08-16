@@ -31,6 +31,10 @@ echo -e "${HI}>> Generating code for Uniswap V3 pair${NC}"
 mkdir -p abi/univ3pair
 abigen --abi=contracts/uniswapv3pair.json --pkg=univ3pair --out=abi/univ3pair/generated_do_not_edit.go
 
+echo -e "${HI}>> Generating code for Uniswap V3 positions NFT${NC}"
+mkdir -p abi/univ3positionsnft
+abigen --abi=contracts/uniswapv3positionsNFT.json --pkg=univ3positionsnft --out=abi/univ3positionsnft/generated_do_not_edit.go
+
 echo -e "${HI}>> Generating code for Chainlink Oracle${NC}"
 mkdir -p abi/chainlink
 abigen --abi=contracts/chainlink.json --pkg=chainlink --out=abi/chainlink/generated_do_not_edit.go

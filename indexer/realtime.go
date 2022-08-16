@@ -79,10 +79,12 @@ func (r *RealtimeIndexer) ridxLoop() {
 					FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 					ToBlock:   big.NewInt(int64(endingBlock)),
 					Topics: [][]common.Hash{{
-						// itypes.MintTopic,
-						// itypes.BurnTopic,
-						// itypes.UniV2Swap,
-						// itypes.UniV3Swap,
+						itypes.MintTopic,
+						itypes.IncreaseLiquidityTopic,
+						itypes.BurnTopic,
+						itypes.DecreaseLiquidityTopic,
+						itypes.UniV2Swap,
+						itypes.UniV3Swap,
 						itypes.TransferTopic,
 					}},
 				})
@@ -111,7 +113,6 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	// or not even one
 	kv := GroupByBlockNumber(logs)
 	dbCtx, dbTx := r.dbconn.BeginTx()
-	networkID := viper.GetUint("general.chainID")
 
 	for block := start; block <= end; block++ {
 		time, err := r.da.GetBlockTimestamp(block)
@@ -120,7 +121,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 		logs, ok := kv[block]
 		blockMeta := itypes.BlockSynopsis{
 			Type:    "stats",
-			Network: networkID,
+			Network: r.dbconn.ChainID,
 			Height:  block,
 			Time:    time,
 		}
@@ -154,6 +155,10 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 		r.processTransfer(l, items, bm, mt)
 	case itypes.MintTopic:
 		r.processMint(l, items, bm, mt)
+	case itypes.IncreaseLiquidityTopic:
+		r.processMintV3(l, items, bm, mt)
+	case itypes.DecreaseLiquidityTopic:
+		r.processBurnV3(l, items, bm, mt)
 	case itypes.BurnTopic:
 		r.processBurn(l, items, bm, mt)
 	case itypes.UniV2Swap:
@@ -333,6 +338,108 @@ func (r *RealtimeIndexer) processMint(
 	}
 }
 
+func (r *RealtimeIndexer) processMintV3(
+	l types.Log,
+	items *[]interface{},
+	bm *itypes.BlockSynopsis,
+	mt *sync.Mutex,
+) {
+	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
+
+	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	tokenID := util.ExtractIntFromBytes(l.Topics[1][:])
+
+	// Test if the contract is a UniswapV2 type contract
+	token0, token1, err := r.da.GetTokensUniV3(l.Address, tokenID, callopts)
+
+	// Check if we have enough data to retrieve amount of token being minted
+	if len(l.Data) < 96 {
+		return
+	}
+
+	if util.IsExecutionReverted(err) {
+		return
+	}
+
+	am0 := util.ExtractIntFromBytes(l.Data[32:64])
+	am1 := util.ExtractIntFromBytes(l.Data[32:64])
+
+	if len(am0.Bits()) == 0 || len(am1.Bits()) == 0 {
+		return
+	}
+
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token0Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return
+		}
+		util.ENOK(err)
+	}
+
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token1Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return
+		}
+		util.ENOK(err)
+	}
+
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
+	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+
+	mint := itypes.Mint{
+		Type:         "mint",
+		Network:      r.dbconn.ChainID,
+		LogIdx:       l.Index,
+		Transaction:  l.TxHash,
+		Time:         bm.Time,
+		Height:       l.BlockNumber,
+		Sender:       sender,
+		Receiver:     sender,
+		PairContract: l.Address,
+		Token0:       token0,
+		Token1:       token1,
+		Amount0:      formattedAmount0,
+		Amount1:      formattedAmount1,
+		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
+		AmountUSD:    amountusd,
+		Price0:       token0Price,
+		Price1:       token1Price,
+		Meta:         tokenMeta,
+	}
+	mt.Lock()
+	defer mt.Unlock()
+	is0Nan := math.IsInf(token0Price, 0)
+	is1Nan := math.IsInf(token1Price, 0)
+	if amountusd > -1 && !is0Nan && !is1Nan {
+		*items = append(*items, mint)
+		bm.MintLogs++
+		bm.TotalLogs++
+	}
+}
+
 func (r *RealtimeIndexer) processBurn(
 	l types.Log,
 	items *[]interface{},
@@ -434,6 +541,108 @@ func (r *RealtimeIndexer) processBurn(
 	is1Nan := math.IsInf(token1Price, 0)
 	if amountusd > -1 && !is0Nan && !is1Nan {
 		*items = append(*items, burn)
+		bm.BurnLogs++
+		bm.TotalLogs++
+	}
+}
+
+func (r *RealtimeIndexer) processBurnV3(
+	l types.Log,
+	items *[]interface{},
+	bm *itypes.BlockSynopsis,
+	mt *sync.Mutex,
+) {
+	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
+
+	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	tokenID := util.ExtractIntFromBytes(l.Topics[1][:])
+
+	// Test if the contract is a UniswapV2 type contract
+	token0, token1, err := r.da.GetTokensUniV3(l.Address, tokenID, callopts)
+
+	// Check if we have enough data to retrieve amount of token being minted
+	if len(l.Data) < 96 {
+		return
+	}
+
+	if util.IsExecutionReverted(err) {
+		return
+	}
+
+	am0 := util.ExtractIntFromBytes(l.Data[32:64])
+	am1 := util.ExtractIntFromBytes(l.Data[32:64])
+
+	if len(am0.Bits()) == 0 || len(am1.Bits()) == 0 {
+		return
+	}
+
+	erc0, client0 := r.da.GetERC20(token0)
+	erc1, client1 := r.da.GetERC20(token1)
+
+	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token0Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return
+		}
+		util.ENOK(err)
+	}
+
+	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token1Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return
+		}
+		util.ENOK(err)
+	}
+
+	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
+	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
+	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
+
+	mint := itypes.Burn{
+		Type:         "burn",
+		Network:      r.dbconn.ChainID,
+		LogIdx:       l.Index,
+		Transaction:  l.TxHash,
+		Time:         bm.Time,
+		Height:       l.BlockNumber,
+		Sender:       sender,
+		Receiver:     sender,
+		PairContract: l.Address,
+		Token0:       token0,
+		Token1:       token1,
+		Amount0:      formattedAmount0,
+		Amount1:      formattedAmount1,
+		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
+		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
+		AmountUSD:    amountusd,
+		Price0:       token0Price,
+		Price1:       token1Price,
+		Meta:         tokenMeta,
+	}
+	mt.Lock()
+	defer mt.Unlock()
+	is0Nan := math.IsInf(token0Price, 0)
+	is1Nan := math.IsInf(token1Price, 0)
+	if amountusd > -1 && !is0Nan && !is1Nan {
+		*items = append(*items, mint)
 		bm.BurnLogs++
 		bm.TotalLogs++
 	}

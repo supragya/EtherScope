@@ -8,11 +8,13 @@ import (
 )
 
 var (
-	MintTopic     common.Hash
-	BurnTopic     common.Hash
-	TransferTopic common.Hash
-	UniV2Swap     common.Hash
-	UniV3Swap     common.Hash
+	MintTopic              common.Hash
+	IncreaseLiquidityTopic common.Hash
+	BurnTopic              common.Hash
+	DecreaseLiquidityTopic common.Hash
+	TransferTopic          common.Hash
+	UniV2Swap              common.Hash
+	UniV3Swap              common.Hash
 )
 
 type tokenMeta struct {
@@ -117,7 +119,9 @@ type BlockSynopsis struct {
 
 func init() {
 	MintTopic = *(*common.Hash)(crypto.Keccak256([]byte("Mint(address,uint256,uint256)")))
+	IncreaseLiquidityTopic = *(*common.Hash)(crypto.Keccak256([]byte("IncreaseLiquidity(uint256,uint128,uint256,uint256)")))
 	BurnTopic = *(*common.Hash)(crypto.Keccak256([]byte("Burn(address,uint256,uint256,address)")))
+	DecreaseLiquidityTopic = *(*common.Hash)(crypto.Keccak256([]byte("DecreaseLiquidity(uint256,uint128,uint256,uint256)")))
 	TransferTopic = *(*common.Hash)(crypto.Keccak256([]byte("Transfer(address,address,uint256)")))
 	UniV2Swap = *(*common.Hash)(crypto.Keccak256([]byte("Swap(address,uint256,uint256,uint256,uint256,address)")))
 	UniV3Swap = *(*common.Hash)(crypto.Keccak256([]byte("Swap(address,address,int256,int256,uint160,uint128,int24)")))
