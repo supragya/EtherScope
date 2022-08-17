@@ -136,55 +136,6 @@ func (d *DataAccess) GetTokensUniV3(pairContract common.Address, tokenID *big.In
 	return positions.Token0, positions.Token1, errors.New("Fetch error: " + err.Error())
 }
 
-func (d *DataAccess) GetDEXReserves(
-	pairContract common.Address,
-	token0 *ERC20.ERC20,
-	client0 *ethclient.Client,
-	token1 *ERC20.ERC20,
-	client1 *ethclient.Client,
-	callopts *bind.CallOpts) (UniV2Reserves, error) {
-	reserves := UniV2Reserves{}
-	var err error
-	for retries := 0; retries < WD; retries++ {
-		// Get Balance 0
-		start := time.Now()
-		balToken0, err := token0.BalanceOf(callopts, pairContract)
-		elapsed := time.Now().Sub(start).Seconds()
-		if err == nil {
-			d.upstreams.Report(client0, elapsed, false)
-		} else {
-			// Early exit
-			if util.IsEthErr(err) {
-				d.upstreams.Report(client0, elapsed, false)
-				break
-			}
-			d.upstreams.Report(client0, elapsed, true)
-		}
-
-		// Get Balance 1
-		start = time.Now()
-		balToken1, err := token1.BalanceOf(callopts, pairContract)
-		elapsed = time.Now().Sub(start).Seconds()
-		if err != nil {
-			// Early exit
-			if util.IsEthErr(err) {
-				d.upstreams.Report(client1, elapsed, false)
-				break
-			}
-			d.upstreams.Report(client1, elapsed, true)
-		}
-		d.upstreams.Report(client1, elapsed, false)
-
-		return UniV2Reserves{
-			Reserve0:           balToken0,
-			Reserve1:           balToken1,
-			BlockTimestampLast: reserves.BlockTimestampLast,
-		}, nil
-	}
-
-	return reserves, errors.New("Fetch error: " + err.Error())
-}
-
 func (d *DataAccess) GetERC20(erc20Address common.Address) (*ERC20.ERC20, *ethclient.Client) {
 	cl := d.upstreams.GetItem()
 	obj, err := ERC20.NewERC20(erc20Address, cl)
@@ -308,4 +259,104 @@ func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
 	}
 
 	return 0, errors.New("Fetch error: " + err.Error())
+}
+
+// Take it to utils
+type Tuple2[A any, B any] struct {
+	First  A
+	Second B
+}
+
+func (d *DataAccess) GetBalances(requests []Tuple2[common.Address, common.Address],
+	callopts *bind.CallOpts) ([]Tuple2[common.Address, *big.Int], error) {
+	results := []Tuple2[common.Address, *big.Int]{}
+
+	for _, req := range requests {
+		balance, err := d.GetBalance(req.First, req.Second, callopts)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, Tuple2[common.Address, *big.Int]{req.First, balance})
+	}
+	return results, nil
+}
+
+func (d *DataAccess) GetBalance(address common.Address,
+	token common.Address,
+	callopts *bind.CallOpts) (*big.Int, error) {
+	var balToken *big.Int
+	var err error
+
+	for retries := 0; retries < WD; retries++ {
+		// Get Balance
+		client := d.upstreams.GetItem()
+		token, err := ERC20.NewERC20(token, client)
+		if err != nil {
+			return big.NewInt(0), err
+		}
+
+		start := time.Now()
+		balToken, err = token.BalanceOf(callopts, address)
+		elapsed := time.Since(start).Seconds()
+		if err == nil {
+			d.upstreams.Report(client, elapsed, false)
+		} else {
+			// Early exit
+			if util.IsEthErr(err) {
+				d.upstreams.Report(client, elapsed, false)
+				break
+			}
+			d.upstreams.Report(client, elapsed, true)
+		}
+	}
+	return balToken, errors.New("Fetch error: " + err.Error())
+}
+
+func (d *DataAccess) GetDEXReserves(
+	pairContract common.Address,
+	token0 *ERC20.ERC20,
+	client0 *ethclient.Client,
+	token1 *ERC20.ERC20,
+	client1 *ethclient.Client,
+	callopts *bind.CallOpts) (UniV2Reserves, error) {
+	reserves := UniV2Reserves{}
+	var err error
+	for retries := 0; retries < WD; retries++ {
+		// Get Balance 0
+		start := time.Now()
+		balToken0, err := token0.BalanceOf(callopts, pairContract)
+		elapsed := time.Now().Sub(start).Seconds()
+		if err == nil {
+			d.upstreams.Report(client0, elapsed, false)
+		} else {
+			// Early exit
+			if util.IsEthErr(err) {
+				d.upstreams.Report(client0, elapsed, false)
+				break
+			}
+			d.upstreams.Report(client0, elapsed, true)
+		}
+
+		// Get Balance 1
+		start = time.Now()
+		balToken1, err := token1.BalanceOf(callopts, pairContract)
+		elapsed = time.Now().Sub(start).Seconds()
+		if err != nil {
+			// Early exit
+			if util.IsEthErr(err) {
+				d.upstreams.Report(client1, elapsed, false)
+				break
+			}
+			d.upstreams.Report(client1, elapsed, true)
+		}
+		d.upstreams.Report(client1, elapsed, false)
+
+		return UniV2Reserves{
+			Reserve0:           balToken0,
+			Reserve1:           balToken1,
+			BlockTimestampLast: reserves.BlockTimestampLast,
+		}, nil
+	}
+
+	return reserves, errors.New("Fetch error: " + err.Error())
 }

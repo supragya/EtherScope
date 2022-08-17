@@ -202,70 +202,34 @@ func (r *RealtimeIndexer) processMint(
 	bm *itypes.BlockSynopsis,
 	mt *sync.Mutex,
 ) {
-	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
 
-	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+	callopts := GetBlockCallOpts(l.BlockNumber)
 
 	// Test if the contract is a UniswapV2 type contract
-	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
-
-	if util.IsExecutionReverted(err) {
-		// Could be a non uniswap contract (like AAVE V2). Example log:
-		// https://etherscan.io/tx/0x65ed6ba09f2a22805b772ff607f81fa4bb5d93ce287ecf05ab5ad97cab34c97c#eventlog logIdx 180
-		// not handled currently
+	if !r.isUniswapV2Pair(l.Address, callopts) {
 		return
 	}
 
-	// Check if we have enough data to retrieve amount of token being minted
-	if len(l.Data) < 64 {
+	ok, sender, am0, am1 := r.InfoUniV2Mint(l)
+	if !ok {
 		return
 	}
 
-	am0 := util.ExtractIntFromBytes(l.Data[:32])
-	am1 := util.ExtractIntFromBytes(l.Data[32:64])
-
-	if len(am0.Bits()) == 0 || len(am1.Bits()) == 0 {
+	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV2(am0, am1, callopts, l.Address)
+	if !ok {
 		return
 	}
 
-	erc0, client0 := r.da.GetERC20(token0)
-	erc1, client1 := r.da.GetERC20(token1)
+	// Assumed infallible since if err != nil, this code should not be reachable
+	// due to above condition
+	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
 
-	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token0Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return
-		}
-		util.ENOK(err)
-	}
-
-	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token1Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return
-		}
-		util.ENOK(err)
-	}
-
-	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
+	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
+		{l.Address, t0}, {l.Address, t1},
+	}, callopts)
 	util.ENOK(err)
 
-	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
-	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, token0, token1, formattedAmount0, formattedAmount1)
+	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, t0, t1, f0, f1)
 
 	mint := itypes.Mint{
 		Type:         "mint",
@@ -277,26 +241,19 @@ func (r *RealtimeIndexer) processMint(
 		Sender:       sender,
 		Receiver:     sender,
 		PairContract: l.Address,
-		Token0:       token0,
-		Token1:       token1,
-		Amount0:      formattedAmount0,
-		Amount1:      formattedAmount1,
-		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
-		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
+		Token0:       t0,
+		Token1:       t1,
+		Amount0:      f0,
+		Amount1:      f1,
+		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
+		Reserve1:     util.DivideBy10pow(reserves[1].Second, t1d),
 		AmountUSD:    amountusd,
 		Price0:       token0Price,
 		Price1:       token1Price,
 		Meta:         tokenMeta,
 	}
-	mt.Lock()
-	defer mt.Unlock()
-	is0Nan := math.IsInf(token0Price, 0)
-	is1Nan := math.IsInf(token1Price, 0)
-	if amountusd > -1 && !is0Nan && !is1Nan {
-		*items = append(*items, mint)
-		bm.MintLogs++
-		bm.TotalLogs++
-	}
+
+	AddToSynopsis(mt, bm, mint, items, "mint", true)
 }
 
 func (r *RealtimeIndexer) processMintV3(
@@ -828,6 +785,26 @@ func InfoTransfer(l types.Log) (hasSufficientData bool,
 		util.ExtractIntFromBytes(l.Data[:32])
 }
 
+func (r *RealtimeIndexer) InfoUniV2Mint(l types.Log) (hasSufficientData bool,
+	sender common.Address,
+	amount0 *big.Int,
+	amount1 *big.Int) {
+	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if !HasSufficientData(l, 1, 64) || err != nil {
+		if !util.IsEthErr(err) {
+			util.ENOKS(2, err)
+		}
+		return false,
+			common.Address{},
+			big.NewInt(0),
+			big.NewInt(0)
+	}
+	return true,
+		sender,
+		util.ExtractIntFromBytes(l.Data[:32]),
+		util.ExtractIntFromBytes(l.Data[32:64])
+}
+
 func (r *RealtimeIndexer) GetFormattedAmount(amount *big.Int,
 	callopts *bind.CallOpts,
 	erc20Address common.Address) (ok bool,
@@ -863,11 +840,85 @@ func AddToSynopsis(mt *sync.Mutex,
 			bm.TransferLogs++
 		case "mint":
 			bm.MintLogs++
-		case "burm":
+		case "burn":
 			bm.BurnLogs++
 		default:
 			util.ENOKS(2, fmt.Errorf("unknown add to synopsis: %s", _type))
 		}
 		bm.TotalLogs++
 	}
+}
+
+func (r *RealtimeIndexer) isUniswapV2Pair(address common.Address,
+	callopts *bind.CallOpts) bool {
+	_, _, err := r.da.GetTokensUniV2(address, callopts)
+	if err != nil {
+		return true
+	}
+	// Execution Revert: Could be a non uniswap contract (like AAVE V2). Example log:
+	// https://etherscan.io/tx/0x65ed6ba09f2a22805b772ff607f81fa4bb5d93ce287ecf05ab5ad97cab34c97c#eventlog logIdx 180
+	// not handled currently
+	if !util.IsExecutionReverted(err) {
+		util.ENOKS(2, err)
+	}
+	return false
+}
+
+// TODO: refactor this
+func (r *RealtimeIndexer) GetFormattedAmountsUniV2(amount0 *big.Int,
+	amount1 *big.Int,
+	callopts *bind.CallOpts,
+	address common.Address) (ok bool,
+	formattedAmount0 *big.Float,
+	formattedAmount1 *big.Float,
+	token0Decimals uint8,
+	token1Decimals uint8) {
+	t0, t1, err := r.da.GetTokensUniV2(address, callopts)
+	if err != nil {
+		return false,
+			big.NewFloat(0.0),
+			big.NewFloat(0.0),
+			0,
+			0
+	}
+
+	erc0, client0 := r.da.GetERC20(t0)
+
+	token0Decimals, err = r.da.GetERC20Decimals(erc0, client0, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token0Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return false,
+				big.NewFloat(0.0),
+				big.NewFloat(0.0),
+				0,
+				0
+		}
+		util.ENOKS(2, err)
+	}
+
+	erc1, client1 := r.da.GetERC20(t1)
+
+	token1Decimals, err = r.da.GetERC20Decimals(erc1, client1, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token1Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return false,
+				big.NewFloat(0.0),
+				big.NewFloat(0.0),
+				0,
+				0
+		}
+		util.ENOKS(2, err)
+	}
+
+	return true,
+		util.DivideBy10pow(amount0, token0Decimals),
+		util.DivideBy10pow(amount1, token1Decimals),
+		token0Decimals,
+		token1Decimals
 }
