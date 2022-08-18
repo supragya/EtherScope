@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var cfgFile string
@@ -30,6 +33,15 @@ var RootCmd = &cobra.Command{
 		}
 		util.ENOK(config.LoadViperConfig(cfgFile))
 		util.ENOK(config.CheckViperMandatoryFields())
+
+		maxParallelsRequested := viper.GetInt("general.maxCPUParallels")
+		if maxParallelsRequested > runtime.NumCPU() {
+			log.Warn("running on fewer threads than requrested parallels: %v vs requested %v", runtime.NumCPU(), maxParallelsRequested)
+			maxParallelsRequested = runtime.NumCPU()
+		}
+
+		runtime.GOMAXPROCS(maxParallelsRequested)
+		log.Info("set runtime max parallelism: %v", maxParallelsRequested)
 	},
 }
 

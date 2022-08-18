@@ -7,6 +7,7 @@ general:
   maxBlockSpanPerCall: 10
   failOnNonEthError: false
   persistence: mq # either postgres or mq
+  maxCPUParallels: 4
   eventsToIndex:
     - UniswapV2Swap
     - UniswapV2Mint
