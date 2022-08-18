@@ -43,6 +43,8 @@ var (
 		{"mq.user", "string", "MQ user"},
 		{"mq.pass", "string", "MQ password"},
 		{"mq.queue", "string", "MQ queue name for channel"},
+		{"mq.skipResume", "bool", "false if startBlock for indexing or hit url to get resumeBlock"},
+		{"mq.resumeURL", "string", "url to get resumeBlock from"},
 	}
 )
 

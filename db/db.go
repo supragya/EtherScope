@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"net/http"
 	"strings"
 	"time"
 
@@ -22,6 +24,8 @@ type DBConn struct {
 	isDB        bool
 	conn        *sql.DB
 	mq          *amqp.Channel
+	doResume    bool
+	resumeURL   string
 	mqQueueName string
 	dataTable   string
 	metaTable   string
@@ -42,6 +46,8 @@ func SetupConnection() (DBConn, error) {
 		return DBConn{isDB: true,
 			conn:        db,
 			mq:          nil,
+			doResume:    true,
+			resumeURL:   "",
 			mqQueueName: "",
 			dataTable:   viper.GetString("postgres.datatable"),
 			metaTable:   viper.GetString("postgres.metatable"),
@@ -54,6 +60,8 @@ func SetupConnection() (DBConn, error) {
 		return DBConn{isDB: false,
 			conn:        nil,
 			mq:          mq,
+			doResume:    !viper.GetBool("mq.skipResume"),
+			resumeURL:   viper.GetString("mq.resumeURL"),
 			mqQueueName: viper.GetString("mq.queue"),
 			dataTable:   "",
 			metaTable:   "",
@@ -130,9 +138,19 @@ func setupRabbitMQ() (*amqp.Channel, error) {
 
 func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
 	if !d.isDB {
-		log.Warn("Resume feature unavailable in non postgres database. Assuming new DB")
-		log.Warn("Transaction support unavailable for the given persistence backend")
-		return d.StartBlock
+		log.Warn("transaction support unavailable for the given persistence backend")
+		if !d.doResume {
+			log.Warn("resume feature skipped in non postgres database. assuming new DB")
+			return d.StartBlock
+		} else {
+			resp, err := http.Get(d.resumeURL)
+			util.ENOK(err)
+			body, err := ioutil.ReadAll(resp.Body)
+			util.ENOK(err)
+			var respBody struct{ Resume uint64 }
+			util.ENOK(json.Unmarshal(body, &respBody))
+			return respBody.Resume
+		}
 	}
 
 	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%d ORDER BY height DESC LIMIT 1",
