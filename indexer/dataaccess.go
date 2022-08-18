@@ -282,15 +282,16 @@ func (d *DataAccess) GetBalances(requests []Tuple2[common.Address, common.Addres
 }
 
 func (d *DataAccess) GetBalance(address common.Address,
-	token common.Address,
+	tokenAddress common.Address,
 	callopts *bind.CallOpts) (*big.Int, error) {
 	var balToken *big.Int
 	var err error
+	var token *ERC20.ERC20
 
 	for retries := 0; retries < WD; retries++ {
 		// Get Balance
 		client := d.upstreams.GetItem()
-		token, err := ERC20.NewERC20(token, client)
+		token, err = ERC20.NewERC20(tokenAddress, client)
 		if err != nil {
 			return big.NewInt(0), err
 		}
@@ -300,6 +301,7 @@ func (d *DataAccess) GetBalance(address common.Address,
 		elapsed := time.Since(start).Seconds()
 		if err == nil {
 			d.upstreams.Report(client, elapsed, false)
+			return balToken, nil
 		} else {
 			// Early exit
 			if util.IsEthErr(err) {

@@ -68,11 +68,12 @@ func InfoUniV2Burn(l types.Log) (hasSufficientData bool,
 func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
 	amount0 *big.Int,
 	amount1 *big.Int) {
-	if !HasSufficientData(l, 1, 128) {
+	if !HasSufficientData(l, 3, 128) {
 		return false,
 			big.NewInt(0),
 			big.NewInt(0)
 	}
+
 	var (
 		am0In  = util.ExtractIntFromBytes(l.Data[0:32])
 		am1In  = util.ExtractIntFromBytes(l.Data[32:64])

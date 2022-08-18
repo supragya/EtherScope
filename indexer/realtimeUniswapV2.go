@@ -191,9 +191,10 @@ func (r *RealtimeIndexer) processUniV2Swap(
 func (r *RealtimeIndexer) isUniswapV2Pair(address common.Address,
 	callopts *bind.CallOpts) bool {
 	_, _, err := r.da.GetTokensUniV2(address, callopts)
-	if err != nil {
+	if err == nil {
 		return true
 	}
+
 	// Execution Revert: Could be a non uniswap contract (like AAVE V2). Example log:
 	// https://etherscan.io/tx/0x65ed6ba09f2a22805b772ff607f81fa4bb5d93ce287ecf05ab5ad97cab34c97c#eventlog logIdx 180
 	// not handled currently

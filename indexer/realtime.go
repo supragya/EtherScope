@@ -50,7 +50,7 @@ func (r *RealtimeIndexer) Start() error {
 	if r.da.Len() == 0 {
 		return EUninitialized
 	}
-	log.Info("starting realtime indexer for events: ", r.eventsToIndexStr)
+	log.Info("starting realtime indexer for events: ", r.eventsToIndexStr, r.eventsToIndex)
 	r.ridxLoop()
 	return nil
 }
@@ -150,6 +150,7 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	case itypes.TransferTopic:
 		r.processTransfer(l, items, bm, mt)
 	case itypes.MintTopic:
+		// log.Info(l)
 		r.processMint(l, items, bm, mt)
 	case itypes.IncreaseLiquidityTopic:
 		r.processMintV3(l, items, bm, mt)
@@ -228,6 +229,8 @@ func AddToSynopsis(mt *sync.Mutex,
 			bm.MintLogs++
 		case "burn":
 			bm.BurnLogs++
+		case "swap":
+			bm.SwapLogs++
 		default:
 			util.ENOKS(2, fmt.Errorf("unknown add to synopsis: %s", _type))
 		}
