@@ -40,6 +40,5 @@ func StartRealtimeNode(cmd *cobra.Command, args []string) {
 		&dbconn,
 		viper.GetStringSlice("general.eventsToIndex"))
 	ri.Init()
-	log.Info("starting realtime indexer")
 	util.ENOK(ri.Start())
 }

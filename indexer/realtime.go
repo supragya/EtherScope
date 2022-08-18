@@ -18,11 +18,12 @@ import (
 )
 
 type RealtimeIndexer struct {
-	currentHeight uint64
-	indexedHeight uint64
-	dbconn        *db.DBConn
-	da            *DataAccess
-	eventsToIndex []common.Hash
+	currentHeight    uint64
+	indexedHeight    uint64
+	dbconn           *db.DBConn
+	da               *DataAccess
+	eventsToIndex    []common.Hash
+	eventsToIndexStr []string
 
 	quitCh chan struct{}
 }
@@ -31,12 +32,15 @@ func NewRealtimeIndexer(indexedHeight uint64,
 	upstreams []string,
 	dbconn *db.DBConn,
 	eventsToIndex []string) *RealtimeIndexer {
+	events, err := util.ConstructTopics(eventsToIndex)
+	util.ENOK(err)
 	return &RealtimeIndexer{
-		currentHeight: 0,
-		indexedHeight: indexedHeight,
-		dbconn:        dbconn,
-		da:            NewDataAccess(upstreams),
-		eventsToIndex: util.ConstructTopics(eventsToIndex),
+		currentHeight:    0,
+		indexedHeight:    indexedHeight,
+		dbconn:           dbconn,
+		da:               NewDataAccess(upstreams),
+		eventsToIndex:    events,
+		eventsToIndexStr: eventsToIndex,
 
 		quitCh: make(chan struct{}),
 	}
@@ -46,7 +50,7 @@ func (r *RealtimeIndexer) Start() error {
 	if r.da.Len() == 0 {
 		return EUninitialized
 	}
-	log.Info("starting realtime indexer for events: ", r.eventsToIndex)
+	log.Info("starting realtime indexer for events: ", r.eventsToIndexStr)
 	r.ridxLoop()
 	return nil
 }

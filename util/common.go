@@ -157,7 +157,7 @@ func GetMagnitudeForNeg(_bytes []byte) []byte {
 	return _bytes
 }
 
-func ConstructTopics(eventsToIndex []string) []common.Hash {
+func ConstructTopics(eventsToIndex []string) ([]common.Hash, error) {
 	topicsList := []common.Hash{}
 	for _, t := range eventsToIndex {
 		switch t {
@@ -175,9 +175,11 @@ func ConstructTopics(eventsToIndex []string) []common.Hash {
 			topicsList = append(topicsList, itypes.DecreaseLiquidityTopic)
 		case "Transfer":
 			topicsList = append(topicsList, itypes.TransferTopic)
+		default:
+			return []common.Hash{}, fmt.Errorf("unknown topic for construction: %s", t)
 		}
 	}
-	return topicsList
+	return topicsList, nil
 }
 
 func init() {
