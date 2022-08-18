@@ -97,7 +97,7 @@ func InfoUniV3Mint(l types.Log) (hasSufficientData bool,
 	tokenID *big.Int,
 	amount0 *big.Int,
 	amount1 *big.Int) {
-	if !HasSufficientData(l, 2, 64) {
+	if !HasSufficientData(l, 3, 160) {
 		return false,
 			big.NewInt(0),
 			big.NewInt(0),
@@ -105,6 +105,25 @@ func InfoUniV3Mint(l types.Log) (hasSufficientData bool,
 	}
 	return true,
 		util.ExtractIntFromBytes(l.Topics[1][:]),
+		util.ExtractIntFromBytes(l.Data[32:64]),
+		util.ExtractIntFromBytes(l.Data[64:96])
+}
+
+func InfoUniV3Swap(l types.Log) (hasSufficientData bool,
+	sender common.Address,
+	recipient common.Address,
+	amount0 *big.Int,
+	amount1 *big.Int) {
+	if !HasSufficientData(l, 3, 160) {
+		return false,
+			common.Address{},
+			common.Address{},
+			big.NewInt(0),
+			big.NewInt(0)
+	}
+	return true,
+		util.ExtractAddressFromLogTopic(l.Topics[1]),
+		util.ExtractAddressFromLogTopic(l.Topics[2]),
 		util.ExtractIntFromBytes(l.Data[32:64]),
 		util.ExtractIntFromBytes(l.Data[64:96])
 }

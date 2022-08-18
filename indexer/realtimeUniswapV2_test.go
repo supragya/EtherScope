@@ -35,7 +35,35 @@ func TestUniswapV2Mint(t *testing.T) {
 		items []interface{}
 	)
 
+	ri.processMint(_log, &items, &bm, &mt)
+	assert.Equal(t, 1, len(items), "one mint not found")
+	assert.Equal(t, itypes.BlockSynopsis{MintLogs: 1, TotalLogs: 1}, bm, "one mint not found")
+}
+
+func TestUniswapV2Burn(t *testing.T) {
+	var (
+		_log  = loadLog(t, "../test/uniswapV2BurnExample.json")
+		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		bm    = itypes.BlockSynopsis{}
+		mt    = sync.Mutex{}
+		items []interface{}
+	)
+
+	ri.processBurn(_log, &items, &bm, &mt)
+	assert.Equal(t, 1, len(items), "one burn not found")
+	assert.Equal(t, itypes.BlockSynopsis{BurnLogs: 1, TotalLogs: 1}, bm, "one burn not found")
+}
+
+func TestUniswapV2Swap(t *testing.T) {
+	var (
+		_log  = loadLog(t, "../test/uniswapV2SwapExample.json")
+		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		bm    = itypes.BlockSynopsis{}
+		mt    = sync.Mutex{}
+		items []interface{}
+	)
+
 	ri.processUniV2Swap(_log, &items, &bm, &mt)
-	assert.Equal(t, len(items), 1, "one swap not found")
-	assert.Equal(t, bm, itypes.BlockSynopsis{SwapLogs: 1, TotalLogs: 1}, "one swap not found")
+	assert.Equal(t, 1, len(items), "one swap not found")
+	assert.Equal(t, itypes.BlockSynopsis{SwapLogs: 1, TotalLogs: 1}, bm, "one swap not found")
 }

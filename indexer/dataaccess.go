@@ -8,6 +8,7 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ERC20"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3positionsnft"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
@@ -95,7 +96,40 @@ func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.
 	return token0, token1, errors.New("Fetch error: " + err.Error())
 }
 
-func (d *DataAccess) GetTokensUniV3(pairContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
+func (d *DataAccess) GetTokensUniV3(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
+	var token0, token1 common.Address
+	var err error
+	var pc *univ3pair.Univ3pair
+
+	for retries := 0; retries < WD; retries++ {
+		cl := d.upstreams.GetItem()
+		pc, err = univ3pair.NewUniv3pair(pairContract, cl)
+
+		start := time.Now()
+		token0, err = pc.Token0(callopts)
+		elapsed := time.Now().Sub(start).Seconds()
+		if err != nil {
+			// Early exit
+			if util.IsEthErr(err) {
+				d.upstreams.Report(cl, elapsed, false)
+				return token0, token1, err
+			}
+			continue
+		}
+		d.upstreams.Report(cl, elapsed, err != nil)
+
+		start = time.Now()
+		token1, err = pc.Token1(callopts)
+		d.upstreams.Report(cl, time.Now().Sub(start).Seconds(), err != nil)
+		if err == nil {
+			return token0, token1, nil
+		}
+	}
+
+	return token0, token1, errors.New("Fetch error: " + err.Error())
+}
+
+func (d *DataAccess) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	type Positions struct {
 		Nonce                    *big.Int
 		Operator                 common.Address
@@ -116,8 +150,7 @@ func (d *DataAccess) GetTokensUniV3(pairContract common.Address, tokenID *big.In
 
 	for retries := 0; retries < WD; retries++ {
 		cl := d.upstreams.GetItem()
-		pc, err = univ3positionsnft.NewUniv3positionsnftCaller(pairContract, cl)
-
+		pc, err = univ3positionsnft.NewUniv3positionsnftCaller(nftContract, cl)
 		start := time.Now()
 		positions, err = pc.Positions(callopts, tokenID)
 		elapsed := time.Now().Sub(start).Seconds()
@@ -130,7 +163,7 @@ func (d *DataAccess) GetTokensUniV3(pairContract common.Address, tokenID *big.In
 			continue
 		}
 		d.upstreams.Report(cl, elapsed, err != nil)
-		break
+		return positions.Token0, positions.Token1, nil
 	}
 
 	return positions.Token0, positions.Token1, errors.New("Fetch error: " + err.Error())

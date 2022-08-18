@@ -36,13 +36,13 @@ func (r *RealtimeIndexer) processMintV3(
 	}
 
 	// Test if the contract is a UniswapV3NFT type contract
-	t0, t1, err := r.da.GetTokensUniV3(l.Address, tokenID, callopts)
+	t0, t1, err := r.da.GetTokensUniV3NFT(l.Address, tokenID, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, tokenID, callopts, l.Address)
+	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3NFT(am0, am1, tokenID, callopts, l.Address)
 	if !ok {
 		return
 	}
@@ -104,13 +104,13 @@ func (r *RealtimeIndexer) processBurnV3(
 	}
 
 	// Test if the contract is a UniswapV3NFT type contract
-	t0, t1, err := r.da.GetTokensUniV3(l.Address, tokenID, callopts)
+	t0, t1, err := r.da.GetTokensUniV3NFT(l.Address, tokenID, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, tokenID, callopts, l.Address)
+	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3NFT(am0, am1, tokenID, callopts, l.Address)
 	if !ok {
 		return
 	}
@@ -160,19 +160,19 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		return
 	}
 
-	ok, tokenID, am0, am1 := InfoUniV3Mint(l)
+	ok, sender, receiver, am0, am1 := InfoUniV3Swap(l)
 	if !ok {
 		return
 	}
 
 	// Test if the contract is a UniswapV3NFT type contract
-	t0, t1, err := r.da.GetTokensUniV3(l.Address, tokenID, callopts)
+	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, tokenID, callopts, l.Address)
+	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
 	if !ok {
 		return
 	}
@@ -191,8 +191,8 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
-		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
-		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
+		Sender:       sender,
+		Receiver:     receiver,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -211,7 +211,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 
 func (r *RealtimeIndexer) isUniswapV3NFT(address common.Address,
 	callopts *bind.CallOpts) bool {
-	_, _, err := r.da.GetTokensUniV3(address, big.NewInt(0), callopts)
+	_, _, err := r.da.GetTokensUniV3NFT(address, big.NewInt(0), callopts)
 	if err != nil {
 		return true
 	}
@@ -223,7 +223,7 @@ func (r *RealtimeIndexer) isUniswapV3NFT(address common.Address,
 }
 
 // TODO: refactor this with GetFormattedAmountsUniV2
-func (r *RealtimeIndexer) GetFormattedAmountsUniV3(amount0 *big.Int,
+func (r *RealtimeIndexer) GetFormattedAmountsUniV3NFT(amount0 *big.Int,
 	amount1 *big.Int,
 	tokenID *big.Int,
 	callopts *bind.CallOpts,
@@ -232,7 +232,66 @@ func (r *RealtimeIndexer) GetFormattedAmountsUniV3(amount0 *big.Int,
 	formattedAmount1 *big.Float,
 	token0Decimals uint8,
 	token1Decimals uint8) {
-	t0, t1, err := r.da.GetTokensUniV3(address, tokenID, callopts)
+	t0, t1, err := r.da.GetTokensUniV3NFT(address, tokenID, callopts)
+	if err != nil {
+		return false,
+			big.NewFloat(0.0),
+			big.NewFloat(0.0),
+			0,
+			0
+	}
+
+	erc0, client0 := r.da.GetERC20(t0)
+
+	token0Decimals, err = r.da.GetERC20Decimals(erc0, client0, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token0Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return false,
+				big.NewFloat(0.0),
+				big.NewFloat(0.0),
+				0,
+				0
+		}
+		util.ENOKS(2, err)
+	}
+
+	erc1, client1 := r.da.GetERC20(t1)
+
+	token1Decimals, err = r.da.GetERC20Decimals(erc1, client1, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token1Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return false,
+				big.NewFloat(0.0),
+				big.NewFloat(0.0),
+				0,
+				0
+		}
+		util.ENOKS(2, err)
+	}
+
+	return true,
+		util.DivideBy10pow(amount0, token0Decimals),
+		util.DivideBy10pow(amount1, token1Decimals),
+		token0Decimals,
+		token1Decimals
+}
+
+// TODO: refactor this with GetFormattedAmountsUniV2
+func (r *RealtimeIndexer) GetFormattedAmountsUniV3(amount0 *big.Int,
+	amount1 *big.Int,
+	callopts *bind.CallOpts,
+	address common.Address) (ok bool,
+	formattedAmount0 *big.Float,
+	formattedAmount1 *big.Float,
+	token0Decimals uint8,
+	token1Decimals uint8) {
+	t0, t1, err := r.da.GetTokensUniV3(address, callopts)
 	if err != nil {
 		return false,
 			big.NewFloat(0.0),
