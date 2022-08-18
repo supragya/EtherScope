@@ -46,6 +46,7 @@ func (r *RealtimeIndexer) Start() error {
 	if r.da.Len() == 0 {
 		return EUninitialized
 	}
+	log.Info("starting realtime indexer for events: ", r.eventsToIndex)
 	r.ridxLoop()
 	return nil
 }
