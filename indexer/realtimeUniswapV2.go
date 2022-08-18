@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"math/big"
 	"sync"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
@@ -200,4 +201,63 @@ func (r *RealtimeIndexer) isUniswapV2Pair(address common.Address,
 		util.ENOKS(2, err)
 	}
 	return false
+}
+
+// TODO: refactor this
+func (r *RealtimeIndexer) GetFormattedAmountsUniV2(amount0 *big.Int,
+	amount1 *big.Int,
+	callopts *bind.CallOpts,
+	address common.Address) (ok bool,
+	formattedAmount0 *big.Float,
+	formattedAmount1 *big.Float,
+	token0Decimals uint8,
+	token1Decimals uint8) {
+	t0, t1, err := r.da.GetTokensUniV2(address, callopts)
+	if err != nil {
+		return false,
+			big.NewFloat(0.0),
+			big.NewFloat(0.0),
+			0,
+			0
+	}
+
+	erc0, client0 := r.da.GetERC20(t0)
+
+	token0Decimals, err = r.da.GetERC20Decimals(erc0, client0, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token0Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return false,
+				big.NewFloat(0.0),
+				big.NewFloat(0.0),
+				0,
+				0
+		}
+		util.ENOKS(2, err)
+	}
+
+	erc1, client1 := r.da.GetERC20(t1)
+
+	token1Decimals, err = r.da.GetERC20Decimals(erc1, client1, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		token1Decimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return false,
+				big.NewFloat(0.0),
+				big.NewFloat(0.0),
+				0,
+				0
+		}
+		util.ENOKS(2, err)
+	}
+
+	return true,
+		util.DivideBy10pow(amount0, token0Decimals),
+		util.DivideBy10pow(amount1, token1Decimals),
+		token0Decimals,
+		token1Decimals
 }

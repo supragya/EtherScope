@@ -91,3 +91,19 @@ func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
 
 	return true, am0, am1
 }
+
+func InfoUniV3Mint(l types.Log) (hasSufficientData bool,
+	tokenID *big.Int,
+	amount0 *big.Int,
+	amount1 *big.Int) {
+	if !HasSufficientData(l, 2, 64) {
+		return false,
+			big.NewInt(0),
+			big.NewInt(0),
+			big.NewInt(0)
+	}
+	return true,
+		util.ExtractIntFromBytes(l.Topics[1][:]),
+		util.ExtractIntFromBytes(l.Data[32:64]),
+		util.ExtractIntFromBytes(l.Data[64:96])
+}
