@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"sync"
@@ -85,17 +84,6 @@ func (r *RealtimeIndexer) ridxLoop() {
 					ToBlock:   big.NewInt(int64(endingBlock)),
 					Topics:    [][]common.Hash{r.eventsToIndex},
 				})
-
-				count := 0
-				for _, l := range logs {
-					count++
-					if count < 2 {
-						continue
-					}
-					ret, _ := json.Marshal(l)
-					log.Info(string(ret))
-					panic("")
-				}
 
 				if err != nil {
 					log.Error(err)
