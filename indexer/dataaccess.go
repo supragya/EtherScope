@@ -146,11 +146,11 @@ func (d *DataAccess) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.
 	}
 	var positions Positions
 	var err error
-	var pc *univ3positionsnft.Univ3positionsnftCaller
+	var pc *univ3positionsnft.Univ3positionsnft
 
 	for retries := 0; retries < WD; retries++ {
 		cl := d.upstreams.GetItem()
-		pc, err = univ3positionsnft.NewUniv3positionsnftCaller(nftContract, cl)
+		pc, err = univ3positionsnft.NewUniv3positionsnft(nftContract, cl)
 		start := time.Now()
 		positions, err = pc.Positions(callopts, tokenID)
 		elapsed := time.Now().Sub(start).Seconds()

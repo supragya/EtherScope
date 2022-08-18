@@ -18,7 +18,6 @@ func (r *RealtimeIndexer) processMintV3(
 	mt *sync.Mutex,
 ) {
 	callopts := GetBlockCallOpts(l.BlockNumber)
-
 	// Test if the contract is a UniswapV3 NFT type contract
 	if !r.isUniswapV3NFT(l.Address, callopts) {
 		return
@@ -156,7 +155,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	callopts := GetBlockCallOpts(l.BlockNumber)
 
 	// Test if the contract is a UniswapV3 NFT type contract
-	if !r.isUniswapV3NFT(l.Address, callopts) {
+	if !r.isUniswapV3(l.Address, callopts) {
 		return
 	}
 
@@ -209,10 +208,23 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	AddToSynopsis(mt, bm, swap, items, "swap", true)
 }
 
+func (r *RealtimeIndexer) isUniswapV3(address common.Address,
+	callopts *bind.CallOpts) bool {
+	_, _, err := r.da.GetTokensUniV3(address, callopts)
+	if err == nil {
+		return true
+	}
+
+	if !util.IsExecutionReverted(err) {
+		util.ENOKS(2, err)
+	}
+	return false
+}
+
 func (r *RealtimeIndexer) isUniswapV3NFT(address common.Address,
 	callopts *bind.CallOpts) bool {
-	_, _, err := r.da.GetTokensUniV3NFT(address, big.NewInt(0), callopts)
-	if err != nil {
+	_, _, err := r.da.GetTokensUniV3NFT(address, big.NewInt(1), callopts)
+	if err == nil {
 		return true
 	}
 

@@ -97,7 +97,7 @@ func InfoUniV3Mint(l types.Log) (hasSufficientData bool,
 	tokenID *big.Int,
 	amount0 *big.Int,
 	amount1 *big.Int) {
-	if !HasSufficientData(l, 3, 160) {
+	if !HasSufficientData(l, 2, 96) {
 		return false,
 			big.NewInt(0),
 			big.NewInt(0),
