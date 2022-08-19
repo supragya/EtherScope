@@ -24,6 +24,7 @@ type DataAccess struct {
 	upstreams           *LatencySortedPool
 	contractTokensCache *lru.ARCCache
 	ERC20Cache          *lru.ARCCache
+	pricing             *Pricing
 }
 
 type UniV2Reserves struct {
@@ -40,11 +41,13 @@ func NewDataAccess(upstreams []string) *DataAccess {
 	util.ENOK(err)
 
 	lsp := NewLatencySortedPool(upstreams)
+
 	go lsp.ShowStatus()
 	return &DataAccess{
 		upstreams:           lsp,
 		contractTokensCache: ctcache,
 		ERC20Cache:          erc20cache,
+		pricing:             GetPricingEngine(),
 	}
 }
 

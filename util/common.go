@@ -1,6 +1,7 @@
 package util
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"math"
 	"math/big"
@@ -180,6 +181,12 @@ func ConstructTopics(eventsToIndex []string) ([]common.Hash, error) {
 		}
 	}
 	return topicsList, nil
+}
+
+func SHA256Hash(_bytes []byte) []byte {
+	hasher := sha256.New()
+	hasher.Write(_bytes)
+	return hasher.Sum(nil)
 }
 
 func init() {

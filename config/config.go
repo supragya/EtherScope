@@ -19,10 +19,13 @@ var (
 		{"general.startBlock", "uint64", "Block to start indexing from. Overridden if postgres tables have higher heights already synced"},
 		{"general.maxBlockSpanPerCall", "uint64", "Max number of block to sync once in a batch"},
 		{"general.chainID", "uint64", "ChainID of the synced chain"},
+		{"general.networkName", "string", "Unique chain identifier"},
 		{"general.failOnNonEthError", "bool", "Fail on catastrophic error on a log event"},
 		{"general.maxCPUParallels", "uint64", "Largest number of logical CPUs the process can be running on at a given time"},
 		{"general.persistence", "string", "Persistence object: one of (\"postgres\", \"mq\"). MQ doesn't suppport atomic transactions"},
 		{"general.eventsToIndex", "[]string", "Events to index"},
+		{"general.oracleMapsRootDir", "string", "Directory storing chainlink oracle maps"},
+		{"general.diskCacheRootDir", "string", "Directory for on-disk caches"},
 
 		{"rpc", "[]string", "Remote upstreams for RPC access"},
 	}

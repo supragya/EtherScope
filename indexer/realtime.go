@@ -50,7 +50,9 @@ func (r *RealtimeIndexer) Start() error {
 	if r.da.Len() == 0 {
 		return EUninitialized
 	}
-	log.Info("starting realtime indexer for events: ", r.eventsToIndexStr, r.eventsToIndex)
+	for i := 0; i < len(r.eventsToIndex); i++ {
+		log.Info("starting indexer for: ", r.eventsToIndexStr[i], " a.k.a ", r.eventsToIndex[i])
+	}
 	r.ridxLoop()
 	return nil
 }
@@ -99,6 +101,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 				}
 			}
 		case <-r.quitCh:
+			// TODO: Graceful exit
 			log.Info("quitting realtime indexer")
 		}
 	}
@@ -150,7 +153,6 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	case itypes.TransferTopic:
 		r.processTransfer(l, items, bm, mt)
 	case itypes.MintTopic:
-		// log.Info(l)
 		r.processMint(l, items, bm, mt)
 	case itypes.IncreaseLiquidityTopic:
 		r.processMintV3(l, items, bm, mt)
