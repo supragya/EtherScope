@@ -18,10 +18,9 @@ var (
 type tokenMeta struct {
 	RoundId         *big.Int
 	Answer          *big.Int
+	StartedAt       *big.Int
 	UpdatedAt       *big.Int
 	AnsweredInRound *big.Int
-	usdOracle       bool
-	oracleAddress   string
 }
 
 type Mint struct {
