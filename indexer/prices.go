@@ -93,8 +93,8 @@ func (d *DataAccess) GetPricesForBlock(
 			// If oracle is not USD based, we need to derive the USD value by fetching native token USD price (EX. ETH / USD)
 			baseCurrency := fetchBaseCurrency(callopts, cl)
 			token0Price = baseCurrency * token0Price
-			token1Price = ratioToInt
 			amountusd = token0Price * token0Amount
+			token1Price = amountusd / token1Amount
 		} else {
 			token1Price = ratioToInt * token0Price
 			amountusd = token0Price * token0Amount
@@ -120,8 +120,8 @@ func (d *DataAccess) GetPricesForBlock(
 		if !isUSD {
 			baseCurrency := fetchBaseCurrency(callopts, cl)
 			token1Price = baseCurrency * token1Price
-			token0Price = ratioToInt
 			amountusd = token1Price * token1Amount
+			token0Price = amountusd / token0Amount
 		} else {
 			token0Price = ratioToInt * token1Price
 			amountusd = token1Price * token1Amount
