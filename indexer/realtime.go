@@ -198,7 +198,7 @@ func (r *RealtimeIndexer) GetFormattedAmount(amount *big.Int,
 	formattedAmount *big.Float) {
 	erc, client := r.da.GetERC20(erc20Address)
 
-	tokenDecimals, err := r.da.GetERC20Decimals(erc, client, callopts)
+	tokenDecimals, err := r.da.GetERC20Decimals(erc, client, erc20Address, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		tokenDecimals = 0

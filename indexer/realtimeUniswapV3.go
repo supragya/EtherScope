@@ -255,7 +255,7 @@ func (r *RealtimeIndexer) GetFormattedAmountsUniV3NFT(amount0 *big.Int,
 
 	erc0, client0 := r.da.GetERC20(t0)
 
-	token0Decimals, err = r.da.GetERC20Decimals(erc0, client0, callopts)
+	token0Decimals, err = r.da.GetERC20Decimals(erc0, client0, t0, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token0Decimals = 0
@@ -272,7 +272,7 @@ func (r *RealtimeIndexer) GetFormattedAmountsUniV3NFT(amount0 *big.Int,
 
 	erc1, client1 := r.da.GetERC20(t1)
 
-	token1Decimals, err = r.da.GetERC20Decimals(erc1, client1, callopts)
+	token1Decimals, err = r.da.GetERC20Decimals(erc1, client1, t1, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token1Decimals = 0
@@ -314,7 +314,7 @@ func (r *RealtimeIndexer) GetFormattedAmountsUniV3(amount0 *big.Int,
 
 	erc0, client0 := r.da.GetERC20(t0)
 
-	token0Decimals, err = r.da.GetERC20Decimals(erc0, client0, callopts)
+	token0Decimals, err = r.da.GetERC20Decimals(erc0, client0, t0, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token0Decimals = 0
@@ -331,7 +331,7 @@ func (r *RealtimeIndexer) GetFormattedAmountsUniV3(amount0 *big.Int,
 
 	erc1, client1 := r.da.GetERC20(t1)
 
-	token1Decimals, err = r.da.GetERC20Decimals(erc1, client1, callopts)
+	token1Decimals, err = r.da.GetERC20Decimals(erc1, client1, t1, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token1Decimals = 0
