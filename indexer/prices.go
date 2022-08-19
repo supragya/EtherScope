@@ -43,9 +43,10 @@ func (d *DataAccess) GetPricesForBlock(
 	callopts *bind.CallOpts, token0 common.Address, token1 common.Address, amount0 *big.Float, amount1 *big.Float) (float64, float64, float64, struct {
 	RoundId         *big.Int
 	Answer          *big.Int
-	StartedAt       *big.Int
 	UpdatedAt       *big.Int
 	AnsweredInRound *big.Int
+	usdOracle       bool
+	oracleAddress   string
 }) {
 
 	networkID := viper.GetUint("general.chainID")
@@ -64,9 +65,10 @@ func (d *DataAccess) GetPricesForBlock(
 	var oracleMetaData struct {
 		RoundId         *big.Int
 		Answer          *big.Int
-		StartedAt       *big.Int
 		UpdatedAt       *big.Int
 		AnsweredInRound *big.Int
+		usdOracle       bool
+		oracleAddress   string
 	}
 
 	if token0OracleAddress, token0Oracle := oracleMap[token0]; token0Oracle {
@@ -78,8 +80,14 @@ func (d *DataAccess) GetPricesForBlock(
 		if err != nil {
 			log.Fatal(err)
 		}
-		oracleMetaData, _ = instance.LatestRoundData(callopts)
-		token0LastPrice := oracleMetaData.Answer
+		tempOracleMetaData, _ := instance.LatestRoundData(callopts)
+		oracleMetaData.RoundId = tempOracleMetaData.RoundId
+		oracleMetaData.Answer = tempOracleMetaData.Answer
+		oracleMetaData.UpdatedAt = tempOracleMetaData.UpdatedAt
+		oracleMetaData.AnsweredInRound = tempOracleMetaData.AnsweredInRound
+		oracleMetaData.oracleAddress = oracleMap[token0]
+
+		token0LastPrice := tempOracleMetaData.Answer
 		decimals, _ := instance.Decimals(callopts)
 
 		token0Formatted := util.DivideBy10pow(token0LastPrice, decimals)
@@ -95,9 +103,11 @@ func (d *DataAccess) GetPricesForBlock(
 			token0Price = baseCurrency * token0Price
 			amountusd = token0Price * token0Amount
 			token1Price = amountusd / token1Amount
+			oracleMetaData.usdOracle = false
 		} else {
 			token1Price = ratioToInt * token0Price
 			amountusd = token0Price * token0Amount
+			oracleMetaData.usdOracle = true
 		}
 	} else if token1OracleAddress, token1Oracle := oracleMap[token1]; token1Oracle {
 		isUSD = util.IsUSDOracle(token1OracleAddress)
@@ -106,8 +116,13 @@ func (d *DataAccess) GetPricesForBlock(
 		if err != nil {
 			log.Fatal(err)
 		}
-		oracleMetaData, _ = instance.LatestRoundData(callopts)
-		token1LastPrice := oracleMetaData.Answer
+		tempOracleMetaData, _ := instance.LatestRoundData(callopts)
+		oracleMetaData.RoundId = tempOracleMetaData.RoundId
+		oracleMetaData.Answer = tempOracleMetaData.Answer
+		oracleMetaData.UpdatedAt = tempOracleMetaData.UpdatedAt
+		oracleMetaData.AnsweredInRound = tempOracleMetaData.AnsweredInRound
+		oracleMetaData.oracleAddress = oracleMap[token1]
+		token1LastPrice := tempOracleMetaData.Answer
 		decimals, _ := instance.Decimals(callopts)
 
 		token1Formatted := util.DivideBy10pow(token1LastPrice, decimals)
@@ -122,9 +137,11 @@ func (d *DataAccess) GetPricesForBlock(
 			token1Price = baseCurrency * token1Price
 			amountusd = token1Price * token1Amount
 			token0Price = amountusd / token0Amount
+			oracleMetaData.usdOracle = false
 		} else {
 			token0Price = ratioToInt * token1Price
 			amountusd = token1Price * token1Amount
+			oracleMetaData.usdOracle = true
 		}
 	} else {
 		// TODO: Values should be NULL as we can't dervive USD price for token0 or token1
