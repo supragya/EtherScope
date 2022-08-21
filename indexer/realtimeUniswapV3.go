@@ -51,7 +51,7 @@ func (r *RealtimeIndexer) processMintV3(
 	}, callopts)
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
 
 	mint := itypes.Mint{
 		Type:         "mint",
@@ -72,7 +72,6 @@ func (r *RealtimeIndexer) processMintV3(
 		AmountUSD:    amountusd,
 		Price0:       token0Price,
 		Price1:       token1Price,
-		Meta:         tokenMeta,
 	}
 
 	AddToSynopsis(mt, bm, mint, items, "mint", true)
@@ -119,7 +118,8 @@ func (r *RealtimeIndexer) processBurnV3(
 	}, callopts)
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
+
 	burn := itypes.Burn{
 		Type:         "burn",
 		Network:      r.dbconn.ChainID,
@@ -139,7 +139,6 @@ func (r *RealtimeIndexer) processBurnV3(
 		AmountUSD:    amountusd,
 		Price0:       token0Price,
 		Price1:       token1Price,
-		Meta:         tokenMeta,
 	}
 
 	AddToSynopsis(mt, bm, burn, items, "burn", true)
@@ -181,7 +180,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	}, callopts)
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(r.dbconn.ChainID, callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
 
 	swap := itypes.Swap{
 		Type:         "swap",
@@ -202,7 +201,6 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		AmountUSD:    amountusd,
 		Price0:       token0Price,
 		Price1:       token1Price,
-		Meta:         tokenMeta,
 	}
 
 	AddToSynopsis(mt, bm, swap, items, "swap", true)

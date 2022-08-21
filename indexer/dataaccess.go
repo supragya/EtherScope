@@ -24,6 +24,7 @@ type DataAccess struct {
 	upstreams           *LatencySortedPool
 	contractTokensCache *lru.ARCCache
 	ERC20Cache          *lru.ARCCache
+	PricingCache        *lru.ARCCache
 	pricing             *Pricing
 }
 
@@ -40,6 +41,9 @@ func NewDataAccess(upstreams []string) *DataAccess {
 	erc20cache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
+	pricingcache, err := lru.NewARC(1024) // Hardcoded 1024
+	util.ENOK(err)
+
 	lsp := NewLatencySortedPool(upstreams)
 
 	go lsp.ShowStatus()
@@ -47,6 +51,7 @@ func NewDataAccess(upstreams []string) *DataAccess {
 		upstreams:           lsp,
 		contractTokensCache: ctcache,
 		ERC20Cache:          erc20cache,
+		PricingCache:        pricingcache,
 		pricing:             GetPricingEngine(),
 	}
 }
@@ -363,6 +368,12 @@ func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
 type Tuple2[A any, B any] struct {
 	First  A
 	Second B
+}
+
+type Tuple3[A any, B any, C any] struct {
+	First  A
+	Second B
+	Third  C
 }
 
 func (d *DataAccess) GetBalances(requests []Tuple2[common.Address, common.Address],

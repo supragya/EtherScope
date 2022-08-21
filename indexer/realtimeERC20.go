@@ -1,9 +1,11 @@
 package indexer
 
 import (
+	"math/big"
 	"sync"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -26,6 +28,8 @@ func (r *RealtimeIndexer) processTransfer(
 		return
 	}
 
+	tokenPrice := r.da.GetPriceForBlock(callopts, Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
+
 	transfer := itypes.Transfer{
 		Type:        "transfer",
 		Network:     r.dbconn.ChainID,
@@ -37,7 +41,7 @@ func (r *RealtimeIndexer) processTransfer(
 		Sender:      sender,
 		Receiver:    recv,
 		Amount:      formattedAmount,
-		AmountUSD:   0, // TODO
+		AmountUSD:   tokenPrice,
 	}
 
 	AddToSynopsis(mt, bm, transfer, items, "transfer", true)

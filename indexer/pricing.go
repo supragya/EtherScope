@@ -5,9 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
+	"time"
 
+	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/chainlink"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/supragya/gograph"
@@ -36,6 +41,8 @@ type Pricing struct {
 	cacheFile         string
 	oracleHash        string
 	graph             *gograph.Graph[string, string]
+	stableCoins       map[common.Address]bool
+	tokenMap          map[common.Address]string
 	oracleMap         OracleMap
 }
 
@@ -79,5 +86,113 @@ func GetPricingEngine() *Pricing {
 	util.ENOK(pricing.graph.ReadFromDisk(pricing.cacheFile))
 	log.Info("loaded up pricing graph")
 
+	// Setup stablecoins
+	for _, sc := range pricing.oracleMap.StableCoinsUSD {
+		pricing.stableCoins[common.HexToAddress(sc)] = true
+	}
+
+	// Setup tokenMap
+	for _, token := range pricing.oracleMap.Tokens {
+		pricing.tokenMap[common.HexToAddress(token.Contract)] = token.ID
+	}
+
 	return &pricing
+}
+
+func (d *DataAccess) GetPricing2Tokens(
+	callopts *bind.CallOpts,
+	token0Address common.Address,
+	token1Address common.Address,
+	token0Amount *big.Float,
+	token1Amount *big.Float) (token0Price *big.Float,
+	token1Price *big.Float,
+	amountUSD *big.Float) {
+	prices := d.GetPricesForBlock(callopts, []Tuple2[common.Address, *big.Float]{
+		{token0Address, token0Amount},
+		{token1Address, token1Amount},
+	})
+
+	if prices[0] == nil || prices[1] == nil {
+		return prices[0], prices[1], nil
+	}
+
+	return prices[0], prices[1], big.NewFloat(1.0).Add(prices[0], prices[1])
+}
+
+func (d *DataAccess) GetPricesForBlock(
+	callopts *bind.CallOpts,
+	requests []Tuple2[common.Address, *big.Float]) []*big.Float {
+	response := []*big.Float{}
+	for _, req := range requests {
+		response = append(response, d.GetPriceForBlock(callopts, req))
+	}
+	return response
+}
+
+func (d *DataAccess) GetPriceForBlock(
+	callopts *bind.CallOpts,
+	request Tuple2[common.Address, *big.Float]) *big.Float {
+
+	// cache lookup
+	lookupKey := Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
+
+	if val, ok := d.PricingCache.Get(lookupKey); ok {
+		return big.NewFloat(0.0).Mul(val.(*big.Float), request.Second)
+	}
+
+	// Is stablecoin
+	if _, ok := d.pricing.stableCoins[request.First]; ok {
+		return request.Second
+	}
+
+	// if a known token
+	if tokenID, ok := d.pricing.tokenMap[request.First]; ok {
+		route := d.pricing.graph.GetShortestRoute(tokenID, "USD")
+		multiplier := big.NewFloat(1.0)
+
+		for _, edge := range route.Edges {
+			oracleContractAddress := common.HexToAddress(edge.Metadata)
+
+			for retries := 0; retries < WD; retries++ {
+				cl := d.upstreams.GetItem()
+				oracle, err := chainlink.NewChainlink(oracleContractAddress, cl)
+				util.ENOK(err)
+
+				start := time.Now()
+				latestRoundData, err := oracle.LatestRoundData(callopts)
+				latency := time.Since(start).Seconds()
+				if err != nil {
+					if util.IsEthErr(err) {
+						d.upstreams.Report(cl, latency, false)
+						return nil
+					}
+					d.upstreams.Report(cl, latency, true)
+					continue
+				}
+
+				start = time.Now()
+				decimals, err := oracle.Decimals(callopts)
+				latency = time.Since(start).Seconds()
+				if err != nil {
+					if util.IsEthErr(err) {
+						d.upstreams.Report(cl, latency, false)
+						return nil
+					}
+					d.upstreams.Report(cl, latency, true)
+					continue
+				}
+
+				tokenFormatted := util.DivideBy10pow(latestRoundData.Answer, decimals)
+
+				// Assuming base currency to be worth 1USD
+				multiplier = multiplier.Mul(multiplier, tokenFormatted)
+			}
+		}
+
+		// Cache insert
+		d.PricingCache.Add(lookupKey, multiplier)
+		return multiplier.Mul(multiplier, request.Second)
+	}
+
+	return nil
 }

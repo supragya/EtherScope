@@ -36,7 +36,7 @@ type Transfer struct {
 	Sender      common.Address
 	Receiver    common.Address
 	Amount      *big.Float
-	AmountUSD   float64
+	AmountUSD   *big.Float
 }
 
 type Mint struct {
@@ -55,10 +55,9 @@ type Mint struct {
 	Amount1      *big.Float
 	Reserve0     *big.Float
 	Reserve1     *big.Float
-	AmountUSD    float64
-	Price0       float64
-	Price1       float64
-	Meta         tokenMeta
+	AmountUSD    *big.Float
+	Price0       *big.Float
+	Price1       *big.Float
 }
 
 type Burn struct {
@@ -77,10 +76,9 @@ type Burn struct {
 	Amount1      *big.Float
 	Reserve0     *big.Float
 	Reserve1     *big.Float
-	AmountUSD    float64
-	Price0       float64
-	Price1       float64
-	Meta         tokenMeta
+	AmountUSD    *big.Float
+	Price0       *big.Float
+	Price1       *big.Float
 }
 
 type Swap struct {
@@ -99,10 +97,9 @@ type Swap struct {
 	Amount1      *big.Float
 	Reserve0     *big.Float
 	Reserve1     *big.Float
-	AmountUSD    float64
-	Price0       float64
-	Price1       float64
-	Meta         tokenMeta
+	AmountUSD    *big.Float
+	Price0       *big.Float
+	Price1       *big.Float
 }
 
 type BlockSynopsis struct {
