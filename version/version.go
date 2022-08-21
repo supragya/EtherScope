@@ -19,12 +19,17 @@ var builder string = "unknownbuilder"
 // Go version -- supplied compile time
 var gover string = "unknownver"
 
+// Persistence version -- database compatibility index.
+// NOT TO be supplied compile time. Should be hardcoded.
+var PersistenceVersion uint8 = 1
+
 var RootCmdVersion string = prepareVersionString()
 
 func prepareVersionString() string {
 	var buffer bytes.Buffer
 	buffer.WriteString(ApplicationVersion + " build " + buildCommit)
 	buffer.WriteString("\ncompiled at " + buildTime + " by " + builder)
+	buffer.WriteString("\npersistence version " + string(PersistenceVersion))
 	buffer.WriteString("\nusing " + gover)
 	return buffer.String()
 }

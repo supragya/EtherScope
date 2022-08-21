@@ -14,6 +14,7 @@ import (
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -35,7 +36,19 @@ type DBConn struct {
 	store       [][]byte
 }
 
+type VersionWrapper struct {
+	Version uint8
+	Message any
+}
+
 var zeroFloat = big.NewFloat(0.0)
+
+func VersionWrapped(message any) VersionWrapper {
+	return VersionWrapper{
+		Version: version.PersistenceVersion,
+		Message: message,
+	}
+}
 
 func SetupConnection() (DBConn, error) {
 	dbType := viper.GetString("general.persistence")
@@ -220,7 +233,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			if d.isDB {
 				query = d.getQueryStringTransfer(it, currentTime)
 			} else {
-				mqMessage, err := json.Marshal(it)
+				mqMessage, err := json.Marshal(VersionWrapped(it))
 				util.ENOK(err)
 				d.store = append(d.store, mqMessage)
 			}
@@ -228,7 +241,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			if d.isDB {
 				query = d.getQueryStringMint(it, currentTime)
 			} else {
-				mqMessage, err := json.Marshal(it)
+				mqMessage, err := json.Marshal(VersionWrapped(it))
 				util.ENOK(err)
 				d.store = append(d.store, mqMessage)
 			}
@@ -236,7 +249,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			if d.isDB {
 				query = d.getQueryStringBurn(it, currentTime)
 			} else {
-				mqMessage, err := json.Marshal(it)
+				mqMessage, err := json.Marshal(VersionWrapped(it))
 				util.ENOK(err)
 				d.store = append(d.store, mqMessage)
 			}
@@ -244,7 +257,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			if d.isDB {
 				query = d.getQueryStringSwap(it, currentTime)
 			} else {
-				mqMessage, err := json.Marshal(it)
+				mqMessage, err := json.Marshal(VersionWrapped(it))
 				util.ENOK(err)
 				d.store = append(d.store, mqMessage)
 			}
