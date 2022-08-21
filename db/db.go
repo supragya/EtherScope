@@ -281,7 +281,7 @@ func (d *DBConn) getQueryStringTransfer(item itypes.Transfer, currentTime int64)
 		item.AmountUSD,                           // amountusd, FIXME
 		"transfer",                               // type
 		strings.ToLower(item.Sender.Hex()[2:]),   // sender FIXME (removed 0x prefix)
-		strings.ToLower(item.Receiver.Hex()[2:]), // sender FIXME (removed 0x prefix)
+		strings.ToLower(item.Receiver.Hex()[2:]), // recipient FIXME (removed 0x prefix)
 		strings.ToLower(item.Transaction.String()[2:]), // transaction (removed 0x prefix)
 		0.0,         // slippage
 		item.Height, // height

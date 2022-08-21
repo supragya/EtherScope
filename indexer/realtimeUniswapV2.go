@@ -53,7 +53,7 @@ func (r *RealtimeIndexer) processMint(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
-		Receiver:     sender,
+		Receiver:     common.Address{},
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
