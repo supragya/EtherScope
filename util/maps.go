@@ -14,6 +14,7 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	polygon := make(map[common.Address]string)
 	avax := make(map[common.Address]string)
 	ftm := make(map[common.Address]string)
+	optimism := make(map[common.Address]string)
 	ethereum[common.HexToAddress("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")] = "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419" // WETH / USD
 	ethereum[common.HexToAddress("0x2260fac5e5542a773aa44fbcfedf7c193bc2c599")] = "0xf4030086522a5beea4988f8ca5b36dbc97bee88c" // WBTC / USD
 	ethereum[common.HexToAddress("0x514910771af9ca656af840dff83e8264ecf986ca")] = "0x2c1d072e956affc0d435cb7ac38ef18d24d9127c" // LINK / USD
@@ -73,6 +74,12 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	ftm[common.HexToAddress("0x658b0c7613e890ee50b8c4bc6a3f41ef411208ad")] = "0x11ddd3d147e5b83d01cee7070027092397d63658" // ETH / USD
 	ftm[common.HexToAddress("0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83")] = "0xf4766552d15ae4d256ad41b6cf2933482b0680dc" // FTM / USD
 
+	optimism[common.HexToAddress("0x68f180fcce6836688e9084f035309e29bf0a2095")] = "0xd702dd976fb76fffc2d3963d037dfdae5b04e593" // BTC / USD
+	optimism[common.HexToAddress("0x4200000000000000000000000000000000000006")] = "0x13e3ee699d1909e989722e753853ae30b17e08c5" // ETH / USD
+	optimism[common.HexToAddress("0x7f5c764cbc14f9669b88837ca1490cca17c31607")] = "0x16a9fa2fda030272ce99b29cf780dfa30361e0f3" // USDC / USD
+	optimism[common.HexToAddress("0xda10009cbd5d07dd0cecc66161fc93d7c9000da1")] = "0x8dba75e83da73cc766a7e5a0ee71f656bab470d6" // DAI / USD
+	optimism[common.HexToAddress("0x94b008aa00579c1307b0ef2c499ad98a8ce58e58")] = "0xecef79e109e997bca29c1c0897ec9d7b03647f5e" // USDT / USD
+
 	switch chain {
 	case 1:
 		return ethereum, nil
@@ -84,6 +91,8 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 		return polygon, nil
 	case 43114:
 		return avax, nil
+	case 10:
+		return optimism, nil
 	}
 	err := errors.New("Cannot find oracle map for provided Chain")
 	return nil, err
@@ -128,7 +137,12 @@ func IsUSDOracle(contract string) bool {
 		"0xe6ecf7d2361b6459cbb3b4fb065e0ef4b175fe74",
 		"0xd2ffccfa0934cafda647c5ff8e7918a10103c01c",
 		"0x2eb00cc9db7a7e0a013a49b3f6ac66008d1456f7",
-		"0xccc059a1a17577676c8673952dc02070d29e5a66":
+		"0xccc059a1a17577676c8673952dc02070d29e5a66",
+		"0xd702dd976fb76fffc2d3963d037dfdae5b04e593",
+		"0x13e3ee699d1909e989722e753853ae30b17e08c5",
+		"0x16a9fa2fda030272ce99b29cf780dfa30361e0f3",
+		"0x8dba75e83da73cc766a7e5a0ee71f656bab470d6",
+		"0xecef79e109e997bca29c1c0897ec9d7b03647f5e":
 
 		return true
 	}
@@ -150,6 +164,8 @@ func BaseNativeToken(chain uint) string {
 		return "0x0a77230d17318075983913bc2145db16c7366156"
 	case 250:
 		return "0xf4766552d15ae4d256ad41b6cf2933482b0680dc"
+	case 10:
+		return "0x13e3ee699d1909e989722e753853ae30b17e08c5"
 	}
 	return "null"
 }
