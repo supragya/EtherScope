@@ -59,6 +59,9 @@ func (r *RealtimeIndexer) Start() error {
 }
 
 func (r *RealtimeIndexer) ridxLoop() {
+	instrumentation.StartingBlock.Set(float64(r.indexedHeight))
+	instrumentation.ProcessedBlock.Set(float64(r.indexedHeight))
+
 	maxBlockSpanPerCall := viper.GetUint64("general.maxBlockSpanPerCall")
 	for {
 		select {
@@ -82,6 +85,8 @@ func (r *RealtimeIndexer) ridxLoop() {
 				log.Info(fmt.Sprintf("sync curr: %d (+%d), processing [%d - %d]",
 					r.currentHeight, r.currentHeight-r.indexedHeight, r.indexedHeight, endingBlock))
 
+				instrumentation.CurrentBlock.Set(float64(r.currentHeight))
+
 				logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 					FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 					ToBlock:   big.NewInt(int64(endingBlock)),
@@ -96,6 +101,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 				r.processBatchedBlockLogs(logs, r.indexedHeight+1, endingBlock)
 
 				r.indexedHeight = endingBlock
+				instrumentation.ProcessedBlock.Set(float64(r.indexedHeight))
 
 				if isOnHead {
 					break

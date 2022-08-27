@@ -29,14 +29,28 @@ var (
 
 // Checks if error is nil or not. Kills process if not nil
 func ENOK(err error) {
-	ENOKS(1, err)
+	ENOKS(2, err)
 }
 
 func ENOKS(skip int, err error) {
 	if err != nil {
+		// ok := true
+		// sk := 1
+		// no := 0
+		// file := ""
+		// for {
+		// 	if !ok {
+		// 		break
+		// 	}
+		// 	_, file, no, ok = runtime.Caller(sk)
+		// 	log.Info("skip: ", sk, file, no)
+		// 	sk++
+		// }
 		_, file, no, ok := runtime.Caller(skip)
+		log.Info(ok)
 		if ok {
 			fileSplit := strings.Split(file, "/")
+			log.Info(fileSplit)
 			log.WithFields(log.Fields{
 				"file": fileSplit[len(fileSplit)-1],
 				"line": no,

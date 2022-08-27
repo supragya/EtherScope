@@ -199,7 +199,7 @@ func (r *RealtimeIndexer) isUniswapV2Pair(address common.Address,
 	// Execution Revert: Could be a non uniswap contract (like AAVE V2). Example log:
 	// https://etherscan.io/tx/0x65ed6ba09f2a22805b772ff607f81fa4bb5d93ce287ecf05ab5ad97cab34c97c#eventlog logIdx 180
 	// not handled currently
-	if !util.IsExecutionReverted(err) {
+	if !util.IsEthErr(err) {
 		util.ENOKS(2, err)
 	}
 	return false

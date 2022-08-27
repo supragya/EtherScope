@@ -18,6 +18,10 @@ func StartPromServer() {
 }
 
 var (
+	StartingBlock  = pg("starting_block", "starting block")
+	ProcessedBlock = pg("processed_block", "processed block")
+	CurrentBlock   = pg("current_block", "current blockchain height")
+
 	TfrFound    = pc("tfr_found", "transfers found")
 	MintV2Found = pc("mintv2_found", "mint v2 found")
 	MintV3Found = pc("mintv3_found", "mint v3 found")
@@ -37,6 +41,13 @@ var (
 
 func pc(name string, help string) prometheus.Counter {
 	return promauto.NewCounter(prometheus.CounterOpts{
+		Name: "indexer_" + name,
+		Help: help,
+	})
+}
+
+func pg(name string, help string) prometheus.Gauge {
+	return promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "indexer_" + name,
 		Help: help,
 	})
