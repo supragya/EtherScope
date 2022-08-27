@@ -26,6 +26,7 @@ var (
 		{"general.eventsToIndex", "[]string", "Events to index"},
 		{"general.oracleMapsRootDir", "string", "Directory storing chainlink oracle maps"},
 		{"general.diskCacheRootDir", "string", "Directory for on-disk caches"},
+		{"general.prometheusEndpoint", "string", "address on which to expose prometheus metrics"},
 
 		{"rpc", "[]string", "Remote upstreams for RPC access"},
 	}

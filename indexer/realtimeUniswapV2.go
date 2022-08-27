@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -67,6 +68,7 @@ func (r *RealtimeIndexer) processMint(
 	}
 
 	AddToSynopsis(mt, bm, mint, items, "mint", true)
+	instrumentation.MintV2Processed.Inc()
 }
 
 func (r *RealtimeIndexer) processBurn(
@@ -125,6 +127,7 @@ func (r *RealtimeIndexer) processBurn(
 	}
 
 	AddToSynopsis(mt, bm, burn, items, "burn", true)
+	instrumentation.BurnV2Processed.Inc()
 }
 
 func (r *RealtimeIndexer) processUniV2Swap(
@@ -183,6 +186,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	}
 
 	AddToSynopsis(mt, bm, swap, items, "swap", true)
+	instrumentation.SwapV2Processed.Inc()
 }
 
 func (r *RealtimeIndexer) isUniswapV2Pair(address common.Address,

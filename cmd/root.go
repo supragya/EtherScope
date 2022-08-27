@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
@@ -30,6 +31,7 @@ var RootCmd = &cobra.Command{
 		}
 		util.ENOK(config.LoadViperConfig(cfgFile))
 		util.ENOK(config.CheckViperMandatoryFields())
+		go instrumentation.StartPromServer()
 	},
 }
 

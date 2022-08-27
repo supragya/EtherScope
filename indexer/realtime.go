@@ -8,6 +8,7 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -151,18 +152,25 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
 	case itypes.TransferTopic:
+		instrumentation.TfrFound.Inc()
 		r.processTransfer(l, items, bm, mt)
 	case itypes.MintTopic:
+		instrumentation.MintV2Found.Inc()
 		r.processMint(l, items, bm, mt)
 	case itypes.IncreaseLiquidityTopic:
+		instrumentation.MintV3Found.Inc()
 		r.processMintV3(l, items, bm, mt)
 	case itypes.DecreaseLiquidityTopic:
+		instrumentation.BurnV3Found.Inc()
 		r.processBurnV3(l, items, bm, mt)
 	case itypes.BurnTopic:
+		instrumentation.BurnV2Found.Inc()
 		r.processBurn(l, items, bm, mt)
 	case itypes.UniV2Swap:
+		instrumentation.SwapV2Found.Inc()
 		r.processUniV2Swap(l, items, bm, mt)
 	case itypes.UniV3Swap:
+		instrumentation.SwapV3Found.Inc()
 		r.processUniV3Swap(l, items, bm, mt)
 	}
 }

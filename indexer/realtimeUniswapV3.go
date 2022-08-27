@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -75,6 +76,7 @@ func (r *RealtimeIndexer) processMintV3(
 	}
 
 	AddToSynopsis(mt, bm, mint, items, "mint", true)
+	instrumentation.MintV3Processed.Inc()
 }
 
 func (r *RealtimeIndexer) processBurnV3(
@@ -142,6 +144,7 @@ func (r *RealtimeIndexer) processBurnV3(
 	}
 
 	AddToSynopsis(mt, bm, burn, items, "burn", true)
+	instrumentation.BurnV3Processed.Inc()
 }
 
 // TODO: fix
@@ -204,6 +207,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	}
 
 	AddToSynopsis(mt, bm, swap, items, "swap", true)
+	instrumentation.SwapV3Processed.Inc()
 }
 
 func (r *RealtimeIndexer) isUniswapV3(address common.Address,

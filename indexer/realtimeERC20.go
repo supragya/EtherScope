@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -45,4 +46,5 @@ func (r *RealtimeIndexer) processTransfer(
 	}
 
 	AddToSynopsis(mt, bm, transfer, items, "transfer", true)
+	instrumentation.TfrProcessed.Inc()
 }

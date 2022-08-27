@@ -78,12 +78,14 @@ func GetPricingEngine() *Pricing {
 
 	if _, err := os.Stat(pricing.cacheFile); err != nil {
 		// Cache doesn't exists
-		log.Info("prewarming pricing graph cache")
+		log.Info("prewarming pricing graph cache for future runs")
 		tempGraph := gograph.NewGraphStringUintString(false)
 		for _, o := range pricing.oracleMap.Oracles {
 			tempGraph.AddEdge(o.From, o.To, 1, o.Contract)
 		}
 		tempGraph.SaveToDisk(pricing.cacheFile)
+	} else {
+		log.Info("loading up prewarmed pricing graph cache")
 	}
 
 	// Load up pricing

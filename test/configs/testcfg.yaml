@@ -19,6 +19,7 @@ general:
     - Transfer
   oracleMapsRootDir: maps
   diskCacheRootDir: cache
+  prometheusEndpoint: 127.0.0.1:9722
 
 # Subsection RPC upstreams
 # Needed always.
