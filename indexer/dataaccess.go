@@ -402,7 +402,7 @@ func (d *DataAccess) GetBalance(address common.Address,
 		client := d.upstreams.GetItem()
 		token, err = ERC20.NewERC20(tokenAddress, client)
 		if err != nil {
-			return big.NewInt(0), err
+			return util.ZeroBigInt_DoNotSet, err
 		}
 
 		start := time.Now()

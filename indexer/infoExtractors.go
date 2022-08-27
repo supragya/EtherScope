@@ -22,7 +22,7 @@ func InfoTransfer(l types.Log) (hasSufficientData bool,
 		return false,
 			common.Address{},
 			common.Address{},
-			big.NewInt(0)
+			util.ZeroBigInt_DoNotSet
 	}
 	return true,
 		util.ExtractAddressFromLogTopic(l.Topics[1]),
@@ -37,8 +37,8 @@ func InfoUniV2Mint(l types.Log) (hasSufficientData bool,
 	if !HasSufficientData(l, 2, 64) {
 		return false,
 			common.Address{},
-			big.NewInt(0),
-			big.NewInt(0)
+			util.ZeroBigInt_DoNotSet,
+			util.ZeroBigInt_DoNotSet
 	}
 	return true,
 		util.ExtractAddressFromLogTopic(l.Topics[1]),
@@ -55,8 +55,8 @@ func InfoUniV2Burn(l types.Log) (hasSufficientData bool,
 		return false,
 			common.Address{},
 			common.Address{},
-			big.NewInt(0),
-			big.NewInt(0)
+			util.ZeroBigInt_DoNotSet,
+			util.ZeroBigInt_DoNotSet
 	}
 	return true,
 		util.ExtractAddressFromLogTopic(l.Topics[1]),
@@ -70,8 +70,8 @@ func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
 	amount1 *big.Int) {
 	if !HasSufficientData(l, 3, 128) {
 		return false,
-			big.NewInt(0),
-			big.NewInt(0)
+			util.ZeroBigInt_DoNotSet,
+			util.ZeroBigInt_DoNotSet
 	}
 
 	var (
@@ -81,8 +81,8 @@ func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
 		am1Out = util.ExtractIntFromBytes(l.Data[96:128])
 	)
 
-	am0, am1 := big.NewInt(0), big.NewInt(0)
-	if am0In.Cmp(big.NewInt(0)) == 0 {
+	am0, am1 := big.NewInt(0), util.ZeroBigInt_DoNotSet
+	if am0In.Cmp(util.ZeroBigInt_DoNotSet) == 0 {
 		am0 = am0.Neg(am0Out)
 		am1 = am1In
 	} else {
@@ -99,9 +99,9 @@ func InfoUniV3Mint(l types.Log) (hasSufficientData bool,
 	amount1 *big.Int) {
 	if !HasSufficientData(l, 2, 96) {
 		return false,
-			big.NewInt(0),
-			big.NewInt(0),
-			big.NewInt(0)
+			util.ZeroBigInt_DoNotSet,
+			util.ZeroBigInt_DoNotSet,
+			util.ZeroBigInt_DoNotSet
 	}
 	return true,
 		util.ExtractIntFromBytes(l.Topics[1][:]),
@@ -118,8 +118,8 @@ func InfoUniV3Swap(l types.Log) (hasSufficientData bool,
 		return false,
 			common.Address{},
 			common.Address{},
-			big.NewInt(0),
-			big.NewInt(0)
+			util.ZeroBigInt_DoNotSet,
+			util.ZeroBigInt_DoNotSet
 	}
 	return true,
 		util.ExtractAddressFromLogTopic(l.Topics[1]),

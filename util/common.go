@@ -18,13 +18,10 @@ import (
 )
 
 var (
-	EthErrorRegexes []*regexp.Regexp
-	// ExecutionReverted    *regexp.Regexp
-	// AbiErrRegex          *regexp.Regexp
-	// NoContract           *regexp.Regexp
-	// ErrUnmarshal         *regexp.Regexp
+	EthErrorRegexes      []*regexp.Regexp
 	FailOnNonEthError    bool
 	FailOnNonEthErrorSet bool
+	ZeroBigInt_DoNotSet  *big.Int
 )
 
 // Checks if error is nil or not. Kills process if not nil
@@ -34,18 +31,6 @@ func ENOK(err error) {
 
 func ENOKS(skip int, err error) {
 	if err != nil {
-		// ok := true
-		// sk := 1
-		// no := 0
-		// file := ""
-		// for {
-		// 	if !ok {
-		// 		break
-		// 	}
-		// 	_, file, no, ok = runtime.Caller(sk)
-		// 	log.Info("skip: ", sk, file, no)
-		// 	sk++
-		// }
 		_, file, no, ok := runtime.Caller(skip)
 		log.Info(ok)
 		if ok {
@@ -215,4 +200,6 @@ func init() {
 	for _, e := range EthErrors {
 		EthErrorRegexes = append(EthErrorRegexes, regexp.MustCompile(e))
 	}
+
+	ZeroBigInt_DoNotSet.SetInt64(0)
 }
