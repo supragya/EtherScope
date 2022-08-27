@@ -47,12 +47,17 @@ type Pricing struct {
 }
 
 func GetPricingEngine() *Pricing {
-	pricing := Pricing{}
-
-	pricing.oracleMapsRootDir = viper.GetString("general.oracleMapsRootDir")
-	pricing.networkName = viper.GetString("general.networkName")
-	pricing.diskCacheRootDir = viper.GetString("general.diskCacheRootDir")
-	pricing.oracleFile = pricing.oracleMapsRootDir + "/oraclemaps_" + pricing.networkName + ".json"
+	pricing := Pricing{
+		oracleMapsRootDir: viper.GetString("general.oracleMapsRootDir"),
+		diskCacheRootDir:  viper.GetString("general.diskCacheRootDir"),
+		networkName:       viper.GetString("general.networkName"),
+		oracleFile:        viper.GetString("general.oracleMapsRootDir") + "/oraclemaps_" + viper.GetString("general.networkName") + ".json",
+		oracleHash:        "", // Computed below
+		graph:             gograph.NewGraphStringUintString(false),
+		stableCoins:       make(map[common.Address]bool),
+		tokenMap:          make(map[common.Address]string),
+		oracleMap:         OracleMap{},
+	}
 
 	// Open oracle file
 	fd, err := os.Open(pricing.oracleFile)
@@ -82,7 +87,6 @@ func GetPricingEngine() *Pricing {
 	}
 
 	// Load up pricing
-	pricing.graph = gograph.NewGraphStringUintString(false)
 	util.ENOK(pricing.graph.ReadFromDisk(pricing.cacheFile))
 	log.Info("loaded up pricing graph")
 
