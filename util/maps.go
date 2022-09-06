@@ -72,6 +72,7 @@ func GetOracleContracts(chain uint) (map[common.Address]string, error) {
 	ftm[common.HexToAddress("0xe1146b9ac456fcbb60644c36fd3f868a9072fc6e")] = "0x8e94c22142f4a64b99022ccdd994f4e9ec86e4b4" // BTC / USD
 	ftm[common.HexToAddress("0x321162Cd933E2Be498Cd2267a90534A804051b11")] = "0x8e94c22142f4a64b99022ccdd994f4e9ec86e4b4" // BTC / USD
 	ftm[common.HexToAddress("0x658b0c7613e890ee50b8c4bc6a3f41ef411208ad")] = "0x11ddd3d147e5b83d01cee7070027092397d63658" // ETH / USD
+	ftm[common.HexToAddress("0x74b23882a30290451a17c44f4f05243b6b58c76d")] = "0x11ddd3d147e5b83d01cee7070027092397d63658" // ETH / USD
 	ftm[common.HexToAddress("0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83")] = "0xf4766552d15ae4d256ad41b6cf2933482b0680dc" // FTM / USD
 
 	optimism[common.HexToAddress("0x68f180fcce6836688e9084f035309e29bf0a2095")] = "0xd702dd976fb76fffc2d3963d037dfdae5b04e593" // BTC / USD
