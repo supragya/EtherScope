@@ -32,10 +32,8 @@ func ENOK(err error) {
 func ENOKS(skip int, err error) {
 	if err != nil {
 		_, file, no, ok := runtime.Caller(skip)
-		log.Info(ok)
 		if ok {
 			fileSplit := strings.Split(file, "/")
-			log.Info(fileSplit)
 			log.WithFields(log.Fields{
 				"file": fileSplit[len(fileSplit)-1],
 				"line": no,
@@ -201,5 +199,5 @@ func init() {
 		EthErrorRegexes = append(EthErrorRegexes, regexp.MustCompile(e))
 	}
 
-	ZeroBigInt_DoNotSet.SetInt64(0)
+	ZeroBigInt_DoNotSet = big.NewInt(0)
 }

@@ -42,6 +42,9 @@ func (r *RealtimeIndexer) processMint(
 	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
 	util.ENOK(err)
 
 	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
@@ -101,6 +104,9 @@ func (r *RealtimeIndexer) processBurn(
 	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
 	util.ENOK(err)
 
 	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
@@ -160,6 +166,9 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
 	util.ENOK(err)
 
 	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
