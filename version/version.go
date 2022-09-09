@@ -6,6 +6,7 @@ import (
 
 // Application version  -- supplied compile time
 var ApplicationVersion string = "unknownversion"
+var ApplicationCodename string = "buffalo"
 
 // Build commit -- supplied compile time
 var buildCommit string = "unknowncommit"
@@ -27,7 +28,7 @@ var RootCmdVersion string = prepareVersionString()
 
 func prepareVersionString() string {
 	var buffer bytes.Buffer
-	buffer.WriteString(ApplicationVersion + " build " + buildCommit)
+	buffer.WriteString(ApplicationVersion + " build " + buildCommit + "(" + ApplicationCodename + ")")
 	buffer.WriteString("\ncompiled at " + buildTime + " by " + builder)
 	buffer.WriteString("\npersistence version " + string(PersistenceVersion))
 	buffer.WriteString("\nusing " + gover)
