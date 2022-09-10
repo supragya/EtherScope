@@ -2,13 +2,13 @@ package indexer
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -19,20 +19,29 @@ import (
 )
 
 type RealtimeIndexer struct {
-	currentHeight uint64
-	indexedHeight uint64
-	dbconn        *db.DBConn
-	da            *DataAccess
+	currentHeight    uint64
+	indexedHeight    uint64
+	dbconn           *db.DBConn
+	da               *DataAccess
+	eventsToIndex    []common.Hash
+	eventsToIndexStr []string
 
 	quitCh chan struct{}
 }
 
-func NewRealtimeIndexer(indexedHeight uint64, upstreams []string, dbconn *db.DBConn) *RealtimeIndexer {
+func NewRealtimeIndexer(indexedHeight uint64,
+	upstreams []string,
+	dbconn *db.DBConn,
+	eventsToIndex []string) *RealtimeIndexer {
+	events, err := util.ConstructTopics(eventsToIndex)
+	util.ENOK(err)
 	return &RealtimeIndexer{
-		currentHeight: 0,
-		indexedHeight: indexedHeight,
-		dbconn:        dbconn,
-		da:            NewDataAccess(upstreams),
+		currentHeight:    0,
+		indexedHeight:    indexedHeight,
+		dbconn:           dbconn,
+		da:               NewDataAccess(upstreams),
+		eventsToIndex:    events,
+		eventsToIndexStr: eventsToIndex,
 
 		quitCh: make(chan struct{}),
 	}
@@ -42,12 +51,17 @@ func (r *RealtimeIndexer) Start() error {
 	if r.da.Len() == 0 {
 		return EUninitialized
 	}
+	for i := 0; i < len(r.eventsToIndex); i++ {
+		log.Info("starting indexer for: ", r.eventsToIndexStr[i], " a.k.a ", r.eventsToIndex[i])
+	}
 	r.ridxLoop()
-	time.Sleep(time.Second * 2)
 	return nil
 }
 
 func (r *RealtimeIndexer) ridxLoop() {
+	instrumentation.StartingBlock.Set(float64(r.indexedHeight))
+	instrumentation.ProcessedBlock.Set(float64(r.indexedHeight))
+
 	maxBlockSpanPerCall := viper.GetUint64("general.maxBlockSpanPerCall")
 	for {
 		select {
@@ -67,23 +81,16 @@ func (r *RealtimeIndexer) ridxLoop() {
 					isOnHead = false
 					endingBlock = r.indexedHeight + maxBlockSpanPerCall
 				}
-				syncing := "head"
-				if !isOnHead {
-					syncing = "sync"
-				}
 
-				log.Info(fmt.Sprintf("%s curr: %d (+%d), processing [%d - %d]",
-					syncing, r.currentHeight, r.currentHeight-r.indexedHeight, r.indexedHeight, endingBlock))
+				log.Info(fmt.Sprintf("sync curr: %d (+%d), processing [%d - %d]",
+					r.currentHeight, r.currentHeight-r.indexedHeight, r.indexedHeight, endingBlock))
+
+				instrumentation.CurrentBlock.Set(float64(r.currentHeight))
 
 				logs, err := r.da.GetFilteredLogs(ethereum.FilterQuery{
 					FromBlock: big.NewInt(int64(r.indexedHeight + 1)),
 					ToBlock:   big.NewInt(int64(endingBlock)),
-					Topics: [][]common.Hash{{
-						itypes.MintTopic,
-						itypes.BurnTopic,
-						itypes.UniV2Swap,
-						itypes.UniV3Swap,
-					}},
+					Topics:    [][]common.Hash{r.eventsToIndex},
 				})
 
 				if err != nil {
@@ -94,12 +101,14 @@ func (r *RealtimeIndexer) ridxLoop() {
 				r.processBatchedBlockLogs(logs, r.indexedHeight+1, endingBlock)
 
 				r.indexedHeight = endingBlock
+				instrumentation.ProcessedBlock.Set(float64(r.indexedHeight))
 
 				if isOnHead {
 					break
 				}
 			}
 		case <-r.quitCh:
+			// TODO: Graceful exit
 			log.Info("quitting realtime indexer")
 		}
 	}
@@ -110,7 +119,6 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	// or not even one
 	kv := GroupByBlockNumber(logs)
 	dbCtx, dbTx := r.dbconn.BeginTx()
-	networkID := viper.GetUint("general.chainID")
 
 	for block := start; block <= end; block++ {
 		time, err := r.da.GetBlockTimestamp(block)
@@ -119,7 +127,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 		logs, ok := kv[block]
 		blockMeta := itypes.BlockSynopsis{
 			Type:    "stats",
-			Network: networkID,
+			Network: r.dbconn.ChainID,
 			Height:  block,
 			Time:    time,
 		}
@@ -149,397 +157,27 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
+	case itypes.TransferTopic:
+		instrumentation.TfrFound.Inc()
+		r.processTransfer(l, items, bm, mt)
 	case itypes.MintTopic:
+		instrumentation.MintV2Found.Inc()
 		r.processMint(l, items, bm, mt)
+	case itypes.IncreaseLiquidityTopic:
+		instrumentation.MintV3Found.Inc()
+		r.processMintV3(l, items, bm, mt)
+	case itypes.DecreaseLiquidityTopic:
+		instrumentation.BurnV3Found.Inc()
+		r.processBurnV3(l, items, bm, mt)
 	case itypes.BurnTopic:
+		instrumentation.BurnV2Found.Inc()
 		r.processBurn(l, items, bm, mt)
 	case itypes.UniV2Swap:
+		instrumentation.SwapV2Found.Inc()
 		r.processUniV2Swap(l, items, bm, mt)
 	case itypes.UniV3Swap:
+		instrumentation.SwapV3Found.Inc()
 		r.processUniV3Swap(l, items, bm, mt)
-	}
-}
-
-func (r *RealtimeIndexer) processMint(
-	l types.Log,
-	items *[]interface{},
-	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
-) {
-	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
-
-	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	// Test if the contract is a UniswapV2 type contract
-	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
-
-	if util.IsExecutionReverted(err) {
-		// Could be a non uniswap contract (like AAVE V2). Example log:
-		// https://etherscan.io/tx/0x65ed6ba09f2a22805b772ff607f81fa4bb5d93ce287ecf05ab5ad97cab34c97c#eventlog logIdx 180
-		// not handled currently
-		return
-	}
-
-	// Check if we have enough data to retrieve amount of token being minted
-	if len(l.Data) < 32 {
-		return
-	}
-
-	am0 := util.ExtractIntFromBytes(l.Data[:32])
-	am1 := util.ExtractIntFromBytes(l.Data[32:64])
-
-	if len(am0.Bits()) == 0 || len(am1.Bits()) == 0 {
-		return
-	}
-
-	erc0, client0 := r.da.GetERC20(token0)
-	erc1, client1 := r.da.GetERC20(token1)
-
-	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token0Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return
-		}
-		util.ENOK(err)
-	}
-
-	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token1Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return
-		}
-		util.ENOK(err)
-	}
-
-	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
-	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
-	networkID := viper.GetUint("general.chainID")
-
-	mint := itypes.Mint{
-		Type:         "mint",
-		Network:      networkID,
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       sender,
-		Receiver:     sender,
-		PairContract: l.Address,
-		Token0:       token0,
-		Token1:       token1,
-		Amount0:      formattedAmount0,
-		Amount1:      formattedAmount1,
-		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
-		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
-		AmountUSD:    amountusd,
-		Price0:       token0Price,
-		Price1:       token1Price,
-		Meta:         tokenMeta,
-	}
-	mt.Lock()
-	defer mt.Unlock()
-	is0Nan := math.IsInf(token0Price, 0)
-	is1Nan := math.IsInf(token1Price, 0)
-	if amountusd > -1 && !is0Nan && !is1Nan {
-		*items = append(*items, mint)
-		bm.MintLogs++
-		bm.TotalLogs++
-	}
-}
-
-func (r *RealtimeIndexer) processBurn(
-	l types.Log,
-	items *[]interface{},
-	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
-) {
-	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
-
-	if len(l.Topics) < 3 {
-		return
-	}
-
-	sender := util.ExtractAddressFromLogTopic(l.Topics[1])
-	recipient := util.ExtractAddressFromLogTopic(l.Topics[2])
-
-	// Check if we have enough data to retrieve amount of token being minted
-	if len(l.Data) < 64 {
-		return
-	}
-
-	am0 := util.ExtractIntFromBytes(l.Data[:32])
-	am1 := util.ExtractIntFromBytes(l.Data[32:64])
-
-	if len(am0.Bits()) == 0 || len(am1.Bits()) == 0 {
-		return
-	}
-
-	// Test if the contract is a UniswapV2 type contract
-	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
-
-	if util.IsExecutionReverted(err) {
-		// Could be a non uniswap contract (Seen seldom in practice).
-		// TODO document any such logs in code
-
-		log.Info("Burn execution revert. ADD THIS TRANSACTION TO CODE COMMENT, CONTACT AUTHOR, details: [", l.TxHash, " idx ", l.Index, "]")
-		return
-	}
-
-	erc0, client0 := r.da.GetERC20(token0)
-	erc1, client1 := r.da.GetERC20(token1)
-
-	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token0Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return
-		}
-		util.ENOK(err)
-	}
-
-	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token1Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return
-		}
-		util.ENOK(err)
-	}
-
-	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
-	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
-	networkID := viper.GetUint("general.chainID")
-
-	burn := itypes.Burn{
-		Type:         "burn",
-		Network:      networkID,
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       sender,
-		Receiver:     recipient,
-		PairContract: l.Address,
-		Token0:       token0,
-		Token1:       token1,
-		Amount0:      formattedAmount0,
-		Amount1:      formattedAmount1,
-		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
-		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
-		AmountUSD:    amountusd,
-		Price0:       token0Price,
-		Price1:       token1Price,
-		Meta:         tokenMeta,
-	}
-
-	mt.Lock()
-	defer mt.Unlock()
-	is0Nan := math.IsInf(token0Price, 0)
-	is1Nan := math.IsInf(token1Price, 0)
-	if amountusd > -1 && !is0Nan && !is1Nan {
-		*items = append(*items, burn)
-		bm.BurnLogs++
-		bm.TotalLogs++
-	}
-}
-
-func (r *RealtimeIndexer) processUniV2Swap(
-	l types.Log,
-	items *[]interface{},
-	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
-) {
-	if len(l.Data) != 128 {
-		log.Warn("unknown swap event data len: ", len(l.Data), " expected 128")
-		return
-	}
-
-	am0In := util.ExtractIntFromBytes(l.Data[0:32])
-	am1In := util.ExtractIntFromBytes(l.Data[32:64])
-	am0Out := util.ExtractIntFromBytes(l.Data[64:96])
-	am1Out := util.ExtractIntFromBytes(l.Data[96:128])
-
-	am0, am1 := big.NewInt(0), big.NewInt(0)
-	if am0In.Cmp(big.NewInt(0)) == 0 {
-		am0 = am0.Neg(am0Out)
-		am1 = am1In
-	} else {
-		am0 = am0In
-		am1 = am1.Neg(am1Out)
-	}
-
-	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
-	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-
-	util.ENOK(err)
-
-	erc0, client0 := r.da.GetERC20(token0)
-	erc1, client1 := r.da.GetERC20(token1)
-
-	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
-	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
-	networkID := viper.GetUint("general.chainID")
-
-	swap := itypes.Swap{
-		Type:         "swap",
-		Network:      networkID,
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
-		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
-		PairContract: l.Address,
-		Token0:       token0,
-		Token1:       token1,
-		Amount0:      formattedAmount0,
-		Amount1:      formattedAmount1,
-		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
-		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
-		AmountUSD:    amountusd,
-		Price0:       token0Price,
-		Price1:       token1Price,
-		Meta:         tokenMeta,
-	}
-
-	mt.Lock()
-	defer mt.Unlock()
-	is0Nan := math.IsInf(token0Price, 0)
-	is1Nan := math.IsInf(token1Price, 0)
-	if amountusd > -1 && !is0Nan && !is1Nan {
-		*items = append(*items, swap)
-		bm.SwapLogs++
-		bm.TotalLogs++
-	}
-}
-
-func (r *RealtimeIndexer) processUniV3Swap(
-	l types.Log,
-	items *[]interface{},
-	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
-) {
-	if len(l.Data) != 160 {
-		log.Warn("unknown swap event data len: ", len(l.Data), " expected 160")
-		return
-	}
-
-	am0 := util.ExtractIntFromBytes(l.Data[0:32])
-	am1 := util.ExtractIntFromBytes(l.Data[32:64])
-
-	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(l.BlockNumber))}
-	token0, token1, err := r.da.GetTokensUniV2(l.Address, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	erc0, client0 := r.da.GetERC20(token0)
-	erc1, client1 := r.da.GetERC20(token1)
-
-	token0Decimals, err := r.da.GetERC20Decimals(erc0, client0, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	token1Decimals, err := r.da.GetERC20Decimals(erc1, client1, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	reserves, err := r.da.GetDEXReserves(l.Address, erc0, client0, erc1, client1, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
-
-	formattedAmount0 := util.DivideBy10pow(am0, token0Decimals)
-	formattedAmount1 := util.DivideBy10pow(am1, token1Decimals)
-	token0Price, token1Price, amountusd, tokenMeta := r.da.GetPricesForBlock(callopts, token0, token1, formattedAmount0, formattedAmount1)
-	networkID := viper.GetUint("general.chainID")
-
-	swap := itypes.Swap{
-		Type:         "swap",
-		Network:      networkID,
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
-		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
-		PairContract: l.Address,
-		Token0:       token0,
-		Token1:       token1,
-		Amount0:      formattedAmount0,
-		Amount1:      formattedAmount1,
-		Reserve0:     util.DivideBy10pow(reserves.Reserve0, token0Decimals),
-		Reserve1:     util.DivideBy10pow(reserves.Reserve1, token1Decimals),
-		AmountUSD:    amountusd,
-		Price0:       token0Price,
-		Price1:       token1Price,
-		Meta:         tokenMeta,
-	}
-
-	mt.Lock()
-	defer mt.Unlock()
-	is0Nan := math.IsInf(token0Price, 0)
-	is1Nan := math.IsInf(token1Price, 0)
-	if amountusd > -1 && !is0Nan && !is1Nan {
-		*items = append(*items, swap)
-		bm.SwapLogs++
-		bm.TotalLogs++
 	}
 }
 
@@ -562,4 +200,56 @@ func (r *RealtimeIndexer) Status() interface{} {
 
 func (r *RealtimeIndexer) Quit() {
 	r.quitCh <- struct{}{}
+}
+
+// ---- NEW
+
+func GetBlockCallOpts(blockNumber uint64) *bind.CallOpts {
+	return &bind.CallOpts{BlockNumber: big.NewInt(int64(blockNumber))}
+}
+
+func (r *RealtimeIndexer) GetFormattedAmount(amount *big.Int,
+	callopts *bind.CallOpts,
+	erc20Address common.Address) (ok bool,
+	formattedAmount *big.Float) {
+	erc, client := r.da.GetERC20(erc20Address)
+
+	tokenDecimals, err := r.da.GetERC20Decimals(erc, client, erc20Address, callopts)
+	if util.IsExecutionReverted(err) {
+		// Non ERC-20 contract
+		tokenDecimals = 0
+	} else {
+		if util.IsEthErr(err) {
+			return false, big.NewFloat(0.0)
+		}
+		util.ENOKS(2, err)
+	}
+
+	return true, util.DivideBy10pow(amount, tokenDecimals)
+}
+
+func AddToSynopsis(mt *sync.Mutex,
+	bm *itypes.BlockSynopsis,
+	item interface{},
+	items *[]interface{},
+	_type string,
+	condition bool) {
+	mt.Lock()
+	defer mt.Unlock()
+	if condition {
+		*items = append(*items, item)
+		switch _type {
+		case "transfer":
+			bm.TransferLogs++
+		case "mint":
+			bm.MintLogs++
+		case "burn":
+			bm.BurnLogs++
+		case "swap":
+			bm.SwapLogs++
+		default:
+			util.ENOKS(2, fmt.Errorf("unknown add to synopsis: %s", _type))
+		}
+		bm.TotalLogs++
+	}
 }

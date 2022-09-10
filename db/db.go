@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"net/http"
 	"strings"
 	"time"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -22,6 +25,8 @@ type DBConn struct {
 	isDB        bool
 	conn        *sql.DB
 	mq          *amqp.Channel
+	doResume    bool
+	resumeURL   string
 	mqQueueName string
 	dataTable   string
 	metaTable   string
@@ -31,7 +36,19 @@ type DBConn struct {
 	store       [][]byte
 }
 
+type VersionWrapper struct {
+	Version uint8
+	Message any
+}
+
 var zeroFloat = big.NewFloat(0.0)
+
+func VersionWrapped(message any) VersionWrapper {
+	return VersionWrapper{
+		Version: version.PersistenceVersion,
+		Message: message,
+	}
+}
 
 func SetupConnection() (DBConn, error) {
 	dbType := viper.GetString("general.persistence")
@@ -42,6 +59,8 @@ func SetupConnection() (DBConn, error) {
 		return DBConn{isDB: true,
 			conn:        db,
 			mq:          nil,
+			doResume:    true,
+			resumeURL:   "",
 			mqQueueName: "",
 			dataTable:   viper.GetString("postgres.datatable"),
 			metaTable:   viper.GetString("postgres.metatable"),
@@ -54,6 +73,8 @@ func SetupConnection() (DBConn, error) {
 		return DBConn{isDB: false,
 			conn:        nil,
 			mq:          mq,
+			doResume:    !viper.GetBool("mq.skipResume"),
+			resumeURL:   viper.GetString("mq.resumeURL"),
 			mqQueueName: viper.GetString("mq.queue"),
 			dataTable:   "",
 			metaTable:   "",
@@ -130,9 +151,19 @@ func setupRabbitMQ() (*amqp.Channel, error) {
 
 func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
 	if !d.isDB {
-		log.Warn("Resume feature unavailable in non postgres database. Assuming new DB")
-		log.Warn("Transaction support unavailable for the given persistence backend")
-		return d.StartBlock
+		log.Warn("transaction support unavailable for the given persistence backend")
+		if !d.doResume {
+			log.Warn("resume feature skipped in non postgres database. assuming new DB")
+			return d.StartBlock
+		} else {
+			resp, err := http.Get(d.resumeURL)
+			util.ENOK(err)
+			body, err := ioutil.ReadAll(resp.Body)
+			util.ENOK(err)
+			var respBody struct{ Resume uint64 }
+			util.ENOK(json.Unmarshal(body, &respBody))
+			return respBody.Resume
+		}
 	}
 
 	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%d ORDER BY height DESC LIMIT 1",
@@ -198,11 +229,19 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 	for _, item := range items {
 		query := ""
 		switch it := item.(type) {
+		case itypes.Transfer:
+			if d.isDB {
+				query = d.getQueryStringTransfer(it, currentTime)
+			} else {
+				mqMessage, err := json.Marshal(VersionWrapped(it))
+				util.ENOK(err)
+				d.store = append(d.store, mqMessage)
+			}
 		case itypes.Mint:
 			if d.isDB {
 				query = d.getQueryStringMint(it, currentTime)
 			} else {
-				mqMessage, err := json.Marshal(it)
+				mqMessage, err := json.Marshal(VersionWrapped(it))
 				util.ENOK(err)
 				d.store = append(d.store, mqMessage)
 			}
@@ -210,7 +249,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			if d.isDB {
 				query = d.getQueryStringBurn(it, currentTime)
 			} else {
-				mqMessage, err := json.Marshal(it)
+				mqMessage, err := json.Marshal(VersionWrapped(it))
 				util.ENOK(err)
 				d.store = append(d.store, mqMessage)
 			}
@@ -218,7 +257,7 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 			if d.isDB {
 				query = d.getQueryStringSwap(it, currentTime)
 			} else {
-				mqMessage, err := json.Marshal(it)
+				mqMessage, err := json.Marshal(VersionWrapped(it))
 				util.ENOK(err)
 				d.store = append(d.store, mqMessage)
 			}
@@ -239,6 +278,27 @@ func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface
 		util.ENOK(err)
 		d.store = append(d.store, mqMessage)
 	}
+}
+
+func (d *DBConn) getQueryStringTransfer(item itypes.Transfer, currentTime int64) string {
+	const insquery string = "INSERT INTO %s "
+	const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, amount0, amountusd, type, sender, recipient, transaction, slippage, height) "
+	const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   %f,      %f,        '%s', '%s',   '%s',      '%s',        %f,       %d    );"
+	return fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
+		d.Network,                                // nwtype
+		d.ChainID,                                // network
+		item.Time,                                // time
+		currentTime,                              // inserted_at
+		strings.ToLower(item.Token.String()[2:]), // token0 (removed 0x prefix)
+		item.Amount,                              // amount0
+		item.AmountUSD,                           // amountusd, FIXME
+		"transfer",                               // type
+		strings.ToLower(item.Sender.Hex()[2:]),   // sender FIXME (removed 0x prefix)
+		strings.ToLower(item.Receiver.Hex()[2:]), // recipient FIXME (removed 0x prefix)
+		strings.ToLower(item.Transaction.String()[2:]), // transaction (removed 0x prefix)
+		0.0,         // slippage
+		item.Height, // height
+	)
 }
 
 func (d *DBConn) getQueryStringMint(item itypes.Mint, currentTime int64) string {
@@ -326,16 +386,17 @@ func (d *DBConn) getQueryStringBlockSynopsis(blockHeight uint64, currentTime int
 		log.Fatal("arithmetic error for block synopsis: ", bm)
 	}
 	const insquery string = "INSERT INTO %s "
-	const fields string = "(nwtype, network, height, inserted_at, mint_logs, burn_logs, swap_logs, total_logs) "
-	const valuesfmt string = "VALUES ('%s', %d, %d,  TO_TIMESTAMP(%d), %d,   %d,        %d,        %d);"
+	const fields string = "(nwtype, network, height, inserted_at, mint_logs, burn_logs, swap_logs, transfer_logs, total_logs) "
+	const valuesfmt string = "VALUES ('%s', %d, %d,  TO_TIMESTAMP(%d), %d,   %d,        %d,        %d,            %d);"
 	return fmt.Sprintf(insquery+fields+valuesfmt, d.metaTable, // table to insert to
-		d.Network,    // nwtype
-		d.ChainID,    // network
-		blockHeight,  // height
-		currentTime,  // inserted_at
-		bm.MintLogs,  // mint_logs
-		bm.BurnLogs,  // burn_logs
-		bm.SwapLogs,  // swap_logs
-		bm.TotalLogs, // total_logs
+		d.Network,       // nwtype
+		d.ChainID,       // network
+		blockHeight,     // height
+		currentTime,     // inserted_at
+		bm.MintLogs,     // mint_logs
+		bm.BurnLogs,     // burn_logs
+		bm.SwapLogs,     // swap_logs
+		bm.TransferLogs, // transfer_logs
+		bm.TotalLogs,    // total_logs
 	)
 }

@@ -37,6 +37,13 @@ func (f *RuntimeFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	packageEnd := strings.LastIndex(function, ".")
 	functionName := function[packageEnd+1:]
 
+	if _file, ok := entry.Data["file"]; ok {
+		// ENOK or ENOKS invoked
+		line, _ := entry.Data["line"]
+		entry.Data = logrus.Fields{"CODE": fmt.Sprintf("(%s) %s:%d", functionName, _file.(string), line.(int))}
+		return f.ChildFormatter.Format(entry)
+	}
+
 	entry.Data = logrus.Fields{"CODE": fmt.Sprintf("(%s) %s:%s", functionName, filepath.Base(file), line)}
 	return f.ChildFormatter.Format(entry)
 }

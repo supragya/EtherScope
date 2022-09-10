@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"runtime"
+
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/indexer"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
@@ -14,7 +16,17 @@ var RealtimeCmd = &cobra.Command{
 	Use:   "realtime",
 	Short: "run geth indexer in realtime",
 	Long:  `run geth indexer in realtime`,
-	Run:   StartRealtimeNode,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		maxParallelsRequested := viper.GetInt("general.maxCPUParallels")
+		if maxParallelsRequested > runtime.NumCPU() {
+			log.Warn("running on fewer threads than requested parallels: ", runtime.NumCPU(), " vs requested ", maxParallelsRequested)
+			maxParallelsRequested = runtime.NumCPU()
+		}
+
+		runtime.GOMAXPROCS(maxParallelsRequested)
+		log.Info("set runtime max parallelism: ", maxParallelsRequested)
+	},
+	Run: StartRealtimeNode,
 }
 
 func StartRealtimeNode(cmd *cobra.Command, args []string) {
@@ -25,9 +37,8 @@ func StartRealtimeNode(cmd *cobra.Command, args []string) {
 	log.Info("creating a new realtime indexer from ", mostRecent+1)
 	var ri indexer.Indexer = indexer.NewRealtimeIndexer(mostRecent,
 		viper.GetStringSlice("rpc"),
-		&dbconn)
+		&dbconn,
+		viper.GetStringSlice("general.eventsToIndex"))
 	ri.Init()
-	log.Info("starting realtime indexer")
 	util.ENOK(ri.Start())
-	return
 }

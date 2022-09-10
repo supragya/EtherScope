@@ -1,7 +1,7 @@
 package util
 
 import (
-	"errors"
+	"crypto/sha256"
 	"fmt"
 	"math"
 	"math/big"
@@ -11,25 +11,27 @@ import (
 	"runtime"
 	"strings"
 
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 var (
-	EthErrorRegexes []*regexp.Regexp
-	// ExecutionReverted    *regexp.Regexp
-	// AbiErrRegex          *regexp.Regexp
-	// NoContract           *regexp.Regexp
-	// ErrUnmarshal         *regexp.Regexp
+	EthErrorRegexes      []*regexp.Regexp
 	FailOnNonEthError    bool
 	FailOnNonEthErrorSet bool
+	ZeroBigInt_DoNotSet  *big.Int
 )
 
 // Checks if error is nil or not. Kills process if not nil
 func ENOK(err error) {
+	ENOKS(2, err)
+}
+
+func ENOKS(skip int, err error) {
 	if err != nil {
-		_, file, no, ok := runtime.Caller(1)
+		_, file, no, ok := runtime.Caller(skip)
 		if ok {
 			fileSplit := strings.Split(file, "/")
 			log.WithFields(log.Fields{
@@ -43,7 +45,7 @@ func ENOK(err error) {
 
 func ENOKF(err error, info interface{}) {
 	if err != nil {
-		ENOK(errors.New(fmt.Sprintf("%s: %v", err.Error(), info)))
+		ENOK(fmt.Errorf("%s: %v", err.Error(), info))
 	}
 }
 
@@ -153,6 +155,37 @@ func GetMagnitudeForNeg(_bytes []byte) []byte {
 	return _bytes
 }
 
+func ConstructTopics(eventsToIndex []string) ([]common.Hash, error) {
+	topicsList := []common.Hash{}
+	for _, t := range eventsToIndex {
+		switch t {
+		case "UniswapV2Swap":
+			topicsList = append(topicsList, itypes.UniV2Swap)
+		case "UniswapV2Mint":
+			topicsList = append(topicsList, itypes.MintTopic)
+		case "UniswapV2Burn":
+			topicsList = append(topicsList, itypes.BurnTopic)
+		case "UniswapV3Swap":
+			topicsList = append(topicsList, itypes.UniV3Swap)
+		case "UniswapV3IncreaseLiquidity":
+			topicsList = append(topicsList, itypes.IncreaseLiquidityTopic)
+		case "UniswapV3DecreaseLiquidity":
+			topicsList = append(topicsList, itypes.DecreaseLiquidityTopic)
+		case "Transfer":
+			topicsList = append(topicsList, itypes.TransferTopic)
+		default:
+			return []common.Hash{}, fmt.Errorf("unknown topic for construction: %s", t)
+		}
+	}
+	return topicsList, nil
+}
+
+func SHA256Hash(_bytes []byte) []byte {
+	hasher := sha256.New()
+	hasher.Write(_bytes)
+	return hasher.Sum(nil)
+}
+
 func init() {
 	EthErrors := []string{
 		"execution reverted", // Should always be kept at idx 0
@@ -165,4 +198,6 @@ func init() {
 	for _, e := range EthErrors {
 		EthErrorRegexes = append(EthErrorRegexes, regexp.MustCompile(e))
 	}
+
+	ZeroBigInt_DoNotSet = big.NewInt(0)
 }

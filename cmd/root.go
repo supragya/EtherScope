@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
@@ -30,12 +31,12 @@ var RootCmd = &cobra.Command{
 		}
 		util.ENOK(config.LoadViperConfig(cfgFile))
 		util.ENOK(config.CheckViperMandatoryFields())
+		go instrumentation.StartPromServer()
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(RealtimeCmd)
-	RootCmd.AddCommand(BackfillCmd)
 
 	RootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "loglevel (default is INFO)")
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.blockpour/bgidx/config.yaml)")
