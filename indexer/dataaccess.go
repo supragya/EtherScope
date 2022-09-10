@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ERC20"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
@@ -18,10 +17,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	lru "github.com/hashicorp/golang-lru"
+
+	msp "github.com/supragya/MasterSlavePool"
 )
 
+const WD = 20
+
 type DataAccess struct {
-	upstreams           *LatencySortedPool
+	upstreams           *msp.MasterSlavePool[ethclient.Client]
 	contractTokensCache *lru.ARCCache
 	ERC20Cache          *lru.ARCCache
 	PricingCache        *lru.ARCCache
@@ -44,11 +47,11 @@ func NewDataAccess(upstreams []string) *DataAccess {
 	pricingcache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
-	lsp := NewLatencySortedPool(upstreams)
+	pool, err := msp.NewEthClientMasterSlavePool("", upstreams)
+	util.ENOK(err)
 
-	go lsp.ShowStatus()
 	return &DataAccess{
-		upstreams:           lsp,
+		upstreams:           pool,
 		contractTokensCache: ctcache,
 		ERC20Cache:          erc20cache,
 		PricingCache:        pricingcache,
@@ -57,7 +60,7 @@ func NewDataAccess(upstreams []string) *DataAccess {
 }
 
 func (d *DataAccess) Len() int {
-	return d.upstreams.Len()
+	return len(d.upstreams.Slaves) + 1
 }
 
 func (d *DataAccess) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
@@ -67,9 +70,8 @@ func (d *DataAccess) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, erro
 	for retries := 0; retries < WD; retries++ {
 		cl := d.upstreams.GetItem()
 
-		start := time.Now()
 		logs, err = cl.FilterLogs(context.Background(), fq)
-		d.upstreams.Report(cl, time.Since(start).Seconds(), err != nil)
+		d.upstreams.Report(cl, err != nil)
 
 		if err == nil {
 			return logs, nil
@@ -100,22 +102,19 @@ func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.
 		pc, err = univ2pair.NewUniv2pair(pairContract, cl)
 		util.ENOK(err)
 
-		start := time.Now()
 		token0, err = pc.Token0(callopts)
-		elapsed := time.Since(start).Seconds()
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(cl, false)
 				return token0, token1, err
 			}
 			continue
 		}
-		d.upstreams.Report(cl, elapsed, err != nil)
+		d.upstreams.Report(cl, err != nil)
 
-		start = time.Now()
 		token1, err = pc.Token1(callopts)
-		d.upstreams.Report(cl, time.Since(start).Seconds(), err != nil)
+		d.upstreams.Report(cl, err != nil)
 		if err == nil {
 			// Cache
 			d.contractTokensCache.Add(lookupKey, Tuple2[common.Address, common.Address]{token0, token1})
@@ -147,22 +146,19 @@ func (d *DataAccess) GetTokensUniV3(pairContract common.Address, callopts *bind.
 		pc, err = univ3pair.NewUniv3pair(pairContract, cl)
 		util.ENOK(err)
 
-		start := time.Now()
 		token0, err = pc.Token0(callopts)
-		elapsed := time.Since(start).Seconds()
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(cl, false)
 				return token0, token1, err
 			}
 			continue
 		}
-		d.upstreams.Report(cl, elapsed, err != nil)
+		d.upstreams.Report(cl, err != nil)
 
-		start = time.Now()
 		token1, err = pc.Token1(callopts)
-		d.upstreams.Report(cl, time.Since(start).Seconds(), err != nil)
+		d.upstreams.Report(cl, err != nil)
 		if err == nil {
 			// Cache
 			d.contractTokensCache.Add(lookupKey, Tuple2[common.Address, common.Address]{token0, token1})
@@ -207,18 +203,17 @@ func (d *DataAccess) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.
 		cl := d.upstreams.GetItem()
 		pc, err = univ3positionsnft.NewUniv3positionsnft(nftContract, cl)
 		util.ENOK(err)
-		start := time.Now()
+
 		positions, err = pc.Positions(callopts, tokenID)
-		elapsed := time.Since(start).Seconds()
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(cl, false)
 				return common.Address{}, common.Address{}, err
 			}
 			continue
 		}
-		d.upstreams.Report(cl, elapsed, err != nil)
+		d.upstreams.Report(cl, err != nil)
 		// Cache
 		d.contractTokensCache.Add(lookupKey, Tuple2[common.Address, common.Address]{positions.Token0, positions.Token1})
 		return positions.Token0, positions.Token1, nil
@@ -249,11 +244,9 @@ func (d *DataAccess) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Clie
 	var err error
 
 	for retries := 0; retries < WD; retries++ {
-		start := time.Now()
 		decimals, err = erc20.Decimals(callopts)
-		elapsed := time.Since(start).Seconds()
 		if err == nil {
-			d.upstreams.Report(client, elapsed, false)
+			d.upstreams.Report(client, false)
 			// Cache
 			d.ERC20Cache.Add(lookupKey, decimals)
 			return decimals, nil
@@ -261,10 +254,10 @@ func (d *DataAccess) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Clie
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(client, elapsed, false)
+				d.upstreams.Report(client, false)
 				break
 			}
-			d.upstreams.Report(client, elapsed, true)
+			d.upstreams.Report(client, true)
 		}
 	}
 
@@ -279,32 +272,28 @@ func (d *DataAccess) GetTxSender(txHash common.Hash, blockHash common.Hash, txId
 	for retries := 0; retries < WD; retries++ {
 		cl := d.upstreams.GetItem()
 
-		start := time.Now()
 		tx, _, err = cl.TransactionByHash(context.Background(), txHash)
-		elapsed := time.Since(start).Seconds()
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(cl, false)
 				break
 			}
-			d.upstreams.Report(cl, elapsed, true)
+			d.upstreams.Report(cl, true)
 		}
 
-		start = time.Now()
 		sender, err = cl.TransactionSender(context.Background(), tx, blockHash, txIdx)
-		elapsed = time.Since(start).Seconds()
 		if err == nil {
-			d.upstreams.Report(cl, elapsed, false)
+			d.upstreams.Report(cl, false)
 			return sender, nil
 		}
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(cl, false)
 				break
 			}
-			d.upstreams.Report(cl, elapsed, true)
+			d.upstreams.Report(cl, true)
 		}
 	}
 
@@ -318,20 +307,18 @@ func (d *DataAccess) GetCurrentBlockHeight() (uint64, error) {
 	for retries := 0; retries < WD; retries++ {
 		cl := d.upstreams.GetItem()
 
-		start := time.Now()
 		height, err = cl.BlockNumber(context.Background())
-		elapsed := time.Since(start).Seconds()
 		if err == nil {
-			d.upstreams.Report(cl, elapsed, false)
+			d.upstreams.Report(cl, false)
 			return height, nil
 		}
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(cl, false)
 				break
 			}
-			d.upstreams.Report(cl, elapsed, true)
+			d.upstreams.Report(cl, true)
 		}
 	}
 
@@ -344,20 +331,18 @@ func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
 	for retries := 0; retries < WD; retries++ {
 		cl := d.upstreams.GetItem()
 
-		start := time.Now()
 		bl, err := cl.BlockByNumber(context.Background(), big.NewInt(int64(height)))
-		elapsed := time.Since(start).Seconds()
 		if err == nil {
-			d.upstreams.Report(cl, elapsed, false)
+			d.upstreams.Report(cl, false)
 			return bl.Header().Time, nil
 		}
 		if err != nil {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, elapsed, false)
+				d.upstreams.Report(cl, false)
 				break
 			}
-			d.upstreams.Report(cl, elapsed, true)
+			d.upstreams.Report(cl, true)
 		}
 	}
 
@@ -405,19 +390,17 @@ func (d *DataAccess) GetBalance(address common.Address,
 			return util.ZeroBigInt_DoNotSet, err
 		}
 
-		start := time.Now()
 		balToken, err = token.BalanceOf(callopts, address)
-		elapsed := time.Since(start).Seconds()
 		if err == nil {
-			d.upstreams.Report(client, elapsed, false)
+			d.upstreams.Report(client, false)
 			return balToken, nil
 		} else {
 			// Early exit
 			if util.IsEthErr(err) {
-				d.upstreams.Report(client, elapsed, false)
+				d.upstreams.Report(client, false)
 				break
 			}
-			d.upstreams.Report(client, elapsed, true)
+			d.upstreams.Report(client, true)
 		}
 	}
 	return balToken, errors.New("Fetch error: " + err.Error())

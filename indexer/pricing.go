@@ -7,7 +7,6 @@ import (
 	"io"
 	"math/big"
 	"os"
-	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/chainlink"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
@@ -164,27 +163,23 @@ func (d *DataAccess) GetPriceForBlock(
 				oracle, err := chainlink.NewChainlink(oracleContractAddress, cl)
 				util.ENOK(err)
 
-				start := time.Now()
 				latestRoundData, err := oracle.LatestRoundData(callopts)
-				latency := time.Since(start).Seconds()
 				if err != nil {
 					if util.IsEthErr(err) {
-						d.upstreams.Report(cl, latency, false)
+						d.upstreams.Report(cl, false)
 						return nil
 					}
-					d.upstreams.Report(cl, latency, true)
+					d.upstreams.Report(cl, true)
 					continue
 				}
 
-				start = time.Now()
 				decimals, err := oracle.Decimals(callopts)
-				latency = time.Since(start).Seconds()
 				if err != nil {
 					if util.IsEthErr(err) {
-						d.upstreams.Report(cl, latency, false)
+						d.upstreams.Report(cl, false)
 						return nil
 					}
-					d.upstreams.Report(cl, latency, true)
+					d.upstreams.Report(cl, true)
 					continue
 				}
 
