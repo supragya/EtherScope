@@ -2,6 +2,7 @@ package version
 
 import (
 	"bytes"
+	"strconv"
 )
 
 // Application version  -- supplied compile time
@@ -29,8 +30,8 @@ var RootCmdVersion string = prepareVersionString()
 func prepareVersionString() string {
 	var buffer bytes.Buffer
 	buffer.WriteString(ApplicationVersion + " build " + buildCommit + "(" + ApplicationCodename + ")")
+	buffer.WriteString("\npersistence version " + strconv.Itoa(int(PersistenceVersion)))
 	buffer.WriteString("\ncompiled at " + buildTime + " by " + builder)
-	buffer.WriteString("\npersistence version " + string(PersistenceVersion))
 	buffer.WriteString("\nusing " + gover)
 	return buffer.String()
 }
