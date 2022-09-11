@@ -33,8 +33,13 @@ func TestUniswapV2Mint(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
 	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
-		_log  = loadLog(t, "../test/uniswapV2MintExample.json")
-		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
+		_log = loadLog(t, "../test/uniswapV2MintExample.json")
+		ri   = NewRealtimeIndexer(0,
+			"https://rpc.ankr.com/eth",
+			[]string{},
+			false,
+			&db.DBConn{ChainID: 1},
+			[]string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}
@@ -49,8 +54,13 @@ func TestUniswapV2Burn(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
 	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
-		_log  = loadLog(t, "../test/uniswapV2BurnExample.json")
-		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
+		_log = loadLog(t, "../test/uniswapV2BurnExample.json")
+		ri   = NewRealtimeIndexer(0,
+			"https://rpc.ankr.com/eth",
+			[]string{},
+			false,
+			&db.DBConn{ChainID: 1},
+			[]string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}
@@ -65,8 +75,13 @@ func TestUniswapV2Swap(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
 	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
-		_log  = loadLog(t, "../test/uniswapV2SwapExample.json")
-		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
+		_log = loadLog(t, "../test/uniswapV2SwapExample.json")
+		ri   = NewRealtimeIndexer(0,
+			"https://rpc.ankr.com/eth",
+			[]string{},
+			false,
+			&db.DBConn{ChainID: 1},
+			[]string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}

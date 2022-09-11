@@ -4,6 +4,7 @@ general:
   network: evm
   chainID: 1
   networkName: ethereum_mainnet
+  isErigon: false
   startBlock: 15236215
   maxBlockSpanPerCall: 10
   failOnNonEthError: false

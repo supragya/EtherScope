@@ -25,6 +25,7 @@ const WD = 20
 
 type DataAccess struct {
 	upstreams           *msp.MasterSlavePool[ethclient.Client]
+	isErigon            bool
 	contractTokensCache *lru.ARCCache
 	ERC20Cache          *lru.ARCCache
 	PricingCache        *lru.ARCCache
@@ -37,7 +38,7 @@ type UniV2Reserves struct {
 	BlockTimestampLast uint32
 }
 
-func NewDataAccess(masterUpstream string, slaveUpstreams []string) *DataAccess {
+func NewDataAccess(isErigon bool, masterUpstream string, slaveUpstreams []string) *DataAccess {
 	ctcache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
@@ -52,6 +53,7 @@ func NewDataAccess(masterUpstream string, slaveUpstreams []string) *DataAccess {
 
 	return &DataAccess{
 		upstreams:           pool,
+		isErigon:            isErigon,
 		contractTokensCache: ctcache,
 		ERC20Cache:          erc20cache,
 		PricingCache:        pricingcache,

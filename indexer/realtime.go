@@ -32,6 +32,7 @@ type RealtimeIndexer struct {
 func NewRealtimeIndexer(indexedHeight uint64,
 	masterUpstream string,
 	slaveUpstreams []string,
+	isErigon bool,
 	dbconn *db.DBConn,
 	eventsToIndex []string) *RealtimeIndexer {
 	events, err := util.ConstructTopics(eventsToIndex)
@@ -40,7 +41,7 @@ func NewRealtimeIndexer(indexedHeight uint64,
 		currentHeight:    0,
 		indexedHeight:    indexedHeight,
 		dbconn:           dbconn,
-		da:               NewDataAccess(masterUpstream, slaveUpstreams),
+		da:               NewDataAccess(isErigon, masterUpstream, slaveUpstreams),
 		eventsToIndex:    events,
 		eventsToIndexStr: eventsToIndex,
 

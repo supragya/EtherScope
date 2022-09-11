@@ -38,6 +38,7 @@ func StartRealtimeNode(cmd *cobra.Command, args []string) {
 	var ri indexer.Indexer = indexer.NewRealtimeIndexer(mostRecent,
 		viper.GetString("rpc.master"),
 		viper.GetStringSlice("rpc.slaves"),
+		viper.GetBool("general.isErigon"),
 		&dbconn,
 		viper.GetStringSlice("general.eventsToIndex"))
 	ri.Init()
