@@ -37,7 +37,7 @@ type UniV2Reserves struct {
 	BlockTimestampLast uint32
 }
 
-func NewDataAccess(upstreams []string) *DataAccess {
+func NewDataAccess(masterUpstream string, slaveUpstreams []string) *DataAccess {
 	ctcache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
@@ -47,7 +47,7 @@ func NewDataAccess(upstreams []string) *DataAccess {
 	pricingcache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
-	pool, err := msp.NewEthClientMasterSlavePool("", upstreams)
+	pool, err := msp.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams)
 	util.ENOK(err)
 
 	return &DataAccess{

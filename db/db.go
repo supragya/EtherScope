@@ -7,9 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"net/http"
-	"strings"
 	"time"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
@@ -41,8 +39,6 @@ type VersionWrapper struct {
 	Message any
 }
 
-var zeroFloat = big.NewFloat(0.0)
-
 func VersionWrapped(message any) VersionWrapper {
 	return VersionWrapper{
 		Version: version.PersistenceVersion,
@@ -54,20 +50,6 @@ func SetupConnection() (DBConn, error) {
 	dbType := viper.GetString("general.persistence")
 
 	switch dbType {
-	case "postgres":
-		db, err := setupPostgres()
-		return DBConn{isDB: true,
-			conn:        db,
-			mq:          nil,
-			doResume:    true,
-			resumeURL:   "",
-			mqQueueName: "",
-			dataTable:   viper.GetString("postgres.datatable"),
-			metaTable:   viper.GetString("postgres.metatable"),
-			StartBlock:  viper.GetUint64("general.startBlock"),
-			Network:     viper.GetString("general.network"),
-			ChainID:     viper.GetUint("general.chainID"),
-		}, err
 	case "mq":
 		mq, err := setupRabbitMQ()
 		return DBConn{isDB: false,
@@ -89,33 +71,6 @@ func SetupConnection() (DBConn, error) {
 	return DBConn{}, errors.New("unsupported db: " + dbType)
 }
 
-func setupPostgres() (*sql.DB, error) {
-	var (
-		host   = viper.GetString("postgres.host")
-		port   = viper.GetUint64("postgres.port")
-		user   = viper.GetString("postgres.user")
-		pass   = viper.GetString("postgres.pass")
-		dbname = viper.GetString("postgres.dbname")
-		ssl    = viper.GetString("postgres.sslmode")
-	)
-
-	psqlconn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		host, port, user, pass, dbname, ssl)
-
-	db, err := sql.Open("postgres", psqlconn)
-	if err != nil {
-		return &sql.DB{}, err
-	}
-
-	err = db.Ping()
-	if err != nil {
-		return &sql.DB{}, err
-	}
-
-	log.Info("connected to the postgres database")
-	return db, nil
-}
-
 func setupRabbitMQ() (*amqp.Channel, error) {
 	var (
 		host = viper.GetString("mq.host")
@@ -123,7 +78,11 @@ func setupRabbitMQ() (*amqp.Channel, error) {
 		user = viper.GetString("mq.user")
 		pass = viper.GetString("mq.pass")
 	)
-	mqConnStr := fmt.Sprintf("amqp://%s:%s@%s:%d/", user, pass, host, port)
+	connPrefix := "amqp"
+	if viper.GetBool("mq.secureConnection") {
+		connPrefix = "amqps"
+	}
+	mqConnStr := fmt.Sprintf("%s://%s:%s@%s:%d/", connPrefix, user, pass, host, port)
 
 	connectRabbitMQ, err := amqp.Dial(mqConnStr)
 	if err != nil {
@@ -136,12 +95,12 @@ func setupRabbitMQ() (*amqp.Channel, error) {
 	}
 
 	_, err = channelRabbitMQ.QueueDeclare(
-		viper.GetString("mq.queue"), // queue name
-		true,                        // durable
-		false,                       // auto delete
-		false,                       // exclusive
-		false,                       // no wait
-		nil,                         // arguments
+		viper.GetString("mq.queue"),         // queue name
+		viper.GetBool("mq.queueIsDurable"),  // durable
+		viper.GetBool("mq.queueAutoDelete"), // auto delete
+		viper.GetBool("mq.queueExclusive"),  // exclusive
+		viper.GetBool("mq.queueNoWait"),     // no wait
+		nil,                                 // arguments
 	)
 	if err != nil {
 		return &amqp.Channel{}, err
@@ -198,9 +157,6 @@ func (d *DBConn) BeginTx() (context.Context, *sql.Tx) {
 }
 
 func (d *DBConn) CommitTx(dbTx *sql.Tx) error {
-	if d.isDB {
-		return dbTx.Commit()
-	}
 	// In case of mq
 	for _, item := range d.store {
 		err := d.mq.Publish(
@@ -225,178 +181,29 @@ func (d *DBConn) CommitTx(dbTx *sql.Tx) error {
 }
 
 func (d *DBConn) AddToTx(dbCtx *context.Context, dbTx *sql.Tx, items []interface{}, bm itypes.BlockSynopsis, blockHeight uint64) {
-	currentTime := time.Now().Unix()
 	for _, item := range items {
-		query := ""
 		switch it := item.(type) {
 		case itypes.Transfer:
-			if d.isDB {
-				query = d.getQueryStringTransfer(it, currentTime)
-			} else {
-				mqMessage, err := json.Marshal(VersionWrapped(it))
-				util.ENOK(err)
-				d.store = append(d.store, mqMessage)
-			}
+			mqMessage, err := json.Marshal(VersionWrapped(it))
+			util.ENOK(err)
+			d.store = append(d.store, mqMessage)
 		case itypes.Mint:
-			if d.isDB {
-				query = d.getQueryStringMint(it, currentTime)
-			} else {
-				mqMessage, err := json.Marshal(VersionWrapped(it))
-				util.ENOK(err)
-				d.store = append(d.store, mqMessage)
-			}
+			mqMessage, err := json.Marshal(VersionWrapped(it))
+			util.ENOK(err)
+			d.store = append(d.store, mqMessage)
 		case itypes.Burn:
-			if d.isDB {
-				query = d.getQueryStringBurn(it, currentTime)
-			} else {
-				mqMessage, err := json.Marshal(VersionWrapped(it))
-				util.ENOK(err)
-				d.store = append(d.store, mqMessage)
-			}
+			mqMessage, err := json.Marshal(VersionWrapped(it))
+			util.ENOK(err)
+			d.store = append(d.store, mqMessage)
 		case itypes.Swap:
-			if d.isDB {
-				query = d.getQueryStringSwap(it, currentTime)
-			} else {
-				mqMessage, err := json.Marshal(VersionWrapped(it))
-				util.ENOK(err)
-				d.store = append(d.store, mqMessage)
-			}
-		}
-		if d.isDB {
-			_, err := dbTx.ExecContext(*dbCtx, query)
-			util.ENOKF(err, query)
+			mqMessage, err := json.Marshal(VersionWrapped(it))
+			util.ENOK(err)
+			d.store = append(d.store, mqMessage)
 		}
 	}
 
 	// Add block synopsis
-	if d.isDB {
-		query := d.getQueryStringBlockSynopsis(blockHeight, currentTime, bm)
-		_, err := dbTx.ExecContext(*dbCtx, query)
-		util.ENOK(err)
-	} else {
-		mqMessage, err := json.Marshal(bm)
-		util.ENOK(err)
-		d.store = append(d.store, mqMessage)
-	}
-}
-
-func (d *DBConn) getQueryStringTransfer(item itypes.Transfer, currentTime int64) string {
-	const insquery string = "INSERT INTO %s "
-	const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, amount0, amountusd, type, sender, recipient, transaction, slippage, height) "
-	const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   %f,      %f,        '%s', '%s',   '%s',      '%s',        %f,       %d    );"
-	return fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
-		d.Network,                                // nwtype
-		d.ChainID,                                // network
-		item.Time,                                // time
-		currentTime,                              // inserted_at
-		strings.ToLower(item.Token.String()[2:]), // token0 (removed 0x prefix)
-		item.Amount,                              // amount0
-		item.AmountUSD,                           // amountusd, FIXME
-		"transfer",                               // type
-		strings.ToLower(item.Sender.Hex()[2:]),   // sender FIXME (removed 0x prefix)
-		strings.ToLower(item.Receiver.Hex()[2:]), // recipient FIXME (removed 0x prefix)
-		strings.ToLower(item.Transaction.String()[2:]), // transaction (removed 0x prefix)
-		0.0,         // slippage
-		item.Height, // height
-	)
-}
-
-func (d *DBConn) getQueryStringMint(item itypes.Mint, currentTime int64) string {
-	const insquery string = "INSERT INTO %s "
-	const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, transaction, slippage, height) "
-	const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',        %f,       %d    );"
-	return fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
-		d.Network,   // nwtype
-		d.ChainID,   // network
-		item.Time,   // time
-		currentTime, // inserted_at
-		strings.ToLower(item.Token0.String()[2:]),       // token0 (removed 0x prefix)
-		strings.ToLower(item.Token1.String()[2:]),       // token1 (removed 0x prefix)
-		strings.ToLower(item.PairContract.String()[2:]), // pair
-		item.Amount0,                           // amount0
-		zeroFloat,                              // amount1
-		0.0,                                    // amountusd, FIXME
-		item.Reserve0,                          // reserves0
-		item.Reserve1,                          // reserves1
-		0.0,                                    // reservesusd, FIXME
-		"mint",                                 // type
-		strings.ToLower(item.Sender.Hex()[2:]), // sender FIXME (removed 0x prefix)
-		strings.ToLower(item.Transaction.String()[2:]), // transaction (removed 0x prefix)
-		0.0,         // slippage
-		item.Height, // height
-	)
-}
-
-func (d *DBConn) getQueryStringBurn(item itypes.Burn, currentTime int64) string {
-	const insquery string = "INSERT INTO %s "
-	const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, recipient, transaction, slippage, height) "
-	const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',  '%s',      %f,       %d    );"
-	return fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
-		d.Network,   // nwtype
-		d.ChainID,   // network
-		item.Time,   // time
-		currentTime, // inserted_at
-		strings.ToLower(item.Token0.String()[2:]),       // token0 (removed 0x prefix)
-		strings.ToLower(item.Token1.String()[2:]),       // token1 (removed 0x prefix)
-		strings.ToLower(item.PairContract.String()[2:]), // pair
-		item.Amount0,                             // amount0
-		item.Amount1,                             // amount1
-		0.0,                                      // amountusd, FIXME
-		item.Reserve0,                            // reserves0
-		item.Reserve1,                            // reserves1
-		0.0,                                      // reservesusd, FIXME
-		"burn",                                   // type
-		strings.ToLower(item.Sender.Hex()[2:]),   // sender FIXME (removed 0x prefix)
-		strings.ToLower(item.Receiver.Hex()[2:]), // recipient (removed 0x prefix)
-		strings.ToLower(item.Transaction.String()[2:]), // transaction (removed 0x prefix)
-		0.0,         // slippage
-		item.Height, // height
-	)
-}
-
-func (d *DBConn) getQueryStringSwap(item itypes.Swap, currentTime int64) string {
-	const insquery string = "INSERT INTO %s "
-	const fields string = "(nwtype, network, 	time, 			  inserted_at, 		token0, token1, pair, amount0, amount1, amountusd, reserves0, reserves1, reservesusd, type, sender, recipient, transaction, slippage, height) "
-	const valuesfmt string = "VALUES ('%s', %d, TO_TIMESTAMP(%d), TO_TIMESTAMP(%d), '%s',   '%s',   '%s', %f,      %f,      %f,        %f,        %f,        %f,          '%s', '%s',   '%s',      '%s',        %f,       %d    );"
-	return fmt.Sprintf(insquery+fields+valuesfmt, d.dataTable, // table to insert to
-		d.Network,   // nwtype
-		d.ChainID,   // network
-		item.Time,   // time
-		currentTime, // inserted_at
-		strings.ToLower(item.Token0.String()[2:]),       // token0 (removed 0x prefix)
-		strings.ToLower(item.Token1.String()[2:]),       // token1 (removed 0x prefix)
-		strings.ToLower(item.PairContract.String()[2:]), // pair
-		item.Amount0,                             // amount0
-		item.Amount1,                             // amount1
-		0.0,                                      // amountusd, FIXME
-		item.Reserve0,                            // reserves0
-		item.Reserve1,                            // reserves1
-		0.0,                                      // reservesusd, FIXME
-		"swap",                                   // type
-		strings.ToLower(item.Sender.Hex()[2:]),   // sender (removed 0x prefix)
-		strings.ToLower(item.Receiver.Hex()[2:]), // recipient (removed 0x prefix)
-		strings.ToLower(item.Transaction.String()[2:]), // transaction (removed 0x prefix)
-		0.0,         // slippage
-		item.Height, // height
-	)
-}
-
-func (d *DBConn) getQueryStringBlockSynopsis(blockHeight uint64, currentTime int64, bm itypes.BlockSynopsis) string {
-	if bm.TotalLogs != bm.MintLogs+bm.BurnLogs+bm.SwapLogs {
-		log.Fatal("arithmetic error for block synopsis: ", bm)
-	}
-	const insquery string = "INSERT INTO %s "
-	const fields string = "(nwtype, network, height, inserted_at, mint_logs, burn_logs, swap_logs, transfer_logs, total_logs) "
-	const valuesfmt string = "VALUES ('%s', %d, %d,  TO_TIMESTAMP(%d), %d,   %d,        %d,        %d,            %d);"
-	return fmt.Sprintf(insquery+fields+valuesfmt, d.metaTable, // table to insert to
-		d.Network,       // nwtype
-		d.ChainID,       // network
-		blockHeight,     // height
-		currentTime,     // inserted_at
-		bm.MintLogs,     // mint_logs
-		bm.BurnLogs,     // burn_logs
-		bm.SwapLogs,     // swap_logs
-		bm.TransferLogs, // transfer_logs
-		bm.TotalLogs,    // total_logs
-	)
+	mqMessage, err := json.Marshal(bm)
+	util.ENOK(err)
+	d.store = append(d.store, mqMessage)
 }

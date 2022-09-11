@@ -30,7 +30,8 @@ type RealtimeIndexer struct {
 }
 
 func NewRealtimeIndexer(indexedHeight uint64,
-	upstreams []string,
+	masterUpstream string,
+	slaveUpstreams []string,
 	dbconn *db.DBConn,
 	eventsToIndex []string) *RealtimeIndexer {
 	events, err := util.ConstructTopics(eventsToIndex)
@@ -39,7 +40,7 @@ func NewRealtimeIndexer(indexedHeight uint64,
 		currentHeight:    0,
 		indexedHeight:    indexedHeight,
 		dbconn:           dbconn,
-		da:               NewDataAccess(upstreams),
+		da:               NewDataAccess(masterUpstream, slaveUpstreams),
 		eventsToIndex:    events,
 		eventsToIndexStr: eventsToIndex,
 

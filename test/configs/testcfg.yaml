@@ -7,7 +7,7 @@ general:
   startBlock: 15236215
   maxBlockSpanPerCall: 10
   failOnNonEthError: false
-  persistence: mq # either postgres or mq
+  persistence: mq # only mq
   maxCPUParallels: 4 
   eventsToIndex:
     - UniswapV2Swap
@@ -17,34 +17,30 @@ general:
     - UniswapV3IncreaseLiquidity
     - UniswapV3DecreaseLiquidity
     - Transfer
-  oracleMapsRootDir: maps
-  diskCacheRootDir: cache
+  oracleMapsRootDir: ../maps
+  diskCacheRootDir: /tmp
   prometheusEndpoint: 127.0.0.1:9722
 
 # Subsection RPC upstreams
 # Needed always.
 rpc:
+  master: https://rpc.ankr.com/eth
+  slaves:
   - https://rpc.ankr.com/eth
-
-# Subsection postgres
-# Needed only if general.persistence == "postgres".
-postgres:
-  host: 127.0.0.1
-  port: 5432
-  user: proguser
-  pass: progpass
-  dbname: devdb
-  sslmode: disable
-  datatable: pool_actions_geth
-  metatable: blocks
+  - https://rpc.ankr.com/eth
 
 # Subsection message queue
 # Needed only if general.persistence == "mq".
 mq:
+  secureConnection: false
   host: 127.0.0.1
   port: 5672
   user: devuser
   pass: devpass
   queue: "eth-indexer"
+  queueIsDurable: true
+  queueAutoDelete: false
+  queueExclusive: false
+  queueNoWait: false
   skipResume: false
   resumeURL: "http://127.0.0.1:8080/GetBlockToResumeFrom"

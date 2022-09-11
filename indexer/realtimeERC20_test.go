@@ -4,15 +4,20 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestERC20Transfer(t *testing.T) {
+	util.ENOK(logger.SetLogLevel("error"))
+	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
 		_log  = loadLog(t, "../test/transferExample.json")
-		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}

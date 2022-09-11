@@ -4,15 +4,20 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUniswapV3Swap(t *testing.T) {
+	util.ENOK(logger.SetLogLevel("error"))
+	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
 		_log  = loadLog(t, "../test/uniswapV3SwapExample.json")
-		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}
@@ -24,9 +29,11 @@ func TestUniswapV3Swap(t *testing.T) {
 }
 
 func TestUniswapV3IncreaseLiquidity(t *testing.T) {
+	util.ENOK(logger.SetLogLevel("error"))
+	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
 		_log  = loadLog(t, "../test/uniswapV3IncreaseLiquidityExample.json")
-		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}
@@ -38,9 +45,11 @@ func TestUniswapV3IncreaseLiquidity(t *testing.T) {
 }
 
 func TestUniswapV3DecreaseLiquidity(t *testing.T) {
+	util.ENOK(logger.SetLogLevel("error"))
+	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
 		_log  = loadLog(t, "../test/uniswapV3DecreaseLiquidityExample.json")
-		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}

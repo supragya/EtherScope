@@ -28,25 +28,21 @@ var (
 		{"general.diskCacheRootDir", "string", "Directory for on-disk caches"},
 		{"general.prometheusEndpoint", "string", "address on which to expose prometheus metrics"},
 
-		{"rpc", "[]string", "Remote upstreams for RPC access"},
+		{"rpc.master", "string", "Remote master upstream for RPC access"},
+		{"rpc.slaves", "[]string", "Remote slave upstreams for RPC access"},
 	}
 
-	mandatoryFieldsPostgres = [...]Field{
-		{"postgres.host", "string", "Postgresql DB host"},
-		{"postgres.port", "uint64", "Postgresql DB port"},
-		{"postgres.user", "string", "Postgresql DB user"},
-		{"postgres.pass", "string", "Postgresql DB password"},
-		{"postgres.dbname", "string", "Postgresql DB dbname"},
-		{"postgres.sslmode", "string", "Postgresql DB sslmode. One of (\"enable\", \"disable\")"},
-		{"postgres.datatable", "string", "Postgresql DB to store mint, burn, swap in"},
-		{"postgres.metatable", "string", "Postgresql DB to store meta information about indexing"},
-	}
 	mandatoryFieldsMessageQueue = [...]Field{
+		{"mq.secureConnection", "bool", "MQ connection over secure channel"},
 		{"mq.host", "string", "MQ host"},
 		{"mq.port", "uint64", "MQ port"},
 		{"mq.user", "string", "MQ user"},
 		{"mq.pass", "string", "MQ password"},
 		{"mq.queue", "string", "MQ queue name for channel"},
+		{"mq.queueIsDurable", "bool", "MQ queue durability"},
+		{"mq.queueAutoDelete", "bool", "MQ queue auto delete"},
+		{"mq.queueExclusive", "bool", "MQ queue exclusive"},
+		{"mq.queueNoWait", "bool", "MQ queue no-wait"},
 		{"mq.skipResume", "bool", "false if startBlock for indexing or hit url to get resumeBlock"},
 		{"mq.resumeURL", "string", "url to get resumeBlock from"},
 	}
@@ -70,14 +66,7 @@ func CheckViperMandatoryFields() error {
 	}
 
 	dbType := viper.GetString("general.persistence")
-	if dbType == "postgres" {
-		for _, mf := range mandatoryFieldsPostgres {
-			err := ensureFieldIntegrity(mf)
-			if err != nil {
-				return err
-			}
-		}
-	} else if dbType == "mq" {
+	if dbType == "mq" {
 		for _, mf := range mandatoryFieldsMessageQueue {
 			err := ensureFieldIntegrity(mf)
 			if err != nil {

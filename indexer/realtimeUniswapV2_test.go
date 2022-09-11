@@ -7,8 +7,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,9 +30,11 @@ func loadLog(t *testing.T, file string) types.Log {
 }
 
 func TestUniswapV2Mint(t *testing.T) {
+	util.ENOK(logger.SetLogLevel("error"))
+	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
 		_log  = loadLog(t, "../test/uniswapV2MintExample.json")
-		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}
@@ -41,9 +46,11 @@ func TestUniswapV2Mint(t *testing.T) {
 }
 
 func TestUniswapV2Burn(t *testing.T) {
+	util.ENOK(logger.SetLogLevel("error"))
+	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
 		_log  = loadLog(t, "../test/uniswapV2BurnExample.json")
-		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}
@@ -55,9 +62,11 @@ func TestUniswapV2Burn(t *testing.T) {
 }
 
 func TestUniswapV2Swap(t *testing.T) {
+	util.ENOK(logger.SetLogLevel("error"))
+	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
 	var (
 		_log  = loadLog(t, "../test/uniswapV2SwapExample.json")
-		ri    = NewRealtimeIndexer(0, []string{"https://rpc.ankr.com/eth"}, &db.DBConn{ChainID: 1}, []string{})
+		ri    = NewRealtimeIndexer(0, "https://rpc.ankr.com/eth", []string{}, &db.DBConn{ChainID: 1}, []string{})
 		bm    = itypes.BlockSynopsis{}
 		mt    = sync.Mutex{}
 		items []interface{}
