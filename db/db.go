@@ -13,7 +13,6 @@ import (
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
-	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
