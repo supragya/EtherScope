@@ -7,7 +7,7 @@ import (
 
 // Application version  -- supplied compile time
 var ApplicationVersion string = "unknownversion"
-var ApplicationCodename string = "buffalo"
+var ApplicationCodename string = "colorado"
 
 // Build commit -- supplied compile time
 var buildCommit string = "unknowncommit"
