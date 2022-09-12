@@ -55,7 +55,7 @@ func (r *RealtimeIndexer) processMintV3(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	mint := itypes.Mint{
 		Type:         "mint",
@@ -126,7 +126,7 @@ func (r *RealtimeIndexer) processBurnV3(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	burn := itypes.Burn{
 		Type:         "burn",
@@ -192,7 +192,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	swap := itypes.Swap{
 		Type:         "swap",

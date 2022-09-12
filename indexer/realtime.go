@@ -54,7 +54,7 @@ func (r *RealtimeIndexer) Start() error {
 		return EUninitialized
 	}
 	for i := 0; i < len(r.eventsToIndex); i++ {
-		log.Info("starting indexer for: ", r.eventsToIndexStr[i], " a.k.a ", r.eventsToIndex[i])
+		log.Info("enabled: ", r.eventsToIndexStr[i], "(", r.eventsToIndex[i], ")")
 	}
 	r.ridxLoop()
 	return nil

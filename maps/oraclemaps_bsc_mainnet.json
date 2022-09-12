@@ -1,0 +1,22 @@
+{
+    "Network": "bsc",
+    "ChainID": 56,
+    "StableCoinsUSD" : [
+        "0x55d398326f99059ff775485246999027b3197955", 
+        "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"
+    ],
+    "Tokens": [
+        {"id": "BNB", "contract": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"},
+        {"id": "ETH", "contract": "0x2170ed0880ac9a755fd29b2688956bd959f933f8"},
+        {"id": "BTC", "contract": "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c"},
+        {"id": "USDT", "contract": "0x55d398326f99059ff775485246999027b3197955"},
+        {"id": "USDC", "contract": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"}
+    ],
+    "Oracles": [
+        {"from": "BNB", "to": "USD", "contract": "0x0567f2323251f0aab15c8dfb1967e4e8a7d42aee"},
+        {"from": "ETH", "to": "USD", "contract": "0x9ef1b8c0e4f7dc8bf5719ea496883dc6401d5b2e"},
+        {"from": "BTC", "to": "USD", "contract": "0x264990fbd0a4796a3e3d8e37c4d5f87a3aca5ebf"},
+        {"from": "USDT", "to": "BNB", "contract": "0xd5c40f5144848bd4ef08a9605d860e727b991513"},
+        {"from": "USDC", "to": "BNB", "contract": "0x45f86ca2a8bc9ebd757225b19a1a0d7051be46db"}
+    ]
+}

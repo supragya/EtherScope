@@ -117,11 +117,26 @@ func (d *DataAccess) GetPricing2Tokens(
 		{token1Address, token1Amount},
 	})
 
-	if prices[0] == nil || prices[1] == nil {
-		return prices[0], prices[1], nil
+	if prices[0] == nil && prices[1] == nil {
+		return nil, nil, nil
+	} else if prices[0] == nil {
+		numerator := big.NewFloat(1.0).Mul(prices[1], token1Amount)
+		denominator := token0Amount
+		prices[0] = big.NewFloat(1.0).Quo(numerator, denominator)
+		// cache derived price
+		lookupKey := Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
+		d.PricingCache.Add(lookupKey, prices[0])
+
+	} else if prices[1] == nil {
+		numerator := big.NewFloat(1.0).Mul(prices[0], token0Amount)
+		denominator := token1Amount
+		prices[1] = big.NewFloat(1.0).Quo(numerator, denominator)
+		// cache derived price
+		lookupKey := Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
+		d.PricingCache.Add(lookupKey, prices[1])
 	}
 
-	return prices[0], prices[1], big.NewFloat(1.0).Add(prices[0], prices[1])
+	return prices[0], prices[1], big.NewFloat(1.0).Mul(prices[0], token0Amount)
 }
 
 func (d *DataAccess) GetPricesForBlock(
@@ -187,6 +202,7 @@ func (d *DataAccess) GetPriceForBlock(
 
 				// Assuming base currency to be worth 1USD
 				multiplier = multiplier.Mul(multiplier, tokenFormatted)
+				break
 			}
 		}
 
