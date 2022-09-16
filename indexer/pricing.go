@@ -32,6 +32,10 @@ type OracleMap struct {
 	} `json:"Oracles"`
 }
 
+var (
+	ZeroFloat *big.Float
+)
+
 type Pricing struct {
 	oracleMapsRootDir string
 	diskCacheRootDir  string
@@ -119,7 +123,7 @@ func (d *DataAccess) GetPricing2Tokens(
 
 	if prices[0] == nil && prices[1] == nil {
 		return nil, nil, nil
-	} else if prices[0] == nil {
+	} else if prices[0] == nil && token0Amount != ZeroFloat {
 		numerator := big.NewFloat(1.0).Mul(prices[1], token1Amount)
 		denominator := token0Amount
 		prices[0] = big.NewFloat(1.0).Quo(numerator, denominator)
@@ -127,7 +131,7 @@ func (d *DataAccess) GetPricing2Tokens(
 		lookupKey := Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
 		d.PricingCache.Add(lookupKey, prices[0])
 
-	} else if prices[1] == nil {
+	} else if prices[1] == nil && token1Amount != ZeroFloat {
 		numerator := big.NewFloat(1.0).Mul(prices[0], token0Amount)
 		denominator := token1Amount
 		prices[1] = big.NewFloat(1.0).Quo(numerator, denominator)
@@ -212,4 +216,8 @@ func (d *DataAccess) GetPriceForBlock(
 	}
 
 	return nil
+}
+
+func init() {
+	ZeroFloat = big.NewFloat(0.0)
 }
