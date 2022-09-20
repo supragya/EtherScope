@@ -3,7 +3,7 @@ module github.com/Blockpour/Blockpour-Geth-Indexer
 go 1.18
 
 require (
-	github.com/ethereum/go-ethereum v1.10.23
+	github.com/ethereum/go-ethereum v1.10.25
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/prometheus/client_golang v1.13.0
 	github.com/sirupsen/logrus v1.9.0
@@ -11,8 +11,8 @@ require (
 	github.com/spf13/viper v1.13.0
 	github.com/streadway/amqp v1.0.0
 	github.com/stretchr/testify v1.8.0
-	github.com/supragya/MasterSlavePool v0.0.0-20220910154813-2f9459632ade
-	github.com/supragya/gograph v0.0.0-20220819155554-432524c5f56b
+	github.com/supragya/MasterSlavePool v1.0.1
+	github.com/supragya/gograph v1.0.0
 )
 
 require (
@@ -50,8 +50,8 @@ require (
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.5.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
-	golang.org/x/sys v0.0.0-20220909162455-aba9fc2a8ff2 // indirect
+	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0 // indirect
+	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
