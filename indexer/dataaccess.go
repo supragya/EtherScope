@@ -48,7 +48,7 @@ func NewDataAccess(isErigon bool, masterUpstream string, slaveUpstreams []string
 	pricingcache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
-	pool, err := msp.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams)
+	pool, err := msp.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams, msp.DefaultMSPoolConfig)
 	util.ENOK(err)
 
 	return &DataAccess{
