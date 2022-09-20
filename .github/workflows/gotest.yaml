@@ -22,7 +22,7 @@ jobs:
         run: go version
 
       - name: Build
-        run: go build -v ./...
+        run: make build -B
 
       - name: Test
         run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/indexer

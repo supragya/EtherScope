@@ -28,7 +28,7 @@ type DataAccess struct {
 	isErigon            bool
 	contractTokensCache *lru.ARCCache
 	ERC20Cache          *lru.ARCCache
-	PricingCache        *lru.ARCCache
+	RateCache           *lru.ARCCache
 	pricing             *Pricing
 }
 
@@ -45,7 +45,7 @@ func NewDataAccess(isErigon bool, masterUpstream string, slaveUpstreams []string
 	erc20cache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
-	pricingcache, err := lru.NewARC(1024) // Hardcoded 1024
+	ratecache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
 	pool, err := msp.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams, msp.DefaultMSPoolConfig)
@@ -56,7 +56,7 @@ func NewDataAccess(isErigon bool, masterUpstream string, slaveUpstreams []string
 		isErigon:            isErigon,
 		contractTokensCache: ctcache,
 		ERC20Cache:          erc20cache,
-		PricingCache:        pricingcache,
+		RateCache:           ratecache,
 		pricing:             GetPricingEngine(),
 	}
 }

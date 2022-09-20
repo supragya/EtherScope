@@ -126,23 +126,32 @@ func (d *DataAccess) GetPricing2Tokens(
 	} else if prices[0] == nil && token0Amount.Cmp(ZeroFloat) != 0 {
 		numerator := big.NewFloat(1.0).Mul(prices[1], token1Amount)
 		denominator := token0Amount
-		prices[0] = big.NewFloat(1.0).Quo(numerator, denominator)
-		// cache derived price
+		rate := big.NewFloat(1.0).Quo(numerator, denominator)
+		prices[0] = prices[1]
+		// cache derived rate
 		lookupKey := Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
-		d.PricingCache.Add(lookupKey, prices[0])
+		d.RateCache.Add(lookupKey, rate)
 
 	} else if prices[1] == nil && token1Amount.Cmp(ZeroFloat) != 0 {
 		numerator := big.NewFloat(1.0).Mul(prices[0], token0Amount)
 		denominator := token1Amount
-		prices[1] = big.NewFloat(1.0).Quo(numerator, denominator)
-		// cache derived price
+		rate := big.NewFloat(1.0).Quo(numerator, denominator)
+		prices[1] = prices[0]
+		// cache derived rate
 		lookupKey := Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
-		d.PricingCache.Add(lookupKey, prices[1])
+		d.RateCache.Add(lookupKey, rate)
 	}
 
 	amountUSD = big.NewFloat(0.0)
 	if prices[0] != nil && prices[1] != nil {
-		amountUSD.Mul(prices[0], token0Amount)
+		switch prices[0].Cmp(prices[1]) {
+		case -1:
+			amountUSD.Copy(prices[1])
+		case 0:
+			amountUSD.Copy(prices[1])
+		case 1:
+			amountUSD.Copy(prices[0])
+		}
 	}
 
 	return prices[0], prices[1], amountUSD
@@ -165,7 +174,7 @@ func (d *DataAccess) GetPriceForBlock(
 	// cache lookup
 	lookupKey := Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
 
-	if val, ok := d.PricingCache.Get(lookupKey); ok {
+	if val, ok := d.RateCache.Get(lookupKey); ok {
 		return big.NewFloat(0.0).Mul(val.(*big.Float), request.Second)
 	}
 
@@ -177,7 +186,7 @@ func (d *DataAccess) GetPriceForBlock(
 	// if a known token
 	if tokenID, ok := d.pricing.tokenMap[request.First]; ok {
 		route := d.pricing.graph.GetShortestRoute(tokenID, "USD")
-		multiplier := big.NewFloat(1.0)
+		rate := big.NewFloat(1.0)
 
 		for _, edge := range route.Edges {
 			oracleContractAddress := common.HexToAddress(edge.Metadata)
@@ -210,14 +219,14 @@ func (d *DataAccess) GetPriceForBlock(
 				tokenFormatted := util.DivideBy10pow(latestRoundData.Answer, decimals)
 
 				// Assuming base currency to be worth 1USD
-				multiplier = multiplier.Mul(multiplier, tokenFormatted)
+				rate = rate.Mul(rate, tokenFormatted)
 				break
 			}
 		}
 
 		// Cache insert
-		d.PricingCache.Add(lookupKey, multiplier)
-		return multiplier.Mul(multiplier, request.Second)
+		d.RateCache.Add(lookupKey, rate)
+		return big.NewFloat(1.0).Mul(rate, request.Second)
 	}
 
 	return nil
