@@ -108,7 +108,7 @@ func GetPricingEngine() *Pricing {
 	return &pricing
 }
 
-func (d *DataAccess) GetPricing2Tokens(
+func (d *DataAccess) GetRates2Tokens(
 	callopts *bind.CallOpts,
 	token0Address common.Address,
 	token1Address common.Address,
@@ -116,58 +116,53 @@ func (d *DataAccess) GetPricing2Tokens(
 	token1Amount *big.Float) (token0Price *big.Float,
 	token1Price *big.Float,
 	amountUSD *big.Float) {
-	prices := d.GetPricesForBlock(callopts, []Tuple2[common.Address, *big.Float]{
+	rates := d.GetRatesForBlock(callopts, []Tuple2[common.Address, *big.Float]{
 		{token0Address, token0Amount},
 		{token1Address, token1Amount},
 	})
 
-	if prices[0] == nil && prices[1] == nil {
+	if rates[0] == nil && rates[1] == nil {
 		return nil, nil, nil
-	} else if prices[0] == nil && token0Amount.Cmp(ZeroFloat) != 0 {
-		numerator := big.NewFloat(1.0).Mul(prices[1], token1Amount)
+	} else if rates[0] == nil && token0Amount.Cmp(ZeroFloat) != 0 {
+		numerator := big.NewFloat(1.0).Mul(rates[1], token1Amount)
 		denominator := token0Amount
-		rate := big.NewFloat(1.0).Quo(numerator, denominator)
-		prices[0] = prices[1]
+		rates[0] = big.NewFloat(1.0).Quo(numerator, denominator)
 		// cache derived rate
 		lookupKey := Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
-		d.RateCache.Add(lookupKey, rate)
+		d.RateCache.Add(lookupKey, rates[0])
 
-	} else if prices[1] == nil && token1Amount.Cmp(ZeroFloat) != 0 {
-		numerator := big.NewFloat(1.0).Mul(prices[0], token0Amount)
+	} else if rates[1] == nil && token1Amount.Cmp(ZeroFloat) != 0 {
+		numerator := big.NewFloat(1.0).Mul(rates[0], token0Amount)
 		denominator := token1Amount
-		rate := big.NewFloat(1.0).Quo(numerator, denominator)
-		prices[1] = prices[0]
+		rates[1] = big.NewFloat(1.0).Quo(numerator, denominator)
 		// cache derived rate
 		lookupKey := Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
-		d.RateCache.Add(lookupKey, rate)
+		d.RateCache.Add(lookupKey, rates[1])
 	}
 
 	amountUSD = big.NewFloat(0.0)
-	if prices[0] != nil && prices[1] != nil {
-		switch prices[0].Cmp(prices[1]) {
-		case -1:
-			amountUSD.Copy(prices[1])
-		case 0:
-			amountUSD.Copy(prices[1])
-		case 1:
-			amountUSD.Copy(prices[0])
+	if rates[0] != nil && rates[1] != nil {
+		if token0Amount.Cmp(ZeroFloat) != 0 {
+			amountUSD.Mul(rates[0], token0Amount)
+		} else {
+			amountUSD.Mul(rates[1], token1Amount)
 		}
 	}
 
-	return prices[0], prices[1], amountUSD
+	return rates[0], rates[1], amountUSD
 }
 
-func (d *DataAccess) GetPricesForBlock(
+func (d *DataAccess) GetRatesForBlock(
 	callopts *bind.CallOpts,
 	requests []Tuple2[common.Address, *big.Float]) []*big.Float {
 	response := []*big.Float{}
 	for _, req := range requests {
-		response = append(response, d.GetPriceForBlock(callopts, req))
+		response = append(response, d.GetRateForBlock(callopts, req))
 	}
 	return response
 }
 
-func (d *DataAccess) GetPriceForBlock(
+func (d *DataAccess) GetRateForBlock(
 	callopts *bind.CallOpts,
 	request Tuple2[common.Address, *big.Float]) *big.Float {
 
@@ -175,7 +170,7 @@ func (d *DataAccess) GetPriceForBlock(
 	lookupKey := Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
 
 	if val, ok := d.RateCache.Get(lookupKey); ok {
-		return big.NewFloat(0.0).Mul(val.(*big.Float), request.Second)
+		return val.(*big.Float)
 	}
 
 	// Is stablecoin
@@ -226,7 +221,7 @@ func (d *DataAccess) GetPriceForBlock(
 
 		// Cache insert
 		d.RateCache.Add(lookupKey, rate)
-		return big.NewFloat(1.0).Mul(rate, request.Second)
+		return rate
 	}
 
 	return nil

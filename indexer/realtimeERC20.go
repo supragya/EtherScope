@@ -29,7 +29,7 @@ func (r *RealtimeIndexer) processTransfer(
 		return
 	}
 
-	tokenPrice := r.da.GetPriceForBlock(callopts, Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
+	tokenPrice := r.da.GetRateForBlock(callopts, Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
 
 	transfer := itypes.Transfer{
 		Type:        "transfer",
