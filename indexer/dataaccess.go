@@ -333,10 +333,11 @@ func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
 	for retries := 0; retries < WD; retries++ {
 		cl := d.upstreams.GetItem()
 
-		bl, err := cl.BlockByNumber(context.Background(), big.NewInt(int64(height)))
+		var bl *types.Header
+		bl, err = cl.HeaderByNumber(context.Background(), big.NewInt(int64(height)))
 		if err == nil {
 			d.upstreams.Report(cl, false)
-			return bl.Header().Time, nil
+			return bl.Time, nil
 		}
 		if err != nil {
 			// Early exit
