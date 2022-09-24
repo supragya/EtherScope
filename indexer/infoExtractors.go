@@ -124,6 +124,6 @@ func InfoUniV3Swap(l types.Log) (hasSufficientData bool,
 	return true,
 		util.ExtractAddressFromLogTopic(l.Topics[1]),
 		util.ExtractAddressFromLogTopic(l.Topics[2]),
-		util.ExtractIntFromBytes(l.Data[32:64]),
-		util.ExtractIntFromBytes(l.Data[64:96])
+		util.ExtractIntFromBytes(l.Data[:32]),
+		util.ExtractIntFromBytes(l.Data[32:64])
 }
