@@ -175,7 +175,7 @@ func (d *DataAccess) GetRateForBlock(
 
 	// Is stablecoin
 	if _, ok := d.pricing.stableCoins[request.First]; ok {
-		return request.Second
+		return big.NewFloat(1.0)
 	}
 
 	// if a known token
