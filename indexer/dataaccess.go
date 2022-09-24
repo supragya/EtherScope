@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ERC20"
@@ -86,11 +85,7 @@ func (d *DataAccess) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, erro
 func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
 	lookupKey := Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
-	if d.contractTokensCache.Contains(lookupKey) {
-		ret, ok := d.contractTokensCache.Get(lookupKey)
-		if !ok {
-			return common.Address{}, common.Address{}, fmt.Errorf("cache issues for %v", lookupKey)
-		}
+	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
 		retI := ret.(Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
@@ -130,11 +125,7 @@ func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.
 func (d *DataAccess) GetTokensUniV3(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
 	lookupKey := Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
-	if d.contractTokensCache.Contains(lookupKey) {
-		ret, ok := d.contractTokensCache.Get(lookupKey)
-		if !ok {
-			return common.Address{}, common.Address{}, fmt.Errorf("cache issues for %v", lookupKey)
-		}
+	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
 		retI := ret.(Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
@@ -174,11 +165,7 @@ func (d *DataAccess) GetTokensUniV3(pairContract common.Address, callopts *bind.
 func (d *DataAccess) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
 	lookupKey := Tuple2[common.Address, bind.CallOpts]{nftContract, *callopts}
-	if d.contractTokensCache.Contains(lookupKey) {
-		ret, ok := d.contractTokensCache.Get(lookupKey)
-		if !ok {
-			return common.Address{}, common.Address{}, fmt.Errorf("cache issues for %v", lookupKey)
-		}
+	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
 		retI := ret.(Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
@@ -234,11 +221,7 @@ func (d *DataAccess) GetERC20(erc20Address common.Address) (*ERC20.ERC20, *ethcl
 func (d *DataAccess) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Client, erc20Address common.Address, callopts *bind.CallOpts) (uint8, error) {
 	// Cache checkup
 	lookupKey := erc20Address
-	if d.ERC20Cache.Contains(lookupKey) {
-		ret, ok := d.ERC20Cache.Get(lookupKey)
-		if !ok {
-			return 0, fmt.Errorf("cache issues for %v", lookupKey)
-		}
+	if ret, ok := d.ERC20Cache.Get(lookupKey); ok {
 		retI := ret.(uint8)
 		return retI, nil
 	}
