@@ -1,4 +1,4 @@
-package dataaccess
+package ethrpc
 
 import (
 	"math/big"
@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func (d *DataAccess) GetERC20(erc20Address common.Address) (*ERC20.ERC20, *ethclient.Client) {
+func (d *EthRPC) GetERC20(erc20Address common.Address) (*ERC20.ERC20, *ethclient.Client) {
 	cl := d.upstreams.GetItem()
 	obj, err := ERC20.NewERC20(erc20Address, cl)
 	util.ENOK(err)
@@ -19,7 +19,7 @@ func (d *DataAccess) GetERC20(erc20Address common.Address) (*ERC20.ERC20, *ethcl
 }
 
 // Cached RPC access to get decimals for ERC20 addresses
-func (d *DataAccess) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Client, erc20Address common.Address, callopts *bind.CallOpts) (uint8, error) {
+func (d *EthRPC) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Client, erc20Address common.Address, callopts *bind.CallOpts) (uint8, error) {
 	lookupKey := erc20Address
 	if ret, ok := d.ERC20Cache.Get(lookupKey); ok {
 		retI := ret.(uint8)
@@ -40,7 +40,7 @@ func (d *DataAccess) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Clie
 }
 
 // Non-cached RPC access to get balances for tuple (holderAddress, tokenAddress)
-func (d *DataAccess) GetERC20Balances(requests []util.Tuple2[common.Address, common.Address],
+func (d *EthRPC) GetERC20Balances(requests []util.Tuple2[common.Address, common.Address],
 	callopts *bind.CallOpts) ([]util.Tuple2[common.Address, *big.Int], error) {
 	results := []util.Tuple2[common.Address, *big.Int]{}
 

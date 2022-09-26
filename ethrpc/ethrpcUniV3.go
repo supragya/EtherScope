@@ -1,4 +1,4 @@
-package dataaccess
+package ethrpc
 
 import (
 	"math/big"
@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func (d *DataAccess) GetTokensUniV3(pairContract common.Address,
+func (d *EthRPC) GetTokensUniV3(pairContract common.Address,
 	callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
@@ -48,7 +48,7 @@ func (d *DataAccess) GetTokensUniV3(pairContract common.Address,
 	return token0, token1, nil
 }
 
-func (d *DataAccess) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
+func (d *EthRPC) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
 	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{nftContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {

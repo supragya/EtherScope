@@ -1,4 +1,4 @@
-package dataaccess
+package ethrpc
 
 import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
+func (d *EthRPC) GetTokensUniV2(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
 	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {

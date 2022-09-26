@@ -1,4 +1,4 @@
-package dataaccess
+package ethrpc
 
 import (
 	"encoding/hex"
@@ -108,7 +108,7 @@ func GetPricingEngine() *Pricing {
 	return &pricing
 }
 
-func (d *DataAccess) GetRates2Tokens(
+func (d *EthRPC) GetRates2Tokens(
 	callopts *bind.CallOpts,
 	token0Address common.Address,
 	token1Address common.Address,
@@ -152,7 +152,7 @@ func (d *DataAccess) GetRates2Tokens(
 	return rates[0], rates[1], amountUSD
 }
 
-func (d *DataAccess) GetRatesForBlock(
+func (d *EthRPC) GetRatesForBlock(
 	callopts *bind.CallOpts,
 	requests []util.Tuple2[common.Address, *big.Float]) []*big.Float {
 	response := []*big.Float{}
@@ -162,7 +162,7 @@ func (d *DataAccess) GetRatesForBlock(
 	return response
 }
 
-func (d *DataAccess) GetRateForBlock(
+func (d *EthRPC) GetRateForBlock(
 	callopts *bind.CallOpts,
 	request util.Tuple2[common.Address, *big.Float]) *big.Float {
 

@@ -1,4 +1,4 @@
-package dataaccess
+package ethrpc
 
 import (
 	"math/big"
@@ -11,7 +11,7 @@ import (
 
 const WD = 20
 
-type DataAccess struct {
+type EthRPC struct {
 	upstreams           *mspool.MasterSlavePool[ethclient.Client]
 	isErigon            bool
 	contractTokensCache *lru.ARCCache
@@ -26,7 +26,7 @@ type UniV2Reserves struct {
 	BlockTimestampLast uint32
 }
 
-func NewDataAccess(isErigon bool, masterUpstream string, slaveUpstreams []string) *DataAccess {
+func NewEthRPC(isErigon bool, masterUpstream string, slaveUpstreams []string) *EthRPC {
 	ctcache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
@@ -39,7 +39,7 @@ func NewDataAccess(isErigon bool, masterUpstream string, slaveUpstreams []string
 	pool, err := mspool.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams, mspool.DefaultMSPoolConfig)
 	util.ENOK(err)
 
-	return &DataAccess{
+	return &EthRPC{
 		upstreams:           pool,
 		isErigon:            isErigon,
 		contractTokensCache: ctcache,
@@ -49,6 +49,6 @@ func NewDataAccess(isErigon bool, masterUpstream string, slaveUpstreams []string
 	}
 }
 
-func (d *DataAccess) Len() int {
+func (d *EthRPC) Len() int {
 	return len(d.upstreams.Slaves) + 1
 }

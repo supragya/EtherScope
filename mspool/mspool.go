@@ -35,9 +35,9 @@ type MSPoolConfig struct {
 
 var DefaultMSPoolConfig MSPoolConfig = MSPoolConfig{
 	WindowSize:     20,
-	ToleranceCount: 8,
-	TimeStep:       time.Millisecond,
-	RetryTimesteps: 100,
+	ToleranceCount: 6,
+	TimeStep:       time.Millisecond * 10,
+	RetryTimesteps: 1000,
 }
 
 type MasterSlavePool[I any] struct {
@@ -149,9 +149,9 @@ func (m *MasterSlavePool[I]) Report(item *I, timedOut bool) error {
 		pn.Meta.Reports += 1
 	}
 
-	// If more than enough (40%) of timeSteps have resulted in failure, go to cooldown
+	// If more than enough of timeSteps have resulted in failure, go to cooldown
 	if pn.Meta.Reports > m.config.ToleranceCount && now.Sub(pn.Meta.FirstReport) < m.config.TimeStep*time.Duration(m.config.WindowSize) {
-		fmt.Println("mspool reports upstream failure for: ", pn.Meta.Identity)
+		log.Warn("mspool reports upstream failure for: ", pn.Meta.Identity)
 		pn.Meta.IsAlive = false
 		pn.Meta.BringAlive = now.Add(m.config.TimeStep * time.Duration(m.config.RetryTimesteps))
 	}

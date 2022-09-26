@@ -1,4 +1,4 @@
-package dataaccess
+package ethrpc
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 )
 
 // Non-cached RPC access to get sender address for any eth transaction
-func (d *DataAccess) GetTxSender(txHash common.Hash,
+func (d *EthRPC) GetTxSender(txHash common.Hash,
 	blockHash common.Hash,
 	txIdx uint) (common.Address, error) {
 	tx, err := mspool.Do(d.upstreams,
@@ -31,7 +31,7 @@ func (d *DataAccess) GetTxSender(txHash common.Hash,
 }
 
 // Non-cached RPC access to get current block height
-func (d *DataAccess) GetCurrentBlockHeight() (uint64, error) {
+func (d *EthRPC) GetCurrentBlockHeight() (uint64, error) {
 	return mspool.Do(d.upstreams,
 		func(c *ethclient.Client) (uint64, error) {
 			return c.BlockNumber(context.Background())
@@ -39,7 +39,7 @@ func (d *DataAccess) GetCurrentBlockHeight() (uint64, error) {
 }
 
 // Non-cached RPC access to get block timestamp
-func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
+func (d *EthRPC) GetBlockTimestamp(height uint64) (uint64, error) {
 	header, err := mspool.Do(d.upstreams,
 		func(c *ethclient.Client) (*types.Header, error) {
 			return c.HeaderByNumber(context.Background(), big.NewInt(int64(height)))
@@ -48,7 +48,7 @@ func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
 }
 
 // Non-cached RPC access to get filtered logs
-func (d *DataAccess) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
+func (d *EthRPC) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
 	return mspool.Do(d.upstreams,
 		func(c *ethclient.Client) ([]types.Log, error) {
 			return c.FilterLogs(context.Background(), fq)

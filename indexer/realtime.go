@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/dataaccess"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/ethrpc"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
@@ -23,7 +23,7 @@ type RealtimeIndexer struct {
 	currentHeight    uint64
 	indexedHeight    uint64
 	dbconn           *db.DBConn
-	da               dataaccess.DataAccess
+	da               ethrpc.EthRPC
 	eventsToIndex    []common.Hash
 	eventsToIndexStr []string
 
@@ -42,7 +42,7 @@ func NewRealtimeIndexer(indexedHeight uint64,
 		currentHeight:    0,
 		indexedHeight:    indexedHeight,
 		dbconn:           dbconn,
-		da:               *dataaccess.NewDataAccess(isErigon, masterUpstream, slaveUpstreams),
+		da:               *ethrpc.NewEthRPC(isErigon, masterUpstream, slaveUpstreams),
 		eventsToIndex:    events,
 		eventsToIndexStr: eventsToIndex,
 
