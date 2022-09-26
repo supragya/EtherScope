@@ -9,12 +9,12 @@ import (
 	"os"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/chainlink"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/gograph"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/supragya/gograph"
 )
 
 type OracleMap struct {

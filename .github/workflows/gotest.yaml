@@ -23,6 +23,44 @@ jobs:
 
       - name: Build
         run: make build -B
+      
 
-      - name: Test
-        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/indexer
+
+      # -------------- Test utilities
+      - name: Test util
+        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/util -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/util -coverprofile=profile.cov
+
+      - name: Coverage report for util
+        run: go tool cover -func profile.cov 
+
+
+
+      # -------------- Test masterslave pool
+      - name: Test mspool
+        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/mspool -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/mspool -coverprofile=profile.cov
+
+      - name: Coverage report for mspool
+        run: go tool cover -func profile.cov 
+
+
+
+      # -------------- Test gograph
+      - name: Test indexer
+        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/gograph -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/gograph -coverprofile=profile.cov
+
+      - name: Coverage report for indexer
+        run: go tool cover -func profile.cov 
+
+
+      # -------------- Test realtime indexer
+      - name: Test indexer
+        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/indexer -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/indexer -coverprofile=profile.cov
+
+      - name: Coverage report for indexer
+        run: go tool cover -func profile.cov 
+
+      # - name: Test all modules
+      #   run: find . -name go.mod -execdir go test ./... -v -cover -coverpkg=./... -coverprofile=profile.cov ./... \;
+
+      # - name: Coverage for all modules
+      #   run: find . -name go.mod -execdir go tool cover -func profile.cov \;

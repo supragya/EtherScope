@@ -3,6 +3,7 @@ module github.com/Blockpour/Blockpour-Geth-Indexer
 go 1.18
 
 require (
+	github.com/alecthomas/binary v0.0.0-20190922233330-fb1b1d9c299c
 	github.com/ethereum/go-ethereum v1.10.25
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/prometheus/client_golang v1.13.0
@@ -11,12 +12,9 @@ require (
 	github.com/spf13/viper v1.13.0
 	github.com/streadway/amqp v1.0.0
 	github.com/stretchr/testify v1.8.0
-	github.com/supragya/MasterSlavePool v1.0.1
-	github.com/supragya/gograph v1.0.0
 )
 
 require (
-	github.com/alecthomas/binary v0.0.0-20190922233330-fb1b1d9c299c // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect

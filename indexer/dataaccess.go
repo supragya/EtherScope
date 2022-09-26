@@ -9,6 +9,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3positionsnft"
+	msp "github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -16,8 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	lru "github.com/hashicorp/golang-lru"
-
-	msp "github.com/supragya/MasterSlavePool"
 )
 
 const WD = 20

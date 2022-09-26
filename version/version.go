@@ -5,8 +5,7 @@ import (
 	"strconv"
 )
 
-// Application version  -- supplied compile time
-var ApplicationVersion string = "unknownversion"
+// Codename -- hardcoded
 var ApplicationCodename string = "colorado"
 
 // Build commit -- supplied compile time
@@ -29,9 +28,12 @@ var RootCmdVersion string = prepareVersionString()
 
 func prepareVersionString() string {
 	var buffer bytes.Buffer
-	buffer.WriteString(ApplicationVersion + " build " + buildCommit + "(" + ApplicationCodename + ")")
-	buffer.WriteString("\npersistence version " + strconv.Itoa(int(PersistenceVersion)))
+
+	buffer.WriteString(buildCommit + " persistence v" + strconv.Itoa(int(PersistenceVersion)))
+	buffer.WriteString(" (" + ApplicationCodename + ")")
+
 	buffer.WriteString("\ncompiled at " + buildTime + " by " + builder)
-	buffer.WriteString("\nusing " + gover)
+	buffer.WriteString(" using " + gover)
+
 	return buffer.String()
 }

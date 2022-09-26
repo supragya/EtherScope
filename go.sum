@@ -304,10 +304,6 @@ github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PK
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/subosito/gotenv v1.4.1 h1:jyEFiXpy21Wm81FBN71l9VoMMV8H8jG+qIK3GCpY6Qs=
 github.com/subosito/gotenv v1.4.1/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
-github.com/supragya/MasterSlavePool v1.0.1 h1:pmazh/wuxUGWguMxoRJHm+BGGPxcfpKg2HunnNG+6OA=
-github.com/supragya/MasterSlavePool v1.0.1/go.mod h1:uFTif2Do6Mqt2g1RQ2aHjZqxJyVNgKVOpW3Ex9YIZCM=
-github.com/supragya/gograph v1.0.0 h1:KQ9Mn+g529oMcVqAkJi5ICmguepr9l24ntVCB9/48pQ=
-github.com/supragya/gograph v1.0.0/go.mod h1:n44z9bsbnGigFFmV/CSFZSonPfbDkxiaCphT31vGcrg=
 github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 h1:epCh84lMvA70Z7CTTCmYQn2CKbY8j86K7/FAIr141uY=
 github.com/tklauser/go-sysconf v0.3.10 h1:IJ1AZGZRWbY8T5Vfk04D9WOA5WSejdflXxP03OUqALw=
 github.com/tklauser/go-sysconf v0.3.10/go.mod h1:C8XykCvCb+Gn0oNCWPIlcb0RuglQTYaQ2hGm7jmxEFk=
