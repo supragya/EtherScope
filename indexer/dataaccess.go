@@ -9,6 +9,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3positionsnft"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
 	msp "github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
@@ -248,90 +249,37 @@ func (d *DataAccess) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Clie
 	return decimals, errors.New("Fetch error: " + err.Error())
 }
 
-func (d *DataAccess) GetTxSender(txHash common.Hash, blockHash common.Hash, txIdx uint) (common.Address, error) {
-	var sender common.Address
-	var err error
-	var tx *types.Transaction
-
-	for retries := 0; retries < WD; retries++ {
-		cl := d.upstreams.GetItem()
-
-		tx, _, err = cl.TransactionByHash(context.Background(), txHash)
-		if err != nil {
-			// Early exit
-			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, false)
-				break
-			}
-			d.upstreams.Report(cl, true)
-		}
-
-		sender, err = cl.TransactionSender(context.Background(), tx, blockHash, txIdx)
-		if err == nil {
-			d.upstreams.Report(cl, false)
-			return sender, nil
-		}
-		if err != nil {
-			// Early exit
-			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, false)
-				break
-			}
-			d.upstreams.Report(cl, true)
-		}
+func (d *DataAccess) GetTxSender(txHash common.Hash,
+	blockHash common.Hash,
+	txIdx uint) (common.Address, error) {
+	tx, err := mspool.Do(d.upstreams,
+		func(c *ethclient.Client) (*types.Transaction, error) {
+			tx, _, err := c.TransactionByHash(context.Background(), txHash)
+			return tx, err
+		}, nil)
+	if err != nil {
+		return common.Address{}, err
 	}
-
-	return sender, errors.New("Fetch error: " + err.Error())
+	sender, err := mspool.Do(d.upstreams,
+		func(c *ethclient.Client) (common.Address, error) {
+			return c.TransactionSender(context.Background(), tx, blockHash, txIdx)
+		}, common.Address{})
+	return sender, err
 }
 
 func (d *DataAccess) GetCurrentBlockHeight() (uint64, error) {
-	var height uint64
-	var err error
-
-	for retries := 0; retries < WD; retries++ {
-		cl := d.upstreams.GetItem()
-
-		height, err = cl.BlockNumber(context.Background())
-		if err == nil {
-			d.upstreams.Report(cl, false)
-			return height, nil
-		}
-		if err != nil {
-			// Early exit
-			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, false)
-				break
-			}
-			d.upstreams.Report(cl, true)
-		}
-	}
-
-	return height, errors.New("Fetch error: " + err.Error())
+	return mspool.Do(d.upstreams,
+		func(c *ethclient.Client) (uint64, error) {
+			return c.BlockNumber(context.Background())
+		}, 0)
 }
 
 func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
-	var err error
-
-	for retries := 0; retries < WD; retries++ {
-		cl := d.upstreams.GetItem()
-
-		var bl *types.Header
-		bl, err = cl.HeaderByNumber(context.Background(), big.NewInt(int64(height)))
-		if err == nil {
-			d.upstreams.Report(cl, false)
-			return bl.Time, nil
-		}
-		if err != nil {
-			// Early exit
-			if util.IsEthErr(err) {
-				d.upstreams.Report(cl, false)
-				break
-			}
-			d.upstreams.Report(cl, true)
-		}
-	}
-
-	return 0, errors.New("Fetch error: " + err.Error())
+	header, err := mspool.Do(d.upstreams,
+		func(c *ethclient.Client) (*types.Header, error) {
+			return c.HeaderByNumber(context.Background(), big.NewInt(int64(height)))
+		}, nil)
+	return header.Time, err
 }
 
 // Take it to utils

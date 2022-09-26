@@ -14,9 +14,9 @@ import (
 
 func TestERC20Transfer(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
-	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
+	util.ENOK(config.LoadViperConfig("testdata/configs/testcfg.yaml"))
 	var (
-		_log = loadLog(t, "../test/transferExample.json")
+		_log = loadLog(t, "testdata/transferExample.json")
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},

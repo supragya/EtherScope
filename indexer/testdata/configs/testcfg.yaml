@@ -1,0 +1,47 @@
+# Subsection General
+# Needed always.
+general:
+  network: evm
+  chainID: 1
+  networkName: ethereum_mainnet
+  isErigon: false
+  startBlock: 15236215
+  maxBlockSpanPerCall: 10
+  failOnNonEthError: false
+  persistence: mq # only mq
+  maxCPUParallels: 4 
+  eventsToIndex:
+    - UniswapV2Swap
+    - UniswapV2Mint
+    - UniswapV2Burn
+    - UniswapV3Swap
+    - UniswapV3IncreaseLiquidity
+    - UniswapV3DecreaseLiquidity
+    - Transfer
+  oracleMapsRootDir: ../maps
+  diskCacheRootDir: /tmp
+  prometheusEndpoint: 127.0.0.1:9722
+
+# Subsection RPC upstreams
+# Needed always.
+rpc:
+  master: https://rpc.ankr.com/eth
+  slaves:
+  - https://rpc.ankr.com/eth
+  - https://rpc.ankr.com/eth
+
+# Subsection message queue
+# Needed only if general.persistence == "mq".
+mq:
+  secureConnection: false
+  host: 127.0.0.1
+  port: 5672
+  user: devuser
+  pass: devpass
+  queue: "eth-indexer"
+  queueIsDurable: true
+  queueAutoDelete: false
+  queueExclusive: false
+  queueNoWait: false
+  skipResume: false
+  resumeURL: "http://127.0.0.1:8080/GetBlockToResumeFrom"

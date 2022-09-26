@@ -36,7 +36,7 @@ type MSPoolConfig struct {
 var DefaultMSPoolConfig MSPoolConfig = MSPoolConfig{
 	WindowSize:     20,
 	ToleranceCount: 8,
-	TimeStep:       time.Millisecond * 10,
+	TimeStep:       time.Millisecond,
 	RetryTimesteps: 100,
 }
 

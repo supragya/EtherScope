@@ -29,11 +29,22 @@ func loadLog(t *testing.T, file string) types.Log {
 	return _log
 }
 
+func loadRawJSON(t *testing.T, file string) string {
+	jsonFile, err := os.Open(file)
+	if err != nil {
+		t.Error(err)
+	}
+	defer jsonFile.Close()
+	// read our opened jsonFile as a byte array.
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	return string(byteValue)
+}
+
 func TestUniswapV2Mint(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
-	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
+	util.ENOK(config.LoadViperConfig("testdata/configs/testcfg.yaml"))
 	var (
-		_log = loadLog(t, "../test/uniswapV2MintExample.json")
+		_log = loadLog(t, "testdata/uniswapV2MintExample.json")
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
@@ -46,15 +57,18 @@ func TestUniswapV2Mint(t *testing.T) {
 	)
 
 	ri.processMint(_log, &items, &bm, &mt)
+
 	assert.Equal(t, 1, len(items), "one mint not found")
+	u, _ := json.MarshalIndent(items[0], " ", "  ")
+	assert.JSONEq(t, loadRawJSON(t, "testdata/uniswapV2MintExampleExpected.json"), string(u))
 	assert.Equal(t, itypes.BlockSynopsis{MintLogs: 1, TotalLogs: 1}, bm, "one mint not found")
 }
 
 func TestUniswapV2Burn(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
-	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
+	util.ENOK(config.LoadViperConfig("testdata/configs/testcfg.yaml"))
 	var (
-		_log = loadLog(t, "../test/uniswapV2BurnExample.json")
+		_log = loadLog(t, "testdata/uniswapV2BurnExample.json")
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
@@ -73,9 +87,9 @@ func TestUniswapV2Burn(t *testing.T) {
 
 func TestUniswapV2Swap(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
-	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
+	util.ENOK(config.LoadViperConfig("testdata/configs/testcfg.yaml"))
 	var (
-		_log = loadLog(t, "../test/uniswapV2SwapExample.json")
+		_log = loadLog(t, "testdata/uniswapV2SwapExample.json")
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
@@ -89,5 +103,7 @@ func TestUniswapV2Swap(t *testing.T) {
 
 	ri.processUniV2Swap(_log, &items, &bm, &mt)
 	assert.Equal(t, 1, len(items), "one swap not found")
+	// u, _ := json.MarshalIndent(items[0], " ", "  ")
+	// assert.JSONEq(t, loadRawJSON(t, "testdata/uniswapV2SwapExampleExpected.json"), string(u))
 	assert.Equal(t, itypes.BlockSynopsis{SwapLogs: 1, TotalLogs: 1}, bm, "one swap not found")
 }

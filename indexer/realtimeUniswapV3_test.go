@@ -14,9 +14,9 @@ import (
 
 func TestUniswapV3Swap(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
-	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
+	util.ENOK(config.LoadViperConfig("testdata/configs/testcfg.yaml"))
 	var (
-		_log = loadLog(t, "../test/uniswapV3SwapExample.json")
+		_log = loadLog(t, "testdata/uniswapV3SwapExample.json")
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
@@ -35,9 +35,9 @@ func TestUniswapV3Swap(t *testing.T) {
 
 func TestUniswapV3IncreaseLiquidity(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
-	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
+	util.ENOK(config.LoadViperConfig("testdata/configs/testcfg.yaml"))
 	var (
-		_log = loadLog(t, "../test/uniswapV3IncreaseLiquidityExample.json")
+		_log = loadLog(t, "testdata/uniswapV3IncreaseLiquidityExample.json")
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
@@ -56,9 +56,9 @@ func TestUniswapV3IncreaseLiquidity(t *testing.T) {
 
 func TestUniswapV3DecreaseLiquidity(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))
-	util.ENOK(config.LoadViperConfig("../test/configs/testcfg.yaml"))
+	util.ENOK(config.LoadViperConfig("testdata/configs/testcfg.yaml"))
 	var (
-		_log = loadLog(t, "../test/uniswapV3DecreaseLiquidityExample.json")
+		_log = loadLog(t, "testdata/uniswapV3DecreaseLiquidityExample.json")
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},

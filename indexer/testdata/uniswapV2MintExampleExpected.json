@@ -1,0 +1,20 @@
+{
+    "Type": "mint",
+    "Network": 1,
+    "LogIdx": 639,
+    "Transaction": "0x777129f86fa1267af6cb28f5d91dcc4c48f0dd72aa2f1ae0efbb258160bf1abb",
+    "Time": 0,
+    "Height": 15236229,
+    "Sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+    "Receiver": "0x0000000000000000000000000000000000000000",
+    "PairContract": "0x3480a42ae1e3bd02308ccc490c5e42a85601e594",
+    "Token0": "0x520d3e8fc4dd6e0493badd951421e9e8476a8a69",
+    "Token1": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "Amount0": "1.7999999999e+08",
+    "Amount1": "0.001095881074899401",
+    "Reserve0": "6.67429364098855136231253743921e+11",
+    "Reserve1": "4.00314330486682334",
+    "AmountUSD": "1.8705829520136934",
+    "Price0": "1.0392127511764526e-08",
+    "Price1": "1706.92148524"
+  }
