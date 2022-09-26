@@ -1,4 +1,4 @@
-package indexer
+package dataaccess
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3positionsnft"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
-	msp "github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -23,7 +22,7 @@ import (
 const WD = 20
 
 type DataAccess struct {
-	upstreams           *msp.MasterSlavePool[ethclient.Client]
+	upstreams           *mspool.MasterSlavePool[ethclient.Client]
 	isErigon            bool
 	contractTokensCache *lru.ARCCache
 	ERC20Cache          *lru.ARCCache
@@ -47,7 +46,7 @@ func NewDataAccess(isErigon bool, masterUpstream string, slaveUpstreams []string
 	ratecache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
-	pool, err := msp.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams, msp.DefaultMSPoolConfig)
+	pool, err := mspool.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams, mspool.DefaultMSPoolConfig)
 	util.ENOK(err)
 
 	return &DataAccess{
@@ -84,9 +83,9 @@ func (d *DataAccess) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, erro
 
 func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
-	lookupKey := Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
+	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
-		retI := ret.(Tuple2[common.Address, common.Address])
+		retI := ret.(util.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
 
@@ -114,7 +113,7 @@ func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.
 		d.upstreams.Report(cl, err != nil)
 		if err == nil {
 			// Cache
-			d.contractTokensCache.Add(lookupKey, Tuple2[common.Address, common.Address]{token0, token1})
+			d.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
 			return token0, token1, nil
 		}
 	}
@@ -124,9 +123,9 @@ func (d *DataAccess) GetTokensUniV2(pairContract common.Address, callopts *bind.
 
 func (d *DataAccess) GetTokensUniV3(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
-	lookupKey := Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
+	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
-		retI := ret.(Tuple2[common.Address, common.Address])
+		retI := ret.(util.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
 
@@ -154,7 +153,7 @@ func (d *DataAccess) GetTokensUniV3(pairContract common.Address, callopts *bind.
 		d.upstreams.Report(cl, err != nil)
 		if err == nil {
 			// Cache
-			d.contractTokensCache.Add(lookupKey, Tuple2[common.Address, common.Address]{token0, token1})
+			d.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
 			return token0, token1, nil
 		}
 	}
@@ -164,9 +163,9 @@ func (d *DataAccess) GetTokensUniV3(pairContract common.Address, callopts *bind.
 
 func (d *DataAccess) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
-	lookupKey := Tuple2[common.Address, bind.CallOpts]{nftContract, *callopts}
+	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{nftContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
-		retI := ret.(Tuple2[common.Address, common.Address])
+		retI := ret.(util.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
 
@@ -204,7 +203,7 @@ func (d *DataAccess) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.
 		}
 		d.upstreams.Report(cl, err != nil)
 		// Cache
-		d.contractTokensCache.Add(lookupKey, Tuple2[common.Address, common.Address]{positions.Token0, positions.Token1})
+		d.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{positions.Token0, positions.Token1})
 		return positions.Token0, positions.Token1, nil
 	}
 
@@ -249,61 +248,18 @@ func (d *DataAccess) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Clie
 	return decimals, errors.New("Fetch error: " + err.Error())
 }
 
-func (d *DataAccess) GetTxSender(txHash common.Hash,
-	blockHash common.Hash,
-	txIdx uint) (common.Address, error) {
-	tx, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (*types.Transaction, error) {
-			tx, _, err := c.TransactionByHash(context.Background(), txHash)
-			return tx, err
-		}, nil)
-	if err != nil {
-		return common.Address{}, err
-	}
-	sender, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (common.Address, error) {
-			return c.TransactionSender(context.Background(), tx, blockHash, txIdx)
-		}, common.Address{})
-	return sender, err
-}
-
-func (d *DataAccess) GetCurrentBlockHeight() (uint64, error) {
-	return mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (uint64, error) {
-			return c.BlockNumber(context.Background())
-		}, 0)
-}
-
-func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
-	header, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (*types.Header, error) {
-			return c.HeaderByNumber(context.Background(), big.NewInt(int64(height)))
-		}, nil)
-	return header.Time, err
-}
-
 // Take it to utils
-type Tuple2[A any, B any] struct {
-	First  A
-	Second B
-}
 
-type Tuple3[A any, B any, C any] struct {
-	First  A
-	Second B
-	Third  C
-}
-
-func (d *DataAccess) GetBalances(requests []Tuple2[common.Address, common.Address],
-	callopts *bind.CallOpts) ([]Tuple2[common.Address, *big.Int], error) {
-	results := []Tuple2[common.Address, *big.Int]{}
+func (d *DataAccess) GetBalances(requests []util.Tuple2[common.Address, common.Address],
+	callopts *bind.CallOpts) ([]util.Tuple2[common.Address, *big.Int], error) {
+	results := []util.Tuple2[common.Address, *big.Int]{}
 
 	for _, req := range requests {
 		balance, err := d.GetBalance(req.First, req.Second, callopts)
 		if err != nil {
 			return results, err
 		}
-		results = append(results, Tuple2[common.Address, *big.Int]{req.First, balance})
+		results = append(results, util.Tuple2[common.Address, *big.Int]{req.First, balance})
 	}
 	return results, nil
 }

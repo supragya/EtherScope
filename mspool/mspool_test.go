@@ -146,8 +146,15 @@ func newIntegerPool(slaveCount int) MasterSlavePool[IS] {
 		slaves = append(slaves, &slave)
 	}
 
+	var cfg MSPoolConfig = MSPoolConfig{
+		WindowSize:     20,
+		ToleranceCount: 8,
+		TimeStep:       time.Millisecond * 10,
+		RetryTimesteps: 100,
+	}
+
 	return MasterSlavePool[IS]{
-		config:               DefaultMSPoolConfig,
+		config:               cfg,
 		rwlock:               sync.RWMutex{},
 		allFailureLogTime:    time.Time{},
 		allFailureCachedItem: nil,

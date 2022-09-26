@@ -1,4 +1,4 @@
-package indexer
+package dataaccess
 
 import (
 	"encoding/hex"
@@ -116,7 +116,7 @@ func (d *DataAccess) GetRates2Tokens(
 	token1Amount *big.Float) (token0Price *big.Float,
 	token1Price *big.Float,
 	amountUSD *big.Float) {
-	rates := d.GetRatesForBlock(callopts, []Tuple2[common.Address, *big.Float]{
+	rates := d.GetRatesForBlock(callopts, []util.Tuple2[common.Address, *big.Float]{
 		{token0Address, token0Amount},
 		{token1Address, token1Amount},
 	})
@@ -128,7 +128,7 @@ func (d *DataAccess) GetRates2Tokens(
 		denominator := token0Amount
 		rates[0] = big.NewFloat(1.0).Quo(numerator, denominator)
 		// cache derived rate
-		lookupKey := Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
+		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
 		d.RateCache.Add(lookupKey, rates[0])
 
 	} else if rates[1] == nil && token1Amount.Cmp(ZeroFloat) != 0 {
@@ -136,7 +136,7 @@ func (d *DataAccess) GetRates2Tokens(
 		denominator := token1Amount
 		rates[1] = big.NewFloat(1.0).Quo(numerator, denominator)
 		// cache derived rate
-		lookupKey := Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
+		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
 		d.RateCache.Add(lookupKey, rates[1])
 	}
 
@@ -154,7 +154,7 @@ func (d *DataAccess) GetRates2Tokens(
 
 func (d *DataAccess) GetRatesForBlock(
 	callopts *bind.CallOpts,
-	requests []Tuple2[common.Address, *big.Float]) []*big.Float {
+	requests []util.Tuple2[common.Address, *big.Float]) []*big.Float {
 	response := []*big.Float{}
 	for _, req := range requests {
 		response = append(response, d.GetRateForBlock(callopts, req))
@@ -164,10 +164,10 @@ func (d *DataAccess) GetRatesForBlock(
 
 func (d *DataAccess) GetRateForBlock(
 	callopts *bind.CallOpts,
-	request Tuple2[common.Address, *big.Float]) *big.Float {
+	request util.Tuple2[common.Address, *big.Float]) *big.Float {
 
 	// cache lookup
-	lookupKey := Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
+	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
 
 	if val, ok := d.RateCache.Get(lookupKey); ok {
 		return val.(*big.Float)

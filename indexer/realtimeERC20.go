@@ -6,6 +6,7 @@ import (
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -29,7 +30,7 @@ func (r *RealtimeIndexer) processTransfer(
 		return
 	}
 
-	tokenPrice := r.da.GetRateForBlock(callopts, Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
+	tokenPrice := r.da.GetRateForBlock(callopts, util.Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
 
 	transfer := itypes.Transfer{
 		Type:        "transfer",

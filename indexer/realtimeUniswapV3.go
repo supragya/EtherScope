@@ -47,7 +47,7 @@ func (r *RealtimeIndexer) processMintV3(
 		return
 	}
 
-	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetBalances([]util.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -118,7 +118,7 @@ func (r *RealtimeIndexer) processBurnV3(
 		return
 	}
 
-	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetBalances([]util.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -184,7 +184,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		return
 	}
 
-	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetBalances([]util.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {
