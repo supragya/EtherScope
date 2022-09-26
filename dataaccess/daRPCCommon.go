@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -44,4 +45,12 @@ func (d *DataAccess) GetBlockTimestamp(height uint64) (uint64, error) {
 			return c.HeaderByNumber(context.Background(), big.NewInt(int64(height)))
 		}, nil)
 	return header.Time, err
+}
+
+// Non-cached RPC access to get filtered logs
+func (d *DataAccess) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
+	return mspool.Do(d.upstreams,
+		func(c *ethclient.Client) ([]types.Log, error) {
+			return c.FilterLogs(context.Background(), fq)
+		}, []types.Log{})
 }
