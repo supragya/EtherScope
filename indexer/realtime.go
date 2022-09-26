@@ -33,6 +33,7 @@ type RealtimeIndexer struct {
 func NewRealtimeIndexer(indexedHeight uint64,
 	masterUpstream string,
 	slaveUpstreams []string,
+	timeout time.Duration,
 	isErigon bool,
 	dbconn *db.DBConn,
 	eventsToIndex []string) *RealtimeIndexer {
@@ -42,7 +43,7 @@ func NewRealtimeIndexer(indexedHeight uint64,
 		currentHeight:    0,
 		indexedHeight:    indexedHeight,
 		dbconn:           dbconn,
-		da:               *ethrpc.NewEthRPC(isErigon, masterUpstream, slaveUpstreams),
+		da:               *ethrpc.NewEthRPC(isErigon, masterUpstream, slaveUpstreams, timeout),
 		eventsToIndex:    events,
 		eventsToIndexStr: eventsToIndex,
 

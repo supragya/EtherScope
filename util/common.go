@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"math"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,10 +20,12 @@ import (
 )
 
 var (
-	EthErrorRegexes      []*regexp.Regexp
-	FailOnNonEthError    bool
-	FailOnNonEthErrorSet bool
-	ZeroBigInt_DoNotSet  *big.Int
+	EthErrorRegexes              []*regexp.Regexp
+	ContextDeadlineExceededRegex *regexp.Regexp
+	IOTimeoutRegex               *regexp.Regexp
+	FailOnNonEthError            bool
+	FailOnNonEthErrorSet         bool
+	ZeroBigInt_DoNotSet          *big.Int
 )
 
 type Tuple2[A any, B any] struct {
@@ -86,6 +90,11 @@ func IsEthErr(err error) bool {
 		}
 	}
 	return false
+}
+
+func IsRPCCallTimedOut(err error) bool {
+	return ContextDeadlineExceededRegex.MatchString(err.Error()) ||
+		IOTimeoutRegex.MatchString(err.Error())
 }
 
 func IsExecutionReverted(err error) bool {
@@ -197,6 +206,11 @@ func SHA256Hash(_bytes []byte) []byte {
 	return hasher.Sum(nil)
 }
 
+func NewCtx(timeOut time.Duration) context.Context {
+	ctx, _ := context.WithTimeout(context.Background(), timeOut)
+	return ctx
+}
+
 func init() {
 	EthErrors := []string{
 		"execution reverted", // Should always be kept at idx 0
@@ -209,6 +223,9 @@ func init() {
 	for _, e := range EthErrors {
 		EthErrorRegexes = append(EthErrorRegexes, regexp.MustCompile(e))
 	}
+
+	ContextDeadlineExceededRegex = regexp.MustCompile("context deadline exceeded")
+	IOTimeoutRegex = regexp.MustCompile("i/o timeout")
 
 	ZeroBigInt_DoNotSet = big.NewInt(0)
 }

@@ -1,6 +1,8 @@
 package ethrpc
 
 import (
+	"context"
+
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
@@ -18,11 +20,12 @@ func (d *EthRPC) GetTokensUniV2(pairContract common.Address, callopts *bind.Call
 	}
 
 	token0, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (common.Address, error) {
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ2pair.NewUniv2pair(pairContract, c)
 			if err != nil {
 				return common.Address{}, err
 			}
+			callopts.Context = ctx
 			return pc.Token0(callopts)
 		}, common.Address{})
 	if err != nil {
@@ -30,11 +33,12 @@ func (d *EthRPC) GetTokensUniV2(pairContract common.Address, callopts *bind.Call
 	}
 
 	token1, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (common.Address, error) {
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ2pair.NewUniv2pair(pairContract, c)
 			if err != nil {
 				return common.Address{}, err
 			}
+			callopts.Context = ctx
 			return pc.Token1(callopts)
 		}, common.Address{})
 	if err != nil {

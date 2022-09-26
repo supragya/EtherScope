@@ -25,6 +25,7 @@ general:
 # Subsection RPC upstreams
 # Needed always.
 rpc:
+  timeout: 500
   master: https://rpc.ankr.com/eth
   slaves:
   - https://rpc.ankr.com/eth

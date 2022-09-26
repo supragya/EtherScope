@@ -2,6 +2,7 @@ package ethrpc
 
 import (
 	"math/big"
+	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
@@ -16,7 +17,7 @@ type EthRPC struct {
 	isErigon            bool
 	contractTokensCache *lru.ARCCache
 	ERC20Cache          *lru.ARCCache
-	RateCache           *lru.ARCCache
+	PriceCache          *lru.ARCCache
 	pricing             *Pricing
 }
 
@@ -26,7 +27,7 @@ type UniV2Reserves struct {
 	BlockTimestampLast uint32
 }
 
-func NewEthRPC(isErigon bool, masterUpstream string, slaveUpstreams []string) *EthRPC {
+func NewEthRPC(isErigon bool, masterUpstream string, slaveUpstreams []string, timeout time.Duration) *EthRPC {
 	ctcache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
@@ -36,7 +37,7 @@ func NewEthRPC(isErigon bool, masterUpstream string, slaveUpstreams []string) *E
 	ratecache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
-	pool, err := mspool.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams, mspool.DefaultMSPoolConfig)
+	pool, err := mspool.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams, mspool.DefaultMSPoolConfig, timeout)
 	util.ENOK(err)
 
 	return &EthRPC{
@@ -44,7 +45,7 @@ func NewEthRPC(isErigon bool, masterUpstream string, slaveUpstreams []string) *E
 		isErigon:            isErigon,
 		contractTokensCache: ctcache,
 		ERC20Cache:          erc20cache,
-		RateCache:           ratecache,
+		PriceCache:          ratecache,
 		pricing:             GetPricingEngine(),
 	}
 }

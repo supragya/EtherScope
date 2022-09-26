@@ -1,6 +1,7 @@
 package ethrpc
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -10,9 +11,11 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/chainlink"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/gograph"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -129,7 +132,7 @@ func (d *EthRPC) GetRates2Tokens(
 		rates[0] = big.NewFloat(1.0).Quo(numerator, denominator)
 		// cache derived rate
 		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
-		d.RateCache.Add(lookupKey, rates[0])
+		d.PriceCache.Add(lookupKey, rates[0])
 
 	} else if rates[1] == nil && token1Amount.Cmp(ZeroFloat) != 0 {
 		numerator := big.NewFloat(1.0).Mul(rates[0], token0Amount)
@@ -137,7 +140,7 @@ func (d *EthRPC) GetRates2Tokens(
 		rates[1] = big.NewFloat(1.0).Quo(numerator, denominator)
 		// cache derived rate
 		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
-		d.RateCache.Add(lookupKey, rates[1])
+		d.PriceCache.Add(lookupKey, rates[1])
 	}
 
 	amountUSD = big.NewFloat(0.0)
@@ -162,6 +165,14 @@ func (d *EthRPC) GetRatesForBlock(
 	return response
 }
 
+type ChainlinkLatestRoundData struct {
+	RoundId         *big.Int
+	Answer          *big.Int
+	StartedAt       *big.Int
+	UpdatedAt       *big.Int
+	AnsweredInRound *big.Int
+}
+
 func (d *EthRPC) GetRateForBlock(
 	callopts *bind.CallOpts,
 	request util.Tuple2[common.Address, *big.Float]) *big.Float {
@@ -169,7 +180,7 @@ func (d *EthRPC) GetRateForBlock(
 	// cache lookup
 	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
 
-	if val, ok := d.RateCache.Get(lookupKey); ok {
+	if val, ok := d.PriceCache.Get(lookupKey); ok {
 		return val.(*big.Float)
 	}
 
@@ -181,47 +192,41 @@ func (d *EthRPC) GetRateForBlock(
 	// if a known token
 	if tokenID, ok := d.pricing.tokenMap[request.First]; ok {
 		route := d.pricing.graph.GetShortestRoute(tokenID, "USD")
-		rate := big.NewFloat(1.0)
+		price := big.NewFloat(1.0)
 
 		for _, edge := range route.Edges {
 			oracleContractAddress := common.HexToAddress(edge.Metadata)
-
-			for retries := 0; retries < WD; retries++ {
-				cl := d.upstreams.GetItem()
-				oracle, err := chainlink.NewChainlink(oracleContractAddress, cl)
-				util.ENOK(err)
-
-				latestRoundData, err := oracle.LatestRoundData(callopts)
-				if err != nil {
-					if util.IsEthErr(err) {
-						d.upstreams.Report(cl, false)
-						return nil
+			latestRoundData, err := mspool.Do(d.upstreams,
+				func(ctx context.Context, c *ethclient.Client) (ChainlinkLatestRoundData, error) {
+					oracle, err := chainlink.NewChainlink(oracleContractAddress, c)
+					if err != nil {
+						return ChainlinkLatestRoundData{}, err
 					}
-					d.upstreams.Report(cl, true)
-					continue
-				}
+					callopts.Context = ctx
+					return oracle.LatestRoundData(callopts)
+				}, ChainlinkLatestRoundData{})
+			util.ENOK(err)
 
-				decimals, err := oracle.Decimals(callopts)
-				if err != nil {
-					if util.IsEthErr(err) {
-						d.upstreams.Report(cl, false)
-						return nil
+			decimals, err := mspool.Do(d.upstreams,
+				func(ctx context.Context, c *ethclient.Client) (uint8, error) {
+					oracle, err := chainlink.NewChainlink(oracleContractAddress, c)
+					if err != nil {
+						return 0, err
 					}
-					d.upstreams.Report(cl, true)
-					continue
-				}
+					callopts.Context = ctx
+					return oracle.Decimals(callopts)
+				}, 0)
+			util.ENOK(err)
 
-				tokenFormatted := util.DivideBy10pow(latestRoundData.Answer, decimals)
+			tokenFormatted := util.DivideBy10pow(latestRoundData.Answer, decimals)
 
-				// Assuming base currency to be worth 1USD
-				rate = rate.Mul(rate, tokenFormatted)
-				break
-			}
+			// Assuming base currency to be worth 1USD
+			price = price.Mul(price, tokenFormatted)
 		}
 
 		// Cache insert
-		d.RateCache.Add(lookupKey, rate)
-		return rate
+		d.PriceCache.Add(lookupKey, price)
+		return price
 	}
 
 	return nil

@@ -34,8 +34,8 @@ type MSPoolConfig struct {
 }
 
 var DefaultMSPoolConfig MSPoolConfig = MSPoolConfig{
-	WindowSize:     20,
-	ToleranceCount: 6,
+	WindowSize:     800,
+	ToleranceCount: 5,
 	TimeStep:       time.Millisecond * 10,
 	RetryTimesteps: 1000,
 }
@@ -48,6 +48,7 @@ type MasterSlavePool[I any] struct {
 	itemMap              map[*I]*PoolNode[*I]
 	Master               *PoolNode[*I]
 	Slaves               []*PoolNode[*I]
+	RPCTimeout           time.Duration
 }
 
 type DurationTuple[I any] struct {
@@ -78,7 +79,8 @@ func NewNode[I any](item *I, identity string) PoolNode[*I] {
 
 func NewEthClientMasterSlavePool(masterURL string,
 	slaveURLs []string,
-	config MSPoolConfig) (*MasterSlavePool[ethclient.Client], error) {
+	config MSPoolConfig,
+	timeout time.Duration) (*MasterSlavePool[ethclient.Client], error) {
 	itemMap := make(map[*ethclient.Client]*PoolNode[*ethclient.Client], len(slaveURLs)+1)
 
 	// Setup master
@@ -109,6 +111,7 @@ func NewEthClientMasterSlavePool(masterURL string,
 		itemMap:              itemMap,
 		Master:               &master,
 		Slaves:               slaves,
+		RPCTimeout:           timeout,
 	}, nil
 }
 

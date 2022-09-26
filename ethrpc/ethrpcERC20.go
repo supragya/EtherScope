@@ -1,6 +1,7 @@
 package ethrpc
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ERC20"
@@ -27,7 +28,8 @@ func (d *EthRPC) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Client, 
 	}
 
 	decimals, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (uint8, error) {
+		func(ctx context.Context, c *ethclient.Client) (uint8, error) {
+			callopts.Context = ctx
 			return erc20.Decimals(callopts)
 		}, 0)
 
@@ -46,11 +48,12 @@ func (d *EthRPC) GetERC20Balances(requests []util.Tuple2[common.Address, common.
 
 	for _, req := range requests {
 		balance, err := mspool.Do(d.upstreams,
-			func(c *ethclient.Client) (*big.Int, error) {
+			func(ctx context.Context, c *ethclient.Client) (*big.Int, error) {
 				token, err := ERC20.NewERC20(req.Second, c)
 				if err != nil {
 					return big.NewInt(0), nil
 				}
+				callopts.Context = ctx
 				return token.BalanceOf(callopts, req.First)
 			}, nil)
 		if err != nil {

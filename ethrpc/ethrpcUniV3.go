@@ -1,6 +1,7 @@
 package ethrpc
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3pair"
@@ -21,11 +22,12 @@ func (d *EthRPC) GetTokensUniV3(pairContract common.Address,
 	}
 
 	token0, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (common.Address, error) {
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ3pair.NewUniv3pair(pairContract, c)
 			if err != nil {
 				return common.Address{}, err
 			}
+			callopts.Context = ctx
 			return pc.Token0(callopts)
 		}, common.Address{})
 	if err != nil {
@@ -33,11 +35,12 @@ func (d *EthRPC) GetTokensUniV3(pairContract common.Address,
 	}
 
 	token1, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (common.Address, error) {
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ3pair.NewUniv3pair(pairContract, c)
 			if err != nil {
 				return common.Address{}, err
 			}
+			callopts.Context = ctx
 			return pc.Token1(callopts)
 		}, common.Address{})
 	if err != nil {
@@ -57,11 +60,12 @@ func (d *EthRPC) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int,
 	}
 
 	tokens, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (util.Tuple2[common.Address, common.Address], error) {
+		func(ctx context.Context, c *ethclient.Client) (util.Tuple2[common.Address, common.Address], error) {
 			pc, err := univ3positionsnft.NewUniv3positionsnft(nftContract, c)
 			if err != nil {
 				return util.Tuple2[common.Address, common.Address]{}, err
 			}
+			callopts.Context = ctx
 			positions, err := pc.Positions(callopts, tokenID)
 			return util.Tuple2[common.Address, common.Address]{positions.Token0, positions.Token1}, err
 		}, util.Tuple2[common.Address, common.Address]{})

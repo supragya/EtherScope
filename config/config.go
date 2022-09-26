@@ -31,6 +31,7 @@ var (
 
 		{"rpc.master", "string", "Remote master upstream for RPC access"},
 		{"rpc.slaves", "[]string", "Remote slave upstreams for RPC access"},
+		{"rpc.timeout", "time.Duration", "Timeout per RPC call (in milliseconds)"},
 	}
 
 	mandatoryFieldsMessageQueue = [...]Field{

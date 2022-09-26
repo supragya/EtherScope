@@ -16,16 +16,17 @@ func (d *EthRPC) GetTxSender(txHash common.Hash,
 	blockHash common.Hash,
 	txIdx uint) (common.Address, error) {
 	tx, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (*types.Transaction, error) {
-			tx, _, err := c.TransactionByHash(context.Background(), txHash)
+		func(ctx context.Context, c *ethclient.Client) (*types.Transaction, error) {
+			tx, _, err := c.TransactionByHash(ctx, txHash)
 			return tx, err
 		}, nil)
 	if err != nil {
 		return common.Address{}, err
 	}
+
 	sender, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (common.Address, error) {
-			return c.TransactionSender(context.Background(), tx, blockHash, txIdx)
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
+			return c.TransactionSender(ctx, tx, blockHash, txIdx)
 		}, common.Address{})
 	return sender, err
 }
@@ -33,16 +34,16 @@ func (d *EthRPC) GetTxSender(txHash common.Hash,
 // Non-cached RPC access to get current block height
 func (d *EthRPC) GetCurrentBlockHeight() (uint64, error) {
 	return mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (uint64, error) {
-			return c.BlockNumber(context.Background())
+		func(ctx context.Context, c *ethclient.Client) (uint64, error) {
+			return c.BlockNumber(ctx)
 		}, 0)
 }
 
 // Non-cached RPC access to get block timestamp
 func (d *EthRPC) GetBlockTimestamp(height uint64) (uint64, error) {
 	header, err := mspool.Do(d.upstreams,
-		func(c *ethclient.Client) (*types.Header, error) {
-			return c.HeaderByNumber(context.Background(), big.NewInt(int64(height)))
+		func(ctx context.Context, c *ethclient.Client) (*types.Header, error) {
+			return c.HeaderByNumber(ctx, big.NewInt(int64(height)))
 		}, nil)
 	return header.Time, err
 }
@@ -50,7 +51,7 @@ func (d *EthRPC) GetBlockTimestamp(height uint64) (uint64, error) {
 // Non-cached RPC access to get filtered logs
 func (d *EthRPC) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
 	return mspool.Do(d.upstreams,
-		func(c *ethclient.Client) ([]types.Log, error) {
-			return c.FilterLogs(context.Background(), fq)
+		func(ctx context.Context, c *ethclient.Client) ([]types.Log, error) {
+			return c.FilterLogs(ctx, fq)
 		}, []types.Log{})
 }

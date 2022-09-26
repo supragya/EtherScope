@@ -3,6 +3,7 @@ package indexer
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
@@ -20,6 +21,7 @@ func TestUniswapV3Swap(t *testing.T) {
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
+			time.Second,
 			false,
 			&db.DBConn{ChainID: 1},
 			[]string{})
@@ -41,6 +43,7 @@ func TestUniswapV3IncreaseLiquidity(t *testing.T) {
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
+			time.Second,
 			false,
 			&db.DBConn{ChainID: 1},
 			[]string{})
@@ -62,6 +65,7 @@ func TestUniswapV3DecreaseLiquidity(t *testing.T) {
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
+			time.Second,
 			false,
 			&db.DBConn{ChainID: 1},
 			[]string{})

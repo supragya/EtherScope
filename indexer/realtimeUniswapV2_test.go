@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
@@ -48,6 +49,7 @@ func TestUniswapV2Mint(t *testing.T) {
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
+			time.Second,
 			false,
 			&db.DBConn{ChainID: 1},
 			[]string{})
@@ -72,6 +74,7 @@ func TestUniswapV2Burn(t *testing.T) {
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
+			time.Second,
 			false,
 			&db.DBConn{ChainID: 1},
 			[]string{})
@@ -93,6 +96,7 @@ func TestUniswapV2Swap(t *testing.T) {
 		ri   = NewRealtimeIndexer(0,
 			"https://rpc.ankr.com/eth",
 			[]string{},
+			time.Second,
 			false,
 			&db.DBConn{ChainID: 1},
 			[]string{})
