@@ -12,15 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func (d *EthRPC) GetERC20(erc20Address common.Address) (*ERC20.ERC20, *ethclient.Client) {
-	cl := d.upstreams.GetItem()
-	obj, err := ERC20.NewERC20(erc20Address, cl)
-	util.ENOK(err)
-	return obj, cl
-}
-
 // Cached RPC access to get decimals for ERC20 addresses
-func (d *EthRPC) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Client, erc20Address common.Address, callopts *bind.CallOpts) (uint8, error) {
+func (d *EthRPC) GetERC20Decimals(erc20Address common.Address, callopts *bind.CallOpts) (uint8, error) {
 	lookupKey := erc20Address
 	if ret, ok := d.ERC20Cache.Get(lookupKey); ok {
 		retI := ret.(uint8)
@@ -29,6 +22,10 @@ func (d *EthRPC) GetERC20Decimals(erc20 *ERC20.ERC20, client *ethclient.Client, 
 
 	decimals, err := mspool.Do(d.upstreams,
 		func(ctx context.Context, c *ethclient.Client) (uint8, error) {
+			erc20, err := ERC20.NewERC20(erc20Address, c)
+			if err != nil {
+				return 0, nil
+			}
 			callopts.Context = ctx
 			return erc20.Decimals(callopts)
 		}, 0)

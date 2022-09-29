@@ -73,6 +73,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 			// Loop in case we are lagging, so we dont wait 3 secs between epochs
 			for {
 				height, err := r.da.GetCurrentBlockHeight()
+
 				util.ENOK(err)
 				r.currentHeight = height
 
@@ -125,7 +126,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	dbCtx, dbTx := r.dbconn.BeginTx()
 
 	for block := start; block <= end; block++ {
-		time, err := r.da.GetBlockTimestamp(block)
+		_time, err := r.da.GetBlockTimestamp(block)
 		util.ENOK(err)
 
 		logs, ok := kv[block]
@@ -133,7 +134,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 			Type:    "stats",
 			Network: r.dbconn.ChainID,
 			Height:  block,
-			Time:    time,
+			Time:    _time,
 		}
 		if !ok || len(logs) == 0 {
 			r.dbconn.AddToTx(&dbCtx, dbTx, nil, blockMeta, block)
@@ -216,9 +217,7 @@ func (r *RealtimeIndexer) GetFormattedAmount(amount *big.Int,
 	callopts *bind.CallOpts,
 	erc20Address common.Address) (ok bool,
 	formattedAmount *big.Float) {
-	erc, client := r.da.GetERC20(erc20Address)
-
-	tokenDecimals, err := r.da.GetERC20Decimals(erc, client, erc20Address, callopts)
+	tokenDecimals, err := r.da.GetERC20Decimals(erc20Address, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		tokenDecimals = 0

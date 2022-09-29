@@ -34,10 +34,10 @@ type MSPoolConfig struct {
 }
 
 var DefaultMSPoolConfig MSPoolConfig = MSPoolConfig{
-	WindowSize:     800,
-	ToleranceCount: 5,
-	TimeStep:       time.Millisecond * 10,
-	RetryTimesteps: 1000,
+	WindowSize:     80,                     // 10 seconds window size
+	ToleranceCount: 5,                      // can tolerate maximum of 5 failures
+	TimeStep:       time.Millisecond * 100, // can report a max of 1 failure every 1000 millisec
+	RetryTimesteps: 300,                    // retry after 1 minute (60 seconds)
 }
 
 type MasterSlavePool[I any] struct {
@@ -162,14 +162,14 @@ func (m *MasterSlavePool[I]) Report(item *I, timedOut bool) error {
 	return nil
 }
 
-func (m *MasterSlavePool[I]) GetItem() *I {
+func (m *MasterSlavePool[I]) GetItem() (*I, *PoolNodeMeta) {
 	// Lock global RW lock for reads
 	m.rwlock.RLock()
 
 	// Check if master is alive, if so return master
 	if m.Master.Meta.IsAlive {
 		m.rwlock.RUnlock()
-		return m.Master.Item
+		return m.Master.Item, &m.Master.Meta
 	}
 
 	// If master is not alive, check if time has come to
@@ -180,7 +180,7 @@ func (m *MasterSlavePool[I]) GetItem() *I {
 		m.rwlock.Lock()
 		MakeAlive(&m.Master.Meta)
 		m.rwlock.Unlock()
-		return m.Master.Item
+		return m.Master.Item, &m.Master.Meta
 	}
 
 	// If master is not alive, nor is the time to bring it
@@ -189,14 +189,14 @@ func (m *MasterSlavePool[I]) GetItem() *I {
 		sm := &slave.Meta
 		if sm.IsAlive {
 			m.rwlock.RUnlock()
-			return slave.Item
+			return slave.Item, &slave.Meta
 		}
 		if sm.BringAlive.Sub(now) <= time.Duration(0) {
 			m.rwlock.RUnlock()
 			m.rwlock.Lock()
 			MakeAlive(&slave.Meta)
 			m.rwlock.Unlock()
-			return slave.Item
+			return slave.Item, &slave.Meta
 		}
 	}
 
@@ -208,7 +208,7 @@ func (m *MasterSlavePool[I]) GetItem() *I {
 	return m.allFailureRecovery()
 }
 
-func (m *MasterSlavePool[I]) allFailureRecovery() *I {
+func (m *MasterSlavePool[I]) allFailureRecovery() (*I, *PoolNodeMeta) {
 	currentTime := time.Now()
 
 	m.rwlock.Lock()
@@ -225,7 +225,7 @@ func (m *MasterSlavePool[I]) allFailureRecovery() *I {
 	} else {
 		// If allFailureLogTime is in future, it can only be done by
 		// another thread which set this up recently. We can use the cached response hence.
-		return m.allFailureCachedItem
+		return m.allFailureCachedItem, nil
 	}
 
 	list := DurationTupleList[*PoolNode[*I]]{}
@@ -257,7 +257,7 @@ func (m *MasterSlavePool[I]) allFailureRecovery() *I {
 	m.allFailureLogTime = currentTime.Add(m.config.TimeStep)
 	m.allFailureCachedItem = list[0].Item.Item
 
-	return m.allFailureCachedItem
+	return m.allFailureCachedItem, &list[0].Item.Meta
 }
 
 func MakeAlive(m *PoolNodeMeta) {
@@ -269,4 +269,25 @@ func MakeAlive(m *PoolNodeMeta) {
 	m.FirstReport = time.Time{}
 	m.LastReport = time.Time{}
 	m.BringAlive = time.Time{}
+}
+
+// No Read lock based approach, may be wrong but avoids
+// locking / unlocking saving mutex access for other goroutines
+func (m *MasterSlavePool[I]) PeriodicRecording() {
+	for {
+		time.Sleep(m.config.TimeStep * time.Duration(m.config.WindowSize))
+		var report string = "mspool health: "
+		report = report + fmt.Sprintf("{%s(%s):%d/%d} ", m.Master.Meta.Identity, alStr(m.Master.Meta.IsAlive), m.Master.Meta.Reports, m.config.ToleranceCount)
+		for _, slv := range m.Slaves {
+			report = report + fmt.Sprintf("{%s(%s):%d/%d} ", slv.Meta.Identity, alStr(slv.Meta.IsAlive), slv.Meta.Reports, m.config.ToleranceCount)
+		}
+		log.Info(report)
+	}
+}
+
+func alStr(isAlive bool) string {
+	if isAlive {
+		return "AL"
+	}
+	return "NA"
 }

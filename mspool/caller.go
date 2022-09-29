@@ -14,9 +14,11 @@ func Do[C any, T any](upstreams *MasterSlavePool[C],
 	var gerr error = errors.New("")
 	maxRetries := (len(upstreams.Slaves) + 1) * int(DefaultMSPoolConfig.WindowSize)
 	for retries := 0; retries < maxRetries; retries++ {
-		client := upstreams.GetItem()
+		client, _ := upstreams.GetItem()
 		// log.Info(client)
 		ctx := util.NewCtx(upstreams.RPCTimeout)
+		// d, _ := ctx.Deadline()
+		// log.Info("client found: ", meta.Identity, " with ", meta.Reports, " time rem context: ", d.Sub(time.Now()))
 		out, _err := foo(ctx, client)
 		if _err == nil {
 			return out, nil
@@ -26,8 +28,6 @@ func Do[C any, T any](upstreams *MasterSlavePool[C],
 
 		// Node failure
 		if util.IsRPCCallTimedOut(_err) {
-			// log.Info("hello", _err)
-			// log.Info(fmt.Sprintf("%+v", upstreams.Master.Meta))
 			upstreams.Report(client, true)
 			time.Sleep(upstreams.config.TimeStep)
 			continue

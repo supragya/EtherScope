@@ -39,6 +39,7 @@ func NewEthRPC(isErigon bool, masterUpstream string, slaveUpstreams []string, ti
 
 	pool, err := mspool.NewEthClientMasterSlavePool(masterUpstream, slaveUpstreams, mspool.DefaultMSPoolConfig, timeout)
 	util.ENOK(err)
+	go pool.PeriodicRecording()
 
 	return &EthRPC{
 		upstreams:           pool,
