@@ -124,6 +124,8 @@ func (d *EthRPC) GetRates2Tokens(
 		{token1Address, token1Amount},
 	})
 
+	// prevRates := []bool{rates[0] == nil, rates[1] == nil}
+
 	if rates[0] == nil && rates[1] == nil {
 		return nil, nil, nil
 	} else if rates[0] == nil && token0Amount.Cmp(ZeroFloat) != 0 {
@@ -151,6 +153,10 @@ func (d *EthRPC) GetRates2Tokens(
 			amountUSD.Mul(rates[1], token1Amount)
 		}
 	}
+	// log.Info([]util.Tuple2[common.Address, *big.Float]{
+	// 	{token0Address, token0Amount},
+	// 	{token1Address, token1Amount},
+	// }, prevRates, rates)
 
 	return rates[0], rates[1], amountUSD
 }

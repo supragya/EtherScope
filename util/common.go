@@ -25,7 +25,6 @@ var (
 	IOTimeoutRegex               *regexp.Regexp
 	FailOnNonEthError            bool
 	FailOnNonEthErrorSet         bool
-	ZeroBigInt_DoNotSet          *big.Int
 )
 
 type Tuple2[A any, B any] struct {
@@ -226,6 +225,4 @@ func init() {
 
 	ContextDeadlineExceededRegex = regexp.MustCompile("context deadline exceeded")
 	IOTimeoutRegex = regexp.MustCompile("i/o timeout")
-
-	ZeroBigInt_DoNotSet = big.NewInt(0)
 }
