@@ -85,17 +85,33 @@ func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
 }
 
 func InfoUniV3Mint(l types.Log) (hasSufficientData bool,
-	tokenID *big.Int,
+	amount *big.Int,
 	amount0 *big.Int,
 	amount1 *big.Int) {
-	if !HasSufficientData(l, 2, 96) {
+	if !HasSufficientData(l, 4, 128) {
 		return false,
 			big.NewInt(0),
 			big.NewInt(0),
 			big.NewInt(0)
 	}
 	return true,
-		util.ExtractIntFromBytes(l.Topics[1][:]),
+		util.ExtractIntFromBytes(l.Data[32:64]),
+		util.ExtractIntFromBytes(l.Data[64:96]),
+		util.ExtractIntFromBytes(l.Data[96:128])
+}
+
+func InfoUniV3Burn(l types.Log) (hasSufficientData bool,
+	amount *big.Int,
+	amount0 *big.Int,
+	amount1 *big.Int) {
+	if !HasSufficientData(l, 4, 96) {
+		return false,
+			big.NewInt(0),
+			big.NewInt(0),
+			big.NewInt(0)
+	}
+	return true,
+		util.ExtractIntFromBytes(l.Data[:32]),
 		util.ExtractIntFromBytes(l.Data[32:64]),
 		util.ExtractIntFromBytes(l.Data[64:96])
 }

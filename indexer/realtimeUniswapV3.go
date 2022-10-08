@@ -19,8 +19,8 @@ func (r *RealtimeIndexer) processMintV3(
 	mt *sync.Mutex,
 ) {
 	callopts := GetBlockCallOpts(l.BlockNumber)
-	// Test if the contract is a UniswapV3 NFT type contract
-	if !r.isUniswapV3NFT(l.Address, callopts) {
+	// Test if the contract is a UniswapV3Pair type contract
+	if !r.isUniswapV3(l.Address, callopts) {
 		return
 	}
 
@@ -30,19 +30,19 @@ func (r *RealtimeIndexer) processMintV3(
 	}
 	util.ENOK(err)
 
-	ok, tokenID, am0, am1 := InfoUniV3Mint(l)
+	ok, _, am0, am1 := InfoUniV3Mint(l)
 	if !ok {
 		return
 	}
 
 	// Test if the contract is a UniswapV3NFT type contract
-	t0, t1, err := r.da.GetTokensUniV3NFT(l.Address, tokenID, callopts)
+	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3NFT(am0, am1, tokenID, callopts, l.Address)
+	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
 	if !ok {
 		return
 	}
@@ -90,8 +90,8 @@ func (r *RealtimeIndexer) processBurnV3(
 ) {
 	callopts := GetBlockCallOpts(l.BlockNumber)
 
-	// Test if the contract is a UniswapV3 NFT type contract
-	if !r.isUniswapV3NFT(l.Address, callopts) {
+	// Test if the contract is a UniswapV3Pair type contract
+	if !r.isUniswapV3(l.Address, callopts) {
 		return
 	}
 
@@ -101,19 +101,18 @@ func (r *RealtimeIndexer) processBurnV3(
 	}
 	util.ENOK(err)
 
-	ok, tokenID, am0, am1 := InfoUniV3Mint(l)
+	ok, _, am0, am1 := InfoUniV3Burn(l)
 	if !ok {
 		return
 	}
 
-	// Test if the contract is a UniswapV3NFT type contract
-	t0, t1, err := r.da.GetTokensUniV3NFT(l.Address, tokenID, callopts)
+	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
 	util.ENOK(err)
 
-	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3NFT(am0, am1, tokenID, callopts, l.Address)
+	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
 	if !ok {
 		return
 	}

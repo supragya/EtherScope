@@ -162,27 +162,33 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
-	case itypes.TransferTopic:
-		instrumentation.TfrFound.Inc()
-		r.processTransfer(l, items, bm, mt)
-	case itypes.MintTopic:
+	// ---- Uniswap V2 ----
+	case itypes.UniV2MintTopic:
 		instrumentation.MintV2Found.Inc()
 		r.processMint(l, items, bm, mt)
-	case itypes.IncreaseLiquidityTopic:
-		instrumentation.MintV3Found.Inc()
-		r.processMintV3(l, items, bm, mt)
-	case itypes.DecreaseLiquidityTopic:
-		instrumentation.BurnV3Found.Inc()
-		r.processBurnV3(l, items, bm, mt)
-	case itypes.BurnTopic:
+	case itypes.UniV2BurnTopic:
 		instrumentation.BurnV2Found.Inc()
 		r.processBurn(l, items, bm, mt)
-	case itypes.UniV2Swap:
+	case itypes.UniV2SwapTopic:
 		instrumentation.SwapV2Found.Inc()
 		r.processUniV2Swap(l, items, bm, mt)
-	case itypes.UniV3Swap:
+
+	// ---- Uniswap V3 ----
+	case itypes.UniV3MintTopic:
+		instrumentation.MintV3Found.Inc()
+		r.processMintV3(l, items, bm, mt)
+	case itypes.UniV3BurnTopic:
+		instrumentation.BurnV3Found.Inc()
+		r.processBurnV3(l, items, bm, mt)
+	case itypes.UniV3SwapTopic:
 		instrumentation.SwapV3Found.Inc()
 		r.processUniV3Swap(l, items, bm, mt)
+
+	// ---- ERC 20 ----
+	case itypes.ERC20TransferTopic:
+		instrumentation.TfrFound.Inc()
+		r.processTransfer(l, items, bm, mt)
+
 	}
 }
 

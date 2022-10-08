@@ -179,19 +179,19 @@ func ConstructTopics(eventsToIndex []string) ([]common.Hash, error) {
 	for _, t := range eventsToIndex {
 		switch t {
 		case "UniswapV2Swap":
-			topicsList = append(topicsList, itypes.UniV2Swap)
+			topicsList = append(topicsList, itypes.UniV2SwapTopic)
 		case "UniswapV2Mint":
-			topicsList = append(topicsList, itypes.MintTopic)
+			topicsList = append(topicsList, itypes.UniV2MintTopic)
 		case "UniswapV2Burn":
-			topicsList = append(topicsList, itypes.BurnTopic)
+			topicsList = append(topicsList, itypes.UniV2BurnTopic)
 		case "UniswapV3Swap":
-			topicsList = append(topicsList, itypes.UniV3Swap)
-		case "UniswapV3IncreaseLiquidity":
-			topicsList = append(topicsList, itypes.IncreaseLiquidityTopic)
-		case "UniswapV3DecreaseLiquidity":
-			topicsList = append(topicsList, itypes.DecreaseLiquidityTopic)
+			topicsList = append(topicsList, itypes.UniV3SwapTopic)
+		case "UniswapV3Mint":
+			topicsList = append(topicsList, itypes.UniV3MintTopic)
+		case "UniswapV3Burn":
+			topicsList = append(topicsList, itypes.UniV3BurnTopic)
 		case "Transfer":
-			topicsList = append(topicsList, itypes.TransferTopic)
+			topicsList = append(topicsList, itypes.ERC20TransferTopic)
 		default:
 			return []common.Hash{}, fmt.Errorf("unknown topic for construction: %s", t)
 		}
