@@ -1,0 +1,13 @@
+{
+    "Type": "transfer",
+    "Network": 1,
+    "LogIdx": 1,
+    "Transaction": "0x22db0df3c18a7c7a3a66dd42ad588abf359856771930ceb7d2b5c9e9c5f04838",
+    "Time": 0,
+    "Height": 15231029,
+    "Token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "Sender": "0x596183ad5b82a845f43ce6826cb80bdfaa38187e",
+    "Receiver": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+    "Amount": "234.816977978804519221",
+    "AmountUSD": "1615.7086831"
+}

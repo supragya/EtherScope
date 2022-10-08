@@ -2,8 +2,6 @@ package indexer
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -13,33 +11,8 @@ import (
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 )
-
-func loadLog(t *testing.T, file string) types.Log {
-	_log := types.Log{}
-	jsonFile, err := os.Open(file)
-	if err != nil {
-		t.Error(err)
-	}
-	defer jsonFile.Close()
-	// read our opened jsonFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	json.Unmarshal(byteValue, &_log)
-	return _log
-}
-
-func loadRawJSON(t *testing.T, file string) string {
-	jsonFile, err := os.Open(file)
-	if err != nil {
-		t.Error(err)
-	}
-	defer jsonFile.Close()
-	// read our opened jsonFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	return string(byteValue)
-}
 
 func TestUniswapV2Mint(t *testing.T) {
 	util.ENOK(logger.SetLogLevel("error"))

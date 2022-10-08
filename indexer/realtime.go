@@ -187,7 +187,7 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	// ---- ERC 20 ----
 	case itypes.ERC20TransferTopic:
 		instrumentation.TfrFound.Inc()
-		r.processTransfer(l, items, bm, mt)
+		r.processERC20Transfer(l, items, bm, mt)
 
 	}
 }

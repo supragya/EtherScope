@@ -15,8 +15,8 @@ general:
     - UniswapV2Mint
     - UniswapV2Burn
     - UniswapV3Swap
-    - UniswapV3IncreaseLiquidity
-    - UniswapV3DecreaseLiquidity
+    - UniswapV3Mint
+    - UniswapV3Burn
     - Transfer
   oracleMapsRootDir: ../maps
   diskCacheRootDir: /tmp

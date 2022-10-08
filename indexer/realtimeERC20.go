@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func (r *RealtimeIndexer) processTransfer(
+func (r *RealtimeIndexer) processERC20Transfer(
 	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
