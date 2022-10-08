@@ -54,7 +54,6 @@ type Mint struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
-	Receiver     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address
@@ -75,7 +74,6 @@ type Burn struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
-	Receiver     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address

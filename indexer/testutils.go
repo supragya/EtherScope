@@ -69,6 +69,6 @@ func assertBigFloatClose(t *testing.T, expected *big.Float, real *big.Float, thr
 	}
 	diff := big.NewFloat(0).Sub(expected, real)
 	cmp := big.NewFloat(0).Sub(threshold, diff.Abs(diff))
-	withThreshold := cmp.Cmp(big.NewFloat(0)) == 1
-	assert.True(t, withThreshold, "not close enough")
+	withinThreshold := cmp.Cmp(big.NewFloat(0)) == 1
+	assert.True(t, withinThreshold, "not close enough")
 }

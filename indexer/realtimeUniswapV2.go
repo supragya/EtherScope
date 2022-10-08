@@ -57,7 +57,6 @@ func (r *RealtimeIndexer) processMint(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
-		Receiver:     common.Address{},
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -87,7 +86,7 @@ func (r *RealtimeIndexer) processBurn(
 		return
 	}
 
-	ok, sender, recipient, am0, am1 := InfoUniV2Burn(l)
+	ok, sender, _, am0, am1 := InfoUniV2Burn(l)
 	if !ok {
 		return
 	}
@@ -119,7 +118,6 @@ func (r *RealtimeIndexer) processBurn(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
-		Receiver:     recipient,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
