@@ -18,19 +18,24 @@ func (r *RealtimeIndexer) processERC20Transfer(
 	mt *sync.Mutex,
 ) {
 	ok, sender, recv, amt := InfoTransfer(l)
-
 	if !ok {
 		return
 	}
 
 	callopts := GetBlockCallOpts(l.BlockNumber)
-	ok, formattedAmount := r.GetFormattedAmount(amt, callopts, l.Address)
 
+	ok, formattedAmount := r.GetFormattedAmount(amt, callopts, l.Address)
 	if !ok {
 		return
 	}
 
 	tokenPrice := r.da.GetRateForBlock(callopts, util.Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
+
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
 	transfer := itypes.Transfer{
 		Type:        "transfer",
@@ -41,6 +46,7 @@ func (r *RealtimeIndexer) processERC20Transfer(
 		Height:      l.BlockNumber,
 		Token:       l.Address,
 		Sender:      sender,
+		TxSender:    txSender,
 		Receiver:    recv,
 		Amount:      formattedAmount,
 		AmountUSD:   tokenPrice,

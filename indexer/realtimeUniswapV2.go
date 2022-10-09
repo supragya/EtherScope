@@ -49,6 +49,12 @@ func (r *RealtimeIndexer) processUniV2Mint(
 
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
 	mint := itypes.Mint{
 		Type:         "uniswapv2mint",
 		Network:      r.dbconn.ChainID,
@@ -57,6 +63,7 @@ func (r *RealtimeIndexer) processUniV2Mint(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     txSender,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -110,6 +117,12 @@ func (r *RealtimeIndexer) processUniV2Burn(
 
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
 	burn := itypes.Burn{
 		Type:         "uniswapv2burn",
 		Network:      r.dbconn.ChainID,
@@ -118,6 +131,7 @@ func (r *RealtimeIndexer) processUniV2Burn(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     txSender,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -175,6 +189,12 @@ func (r *RealtimeIndexer) processUniV2Swap(
 
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
 	swap := itypes.Swap{
 		Type:         "uniswapv2swap",
 		Network:      r.dbconn.ChainID,
@@ -183,6 +203,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
+		TxSender:     txSender,
 		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
 		PairContract: l.Address,
 		Token0:       t0,

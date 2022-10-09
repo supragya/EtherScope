@@ -65,6 +65,7 @@ func (r *RealtimeIndexer) processUniV3Mint(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     sender,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -134,6 +135,7 @@ func (r *RealtimeIndexer) processUniV3Burn(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     sender,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -190,6 +192,12 @@ func (r *RealtimeIndexer) processUniV3Swap(
 
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
+
 	swap := itypes.Swap{
 		Type:         "uniswapv3swap",
 		Network:      r.dbconn.ChainID,
@@ -198,6 +206,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     txSender,
 		Receiver:     receiver,
 		PairContract: l.Address,
 		Token0:       t0,

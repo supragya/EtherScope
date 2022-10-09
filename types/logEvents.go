@@ -33,6 +33,7 @@ type Transfer struct {
 	Height      uint64
 	Token       common.Address
 	Sender      common.Address
+	TxSender    common.Address
 	Receiver    common.Address
 	Amount      *big.Float
 	AmountUSD   *PriceResult
@@ -46,6 +47,7 @@ type Mint struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
+	TxSender     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address
@@ -66,6 +68,7 @@ type Burn struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
+	TxSender     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address
@@ -86,6 +89,7 @@ type Swap struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
+	TxSender     common.Address
 	Receiver     common.Address
 	PairContract common.Address
 	Token0       common.Address
