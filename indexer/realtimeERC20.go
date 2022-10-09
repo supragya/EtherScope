@@ -6,11 +6,12 @@ import (
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func (r *RealtimeIndexer) processTransfer(
+func (r *RealtimeIndexer) processERC20Transfer(
 	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -29,7 +30,7 @@ func (r *RealtimeIndexer) processTransfer(
 		return
 	}
 
-	tokenPrice := r.da.GetPriceForBlock(callopts, Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
+	tokenPrice := r.da.GetRateForBlock(callopts, util.Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
 
 	transfer := itypes.Transfer{
 		Type:        "transfer",

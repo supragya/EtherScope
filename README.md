@@ -1,6 +1,7 @@
 # Blockpour Geth Indexer
 `bgidx` program aims to index an EVM like chain using go-ethereum clients via RPCs.
 
+![Test run status](https://github.com/Blockpour/Blockpour-Geth-Indexer/actions/workflows/gotest.yaml/badge.svg?branch=feat/v0.3.0)
 ## Building
 Build the application using:
 - Setup golang abi modules via abigen using `./scripts/setup_abi.sh`.

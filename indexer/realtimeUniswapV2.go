@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func (r *RealtimeIndexer) processMint(
+func (r *RealtimeIndexer) processUniV2Mint(
 	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -39,7 +39,7 @@ func (r *RealtimeIndexer) processMint(
 	// due to above condition
 	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
 
-	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -47,17 +47,16 @@ func (r *RealtimeIndexer) processMint(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	mint := itypes.Mint{
-		Type:         "mint",
+		Type:         "uniswapv2mint",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
-		Receiver:     common.Address{},
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -74,7 +73,7 @@ func (r *RealtimeIndexer) processMint(
 	instrumentation.MintV2Processed.Inc()
 }
 
-func (r *RealtimeIndexer) processBurn(
+func (r *RealtimeIndexer) processUniV2Burn(
 	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -87,7 +86,7 @@ func (r *RealtimeIndexer) processBurn(
 		return
 	}
 
-	ok, sender, recipient, am0, am1 := InfoUniV2Burn(l)
+	ok, sender, _, am0, am1 := InfoUniV2Burn(l)
 	if !ok {
 		return
 	}
@@ -101,7 +100,7 @@ func (r *RealtimeIndexer) processBurn(
 	// due to above condition
 	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
 
-	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -109,17 +108,16 @@ func (r *RealtimeIndexer) processBurn(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	burn := itypes.Burn{
-		Type:         "burn",
+		Type:         "uniswapv2burn",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
-		Receiver:     recipient,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -163,7 +161,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	// due to above condition
 	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
 
-	reserves, err := r.da.GetBalances([]Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -171,10 +169,10 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetPricing2Tokens(callopts, t0, t1, f0, f1)
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	swap := itypes.Swap{
-		Type:         "swap",
+		Type:         "uniswapv2swap",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -214,7 +212,6 @@ func (r *RealtimeIndexer) isUniswapV2Pair(address common.Address,
 	return false
 }
 
-// TODO: refactor this
 func (r *RealtimeIndexer) GetFormattedAmountsUniV2(amount0 *big.Int,
 	amount1 *big.Int,
 	callopts *bind.CallOpts,
@@ -232,9 +229,7 @@ func (r *RealtimeIndexer) GetFormattedAmountsUniV2(amount0 *big.Int,
 			0
 	}
 
-	erc0, client0 := r.da.GetERC20(t0)
-
-	token0Decimals, err = r.da.GetERC20Decimals(erc0, client0, t0, callopts)
+	token0Decimals, err = r.da.GetERC20Decimals(t0, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token0Decimals = 0
@@ -249,9 +244,7 @@ func (r *RealtimeIndexer) GetFormattedAmountsUniV2(amount0 *big.Int,
 		util.ENOKS(2, err)
 	}
 
-	erc1, client1 := r.da.GetERC20(t1)
-
-	token1Decimals, err = r.da.GetERC20Decimals(erc1, client1, t1, callopts)
+	token1Decimals, err = r.da.GetERC20Decimals(t1, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		token1Decimals = 0

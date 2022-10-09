@@ -1,0 +1,19 @@
+{
+    "Type": "uniswapv3burn",
+    "Network": 1,
+    "LogIdx": 543,
+    "Transaction": "0xb6208e547d6868c58ff6cbd56f0b093031089bc6780c562b44d0105427df67f4",
+    "Time": 1659082775,
+    "Height": 15236240,
+    "Sender": "0x1c0985b4db504a346ca146b0ab994c4b4d014553",
+    "PairContract": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+    "Token0": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "Token1": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "Amount0": "1452.884417",
+    "Amount1": "0",
+    "Reserve0": "1.0505690861896e+08",
+    "Reserve1": "50533.995369416642438483",
+    "AmountUSD": "1452.884417",
+    "Price0": "1",
+    "Price1": "1706.92148524"
+}

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"math"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,11 +20,23 @@ import (
 )
 
 var (
-	EthErrorRegexes      []*regexp.Regexp
-	FailOnNonEthError    bool
-	FailOnNonEthErrorSet bool
-	ZeroBigInt_DoNotSet  *big.Int
+	EthErrorRegexes              []*regexp.Regexp
+	ContextDeadlineExceededRegex *regexp.Regexp
+	IOTimeoutRegex               *regexp.Regexp
+	FailOnNonEthError            bool
+	FailOnNonEthErrorSet         bool
 )
+
+type Tuple2[A any, B any] struct {
+	First  A
+	Second B
+}
+
+type Tuple3[A any, B any, C any] struct {
+	First  A
+	Second B
+	Third  C
+}
 
 // Checks if error is nil or not. Kills process if not nil
 func ENOK(err error) {
@@ -75,6 +89,11 @@ func IsEthErr(err error) bool {
 		}
 	}
 	return false
+}
+
+func IsRPCCallTimedOut(err error) bool {
+	return ContextDeadlineExceededRegex.MatchString(err.Error()) ||
+		IOTimeoutRegex.MatchString(err.Error())
 }
 
 func IsExecutionReverted(err error) bool {
@@ -160,19 +179,19 @@ func ConstructTopics(eventsToIndex []string) ([]common.Hash, error) {
 	for _, t := range eventsToIndex {
 		switch t {
 		case "UniswapV2Swap":
-			topicsList = append(topicsList, itypes.UniV2Swap)
+			topicsList = append(topicsList, itypes.UniV2SwapTopic)
 		case "UniswapV2Mint":
-			topicsList = append(topicsList, itypes.MintTopic)
+			topicsList = append(topicsList, itypes.UniV2MintTopic)
 		case "UniswapV2Burn":
-			topicsList = append(topicsList, itypes.BurnTopic)
+			topicsList = append(topicsList, itypes.UniV2BurnTopic)
 		case "UniswapV3Swap":
-			topicsList = append(topicsList, itypes.UniV3Swap)
-		case "UniswapV3IncreaseLiquidity":
-			topicsList = append(topicsList, itypes.IncreaseLiquidityTopic)
-		case "UniswapV3DecreaseLiquidity":
-			topicsList = append(topicsList, itypes.DecreaseLiquidityTopic)
+			topicsList = append(topicsList, itypes.UniV3SwapTopic)
+		case "UniswapV3Mint":
+			topicsList = append(topicsList, itypes.UniV3MintTopic)
+		case "UniswapV3Burn":
+			topicsList = append(topicsList, itypes.UniV3BurnTopic)
 		case "Transfer":
-			topicsList = append(topicsList, itypes.TransferTopic)
+			topicsList = append(topicsList, itypes.ERC20TransferTopic)
 		default:
 			return []common.Hash{}, fmt.Errorf("unknown topic for construction: %s", t)
 		}
@@ -184,6 +203,11 @@ func SHA256Hash(_bytes []byte) []byte {
 	hasher := sha256.New()
 	hasher.Write(_bytes)
 	return hasher.Sum(nil)
+}
+
+func NewCtx(timeOut time.Duration) context.Context {
+	ctx, _ := context.WithTimeout(context.Background(), timeOut)
+	return ctx
 }
 
 func init() {
@@ -199,5 +223,6 @@ func init() {
 		EthErrorRegexes = append(EthErrorRegexes, regexp.MustCompile(e))
 	}
 
-	ZeroBigInt_DoNotSet = big.NewInt(0)
+	ContextDeadlineExceededRegex = regexp.MustCompile("context deadline exceeded")
+	IOTimeoutRegex = regexp.MustCompile("i/o timeout")
 }

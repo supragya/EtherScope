@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/ethrpc"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
@@ -22,7 +23,7 @@ type RealtimeIndexer struct {
 	currentHeight    uint64
 	indexedHeight    uint64
 	dbconn           *db.DBConn
-	da               *DataAccess
+	da               ethrpc.EthRPC
 	eventsToIndex    []common.Hash
 	eventsToIndexStr []string
 
@@ -30,7 +31,10 @@ type RealtimeIndexer struct {
 }
 
 func NewRealtimeIndexer(indexedHeight uint64,
-	upstreams []string,
+	masterUpstream string,
+	slaveUpstreams []string,
+	timeout time.Duration,
+	isErigon bool,
 	dbconn *db.DBConn,
 	eventsToIndex []string) *RealtimeIndexer {
 	events, err := util.ConstructTopics(eventsToIndex)
@@ -39,7 +43,7 @@ func NewRealtimeIndexer(indexedHeight uint64,
 		currentHeight:    0,
 		indexedHeight:    indexedHeight,
 		dbconn:           dbconn,
-		da:               NewDataAccess(upstreams),
+		da:               *ethrpc.NewEthRPC(isErigon, masterUpstream, slaveUpstreams, timeout),
 		eventsToIndex:    events,
 		eventsToIndexStr: eventsToIndex,
 
@@ -52,7 +56,7 @@ func (r *RealtimeIndexer) Start() error {
 		return EUninitialized
 	}
 	for i := 0; i < len(r.eventsToIndex); i++ {
-		log.Info("starting indexer for: ", r.eventsToIndexStr[i], " a.k.a ", r.eventsToIndex[i])
+		log.Info("enabled: ", r.eventsToIndexStr[i], "(", r.eventsToIndex[i], ")")
 	}
 	r.ridxLoop()
 	return nil
@@ -69,6 +73,7 @@ func (r *RealtimeIndexer) ridxLoop() {
 			// Loop in case we are lagging, so we dont wait 3 secs between epochs
 			for {
 				height, err := r.da.GetCurrentBlockHeight()
+
 				util.ENOK(err)
 				r.currentHeight = height
 
@@ -121,7 +126,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 	dbCtx, dbTx := r.dbconn.BeginTx()
 
 	for block := start; block <= end; block++ {
-		time, err := r.da.GetBlockTimestamp(block)
+		_time, err := r.da.GetBlockTimestamp(block)
 		util.ENOK(err)
 
 		logs, ok := kv[block]
@@ -129,7 +134,7 @@ func (r *RealtimeIndexer) processBatchedBlockLogs(logs []types.Log, start uint64
 			Type:    "stats",
 			Network: r.dbconn.ChainID,
 			Height:  block,
-			Time:    time,
+			Time:    _time,
 		}
 		if !ok || len(logs) == 0 {
 			r.dbconn.AddToTx(&dbCtx, dbTx, nil, blockMeta, block)
@@ -157,27 +162,33 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
-	case itypes.TransferTopic:
-		instrumentation.TfrFound.Inc()
-		r.processTransfer(l, items, bm, mt)
-	case itypes.MintTopic:
+	// ---- Uniswap V2 ----
+	case itypes.UniV2MintTopic:
 		instrumentation.MintV2Found.Inc()
-		r.processMint(l, items, bm, mt)
-	case itypes.IncreaseLiquidityTopic:
-		instrumentation.MintV3Found.Inc()
-		r.processMintV3(l, items, bm, mt)
-	case itypes.DecreaseLiquidityTopic:
-		instrumentation.BurnV3Found.Inc()
-		r.processBurnV3(l, items, bm, mt)
-	case itypes.BurnTopic:
+		r.processUniV2Mint(l, items, bm, mt)
+	case itypes.UniV2BurnTopic:
 		instrumentation.BurnV2Found.Inc()
-		r.processBurn(l, items, bm, mt)
-	case itypes.UniV2Swap:
+		r.processUniV2Burn(l, items, bm, mt)
+	case itypes.UniV2SwapTopic:
 		instrumentation.SwapV2Found.Inc()
 		r.processUniV2Swap(l, items, bm, mt)
-	case itypes.UniV3Swap:
+
+	// ---- Uniswap V3 ----
+	case itypes.UniV3MintTopic:
+		instrumentation.MintV3Found.Inc()
+		r.processUniV3Mint(l, items, bm, mt)
+	case itypes.UniV3BurnTopic:
+		instrumentation.BurnV3Found.Inc()
+		r.processUniV3Burn(l, items, bm, mt)
+	case itypes.UniV3SwapTopic:
 		instrumentation.SwapV3Found.Inc()
 		r.processUniV3Swap(l, items, bm, mt)
+
+	// ---- ERC 20 ----
+	case itypes.ERC20TransferTopic:
+		instrumentation.TfrFound.Inc()
+		r.processERC20Transfer(l, items, bm, mt)
+
 	}
 }
 
@@ -212,9 +223,7 @@ func (r *RealtimeIndexer) GetFormattedAmount(amount *big.Int,
 	callopts *bind.CallOpts,
 	erc20Address common.Address) (ok bool,
 	formattedAmount *big.Float) {
-	erc, client := r.da.GetERC20(erc20Address)
-
-	tokenDecimals, err := r.da.GetERC20Decimals(erc, client, erc20Address, callopts)
+	tokenDecimals, err := r.da.GetERC20Decimals(erc20Address, callopts)
 	if util.IsExecutionReverted(err) {
 		// Non ERC-20 contract
 		tokenDecimals = 0

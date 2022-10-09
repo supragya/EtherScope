@@ -8,13 +8,20 @@ import (
 )
 
 var (
-	MintTopic              common.Hash
-	IncreaseLiquidityTopic common.Hash
-	BurnTopic              common.Hash
-	DecreaseLiquidityTopic common.Hash
-	TransferTopic          common.Hash
-	UniV2Swap              common.Hash
-	UniV3Swap              common.Hash
+	// ---- Uniswap V2 ----
+	UniV2MintTopic common.Hash
+	UniV2BurnTopic common.Hash
+	UniV2SwapTopic common.Hash
+
+	// ---- Uniswap V3 ----
+	UniV3IncreaseLiquidityTopic common.Hash // Not in use
+	UniV3DecreaseLiquidityTopic common.Hash // Not in use
+	UniV3MintTopic              common.Hash
+	UniV3BurnTopic              common.Hash
+	UniV3SwapTopic              common.Hash
+
+	// ---- ERC 20 ----
+	ERC20TransferTopic common.Hash
 )
 
 type tokenMeta struct {
@@ -47,7 +54,6 @@ type Mint struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
-	Receiver     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address
@@ -68,7 +74,6 @@ type Burn struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
-	Receiver     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address
@@ -114,12 +119,21 @@ type BlockSynopsis struct {
 	TransferLogs uint64
 }
 
+func toHash(str string) common.Hash {
+	return *(*common.Hash)(crypto.Keccak256([]byte(str)))
+}
+
 func init() {
-	MintTopic = *(*common.Hash)(crypto.Keccak256([]byte("Mint(address,uint256,uint256)")))
-	IncreaseLiquidityTopic = *(*common.Hash)(crypto.Keccak256([]byte("IncreaseLiquidity(uint256,uint128,uint256,uint256)")))
-	BurnTopic = *(*common.Hash)(crypto.Keccak256([]byte("Burn(address,uint256,uint256,address)")))
-	DecreaseLiquidityTopic = *(*common.Hash)(crypto.Keccak256([]byte("DecreaseLiquidity(uint256,uint128,uint256,uint256)")))
-	TransferTopic = *(*common.Hash)(crypto.Keccak256([]byte("Transfer(address,address,uint256)")))
-	UniV2Swap = *(*common.Hash)(crypto.Keccak256([]byte("Swap(address,uint256,uint256,uint256,uint256,address)")))
-	UniV3Swap = *(*common.Hash)(crypto.Keccak256([]byte("Swap(address,address,int256,int256,uint160,uint128,int24)")))
+	// ---- Uniswap V2 ----
+	UniV2MintTopic = toHash("Mint(address,uint256,uint256)")
+	UniV2BurnTopic = toHash("Burn(address,uint256,uint256,address)")
+	UniV2SwapTopic = toHash("Swap(address,uint256,uint256,uint256,uint256,address)")
+
+	// ---- Uniswap V3 ----
+	UniV3MintTopic = toHash("Mint(address,address,int24,int24,uint128,uint256,uint256)")
+	UniV3BurnTopic = toHash("Burn(address,int24,int24,uint128,uint256,uint256)")
+	UniV3SwapTopic = toHash("Swap(address,address,int256,int256,uint160,uint128,int24)")
+
+	// ---- ERC 20 ---
+	ERC20TransferTopic = toHash("Transfer(address,address,uint256)")
 }

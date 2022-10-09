@@ -1,0 +1,20 @@
+{
+    "Type": "uniswapv3swap",
+    "Network": 1,
+    "LogIdx": 5,
+    "Transaction": "0x3e5947e667afa4df0313dfff2e80ebbe44985b7ef44613623d1d0b65b9733b5f",
+    "Time": 0,
+    "Height": 15231029,
+    "Sender": "0x00000000008c4fb1c916e0c88fd4cc402d935e7d",
+    "Receiver": "0x00000000008c4fb1c916e0c88fd4cc402d935e7d",
+    "PairContract": "0x11b815efb8f581194ae79006d24e0d814b7697f6",
+    "Token0": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "Token1": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+    "Amount0": "-25.86998527259680311",
+    "Amount1": "41815.962576",
+    "Reserve0": "3215.8277332580459924",
+    "Reserve1": "3.2158277332580459924e+15",
+    "AmountUSD": "41798.35983660378",
+    "Price0": "1615.7086831",
+    "Price1": "0.9995790425877623"
+}

@@ -1,7 +1,7 @@
 build/
-test/truecfg.yaml
+truecfg.yaml
 pgdata/
 _pgdata/
-abi/
 cache/
 vendor/
+profile.cov
