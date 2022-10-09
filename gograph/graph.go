@@ -109,10 +109,10 @@ func (g *Graph[K, V]) CalculateAllPairShortestPath() {
 					routeIT = routeMap[util.Tuple2[K, K]{intermediate, to}]
 					distIT  = routeIT.Distance
 					distFT  = routeMap[util.Tuple2[K, K]{from, to}].Distance
-				)
 
-				var isValidIntermediate bool = (distFI != math.MaxUint64) && (distIT != math.MaxUint64)
-				var isDetourBetter bool = distFT > (distFI + distIT)
+					isValidIntermediate = (distFI != math.MaxUint64) && (distIT != math.MaxUint64)
+					isDetourBetter      = distFT > (distFI + distIT)
+				)
 
 				if isValidIntermediate && isDetourBetter {
 					err := routeFI.AppendRoute(&routeIT)

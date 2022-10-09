@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,5 +37,5 @@ func TestERC20Transfer(t *testing.T) {
 	assert.Equal(t, expected.Sender, item.Sender, "does not match")
 	assert.Equal(t, expected.Receiver, item.Receiver, "does not match")
 	assertBigFloatClose(t, expected.Amount, item.Amount, nil)
-	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD, nil)
+	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD.Price, nil)
 }

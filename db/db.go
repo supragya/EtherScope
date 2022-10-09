@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	log "github.com/sirupsen/logrus"

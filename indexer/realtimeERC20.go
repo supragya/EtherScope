@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"sync"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

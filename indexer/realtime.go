@@ -8,8 +8,8 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/ethrpc"
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

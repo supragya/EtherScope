@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

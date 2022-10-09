@@ -24,14 +24,6 @@ var (
 	ERC20TransferTopic common.Hash
 )
 
-type tokenMeta struct {
-	RoundId         *big.Int
-	Answer          *big.Int
-	StartedAt       *big.Int
-	UpdatedAt       *big.Int
-	AnsweredInRound *big.Int
-}
-
 type Transfer struct {
 	Type        string
 	Network     uint
@@ -43,7 +35,7 @@ type Transfer struct {
 	Sender      common.Address
 	Receiver    common.Address
 	Amount      *big.Float
-	AmountUSD   *big.Float
+	AmountUSD   *PriceResult
 }
 
 type Mint struct {
@@ -62,8 +54,8 @@ type Mint struct {
 	Reserve0     *big.Float
 	Reserve1     *big.Float
 	AmountUSD    *big.Float
-	Price0       *big.Float
-	Price1       *big.Float
+	Price0       *PriceResult
+	Price1       *PriceResult
 }
 
 type Burn struct {
@@ -82,8 +74,8 @@ type Burn struct {
 	Reserve0     *big.Float
 	Reserve1     *big.Float
 	AmountUSD    *big.Float
-	Price0       *big.Float
-	Price1       *big.Float
+	Price0       *PriceResult
+	Price1       *PriceResult
 }
 
 type Swap struct {
@@ -103,8 +95,8 @@ type Swap struct {
 	Reserve0     *big.Float
 	Reserve1     *big.Float
 	AmountUSD    *big.Float
-	Price0       *big.Float
-	Price1       *big.Float
+	Price0       *PriceResult
+	Price1       *PriceResult
 }
 
 type BlockSynopsis struct {
