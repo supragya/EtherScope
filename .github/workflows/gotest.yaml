@@ -48,7 +48,7 @@ jobs:
       - name: Test indexer
         run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/gograph -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/gograph -coverprofile=profile.cov
 
-      - name: Coverage report for indexer
+      - name: Coverage report for gograph
         run: go tool cover -func profile.cov 
 
 
