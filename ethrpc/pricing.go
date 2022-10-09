@@ -21,10 +21,13 @@ import (
 )
 
 type OracleMap struct {
-	Network        string   `json:"Network"`
-	ChainID        int      `json:"ChainID"`
-	StableCoinsUSD []string `json:"StableCoinsUSD"`
-	Tokens         []struct {
+	Network        string `json:"Network"`
+	ChainID        int    `json:"ChainID"`
+	StableCoinsUSD []struct {
+		Contract string     `json:"contract"`
+		Price    *big.Float `json:"price"`
+	} `json:"StableCoinsUSD"`
+	Tokens []struct {
 		ID       string `json:"id"`
 		Contract string `json:"contract"`
 	} `json:"Tokens"`
@@ -47,7 +50,7 @@ type Pricing struct {
 	cacheFile         string
 	oracleHash        string
 	graph             *gograph.Graph[string, string]
-	stableCoins       map[common.Address]bool
+	stableCoins       map[common.Address]*big.Float
 	tokenMap          map[common.Address]string
 	oracleMap         OracleMap
 }
@@ -60,7 +63,7 @@ func GetPricingEngine() *Pricing {
 		oracleFile:        viper.GetString("general.oracleMapsRootDir") + "/oraclemaps_" + viper.GetString("general.networkName") + ".json",
 		oracleHash:        "", // Computed below
 		graph:             gograph.NewGraphStringUintString(false),
-		stableCoins:       make(map[common.Address]bool),
+		stableCoins:       make(map[common.Address]*big.Float),
 		tokenMap:          make(map[common.Address]string),
 		oracleMap:         OracleMap{},
 	}
@@ -100,7 +103,7 @@ func GetPricingEngine() *Pricing {
 
 	// Setup stablecoins
 	for _, sc := range pricing.oracleMap.StableCoinsUSD {
-		pricing.stableCoins[common.HexToAddress(sc)] = true
+		pricing.stableCoins[common.HexToAddress(sc.Contract)] = sc.Price
 	}
 
 	// Setup tokenMap
@@ -191,8 +194,8 @@ func (d *EthRPC) GetRateForBlock(
 	}
 
 	// Is stablecoin
-	if _, ok := d.pricing.stableCoins[request.First]; ok {
-		return big.NewFloat(1.0)
+	if stablecoinPrice, ok := d.pricing.stableCoins[request.First]; ok {
+		return big.NewFloat(1.0).Set(stablecoinPrice)
 	}
 
 	// if a known token
