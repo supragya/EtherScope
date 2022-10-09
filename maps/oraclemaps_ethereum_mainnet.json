@@ -2,8 +2,8 @@
     "Network": "ethereum",
     "ChainID": 1,
     "StableCoinsUSD" : [
-        {"contract": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "price": "1.0"},
-        {"contract": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "price": "1.0"}
+        {"id": "USDC",  "contract": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "oracleContract": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6"},
+        {"id": "DAI", "contract": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "oracleContract": "0xaed0c38402a5d19df6e4c03f4e2dced6e29c1ee9"}
     ],
     "Tokens": [
         {"id": "WETH", "contract": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"},
