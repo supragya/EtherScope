@@ -1,5 +1,5 @@
 {
-    "Type": "mint",
+    "Type": "uniswapv2mint",
     "Network": 1,
     "LogIdx": 639,
     "Transaction": "0x777129f86fa1267af6cb28f5d91dcc4c48f0dd72aa2f1ae0efbb258160bf1abb",
@@ -17,4 +17,4 @@
     "AmountUSD": "1.8705829520136934",
     "Price0": "1.0392127511764526e-08",
     "Price1": "1706.92148524"
-  }
+}

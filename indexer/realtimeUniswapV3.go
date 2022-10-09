@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func (r *RealtimeIndexer) processMintV3(
+func (r *RealtimeIndexer) processUniV3Mint(
 	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -58,7 +58,7 @@ func (r *RealtimeIndexer) processMintV3(
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	mint := itypes.Mint{
-		Type:         "mint",
+		Type:         "uniswapv3mint",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -81,7 +81,7 @@ func (r *RealtimeIndexer) processMintV3(
 	instrumentation.MintV3Processed.Inc()
 }
 
-func (r *RealtimeIndexer) processBurnV3(
+func (r *RealtimeIndexer) processUniV3Burn(
 	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -127,7 +127,7 @@ func (r *RealtimeIndexer) processBurnV3(
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	burn := itypes.Burn{
-		Type:         "burn",
+		Type:         "uniswapv3burn",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -150,7 +150,6 @@ func (r *RealtimeIndexer) processBurnV3(
 	instrumentation.BurnV3Processed.Inc()
 }
 
-// TODO: fix
 func (r *RealtimeIndexer) processUniV3Swap(
 	l types.Log,
 	items *[]interface{},
@@ -192,7 +191,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	swap := itypes.Swap{
-		Type:         "swap",
+		Type:         "uniswapv3swap",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -242,7 +241,6 @@ func (r *RealtimeIndexer) isUniswapV3NFT(address common.Address,
 	return false
 }
 
-// TODO: refactor this with GetFormattedAmountsUniV2
 func (r *RealtimeIndexer) GetFormattedAmountsUniV3NFT(amount0 *big.Int,
 	amount1 *big.Int,
 	tokenID *big.Int,
@@ -298,7 +296,6 @@ func (r *RealtimeIndexer) GetFormattedAmountsUniV3NFT(amount0 *big.Int,
 		token1Decimals
 }
 
-// TODO: refactor this with GetFormattedAmountsUniV2
 func (r *RealtimeIndexer) GetFormattedAmountsUniV3(amount0 *big.Int,
 	amount1 *big.Int,
 	callopts *bind.CallOpts,

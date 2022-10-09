@@ -22,7 +22,7 @@ var gover string = "unknownver"
 
 // Persistence version -- database compatibility index.
 // NOT TO be supplied compile time. Should be hardcoded.
-var PersistenceVersion uint8 = 2
+var PersistenceVersion uint8 = 3
 
 var RootCmdVersion string = prepareVersionString()
 

@@ -1,0 +1,19 @@
+{
+    "Type": "uniswapv3mint",
+    "Network": 1,
+    "LogIdx": 35,
+    "Transaction": "0xe4e2c230e91fa803d83ecab3dcfde461933febf3cf96c7e54a9f890f2caea193",
+    "Time": 1659082829,
+    "Height": 15236243,
+    "Sender": "0x4f50778ce49f767fa90b29d47831529faaf0e2d1",
+    "PairContract": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+    "Token0": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    "Token1": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    "Amount0": "17482.503402",
+    "Amount1": "52.495637432039678886",
+    "Reserve0": "1.05195089679923e+08",
+    "Reserve1": "50516.293019504712183401",
+    "AmountUSD": "17482.503402",
+    "Price0": "1",
+    "Price1": "1715.89"
+}

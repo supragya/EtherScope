@@ -165,10 +165,10 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	// ---- Uniswap V2 ----
 	case itypes.UniV2MintTopic:
 		instrumentation.MintV2Found.Inc()
-		r.processMint(l, items, bm, mt)
+		r.processUniV2Mint(l, items, bm, mt)
 	case itypes.UniV2BurnTopic:
 		instrumentation.BurnV2Found.Inc()
-		r.processBurn(l, items, bm, mt)
+		r.processUniV2Burn(l, items, bm, mt)
 	case itypes.UniV2SwapTopic:
 		instrumentation.SwapV2Found.Inc()
 		r.processUniV2Swap(l, items, bm, mt)
@@ -176,10 +176,10 @@ func (r *RealtimeIndexer) DecodeLog(l types.Log,
 	// ---- Uniswap V3 ----
 	case itypes.UniV3MintTopic:
 		instrumentation.MintV3Found.Inc()
-		r.processMintV3(l, items, bm, mt)
+		r.processUniV3Mint(l, items, bm, mt)
 	case itypes.UniV3BurnTopic:
 		instrumentation.BurnV3Found.Inc()
-		r.processBurnV3(l, items, bm, mt)
+		r.processUniV3Burn(l, items, bm, mt)
 	case itypes.UniV3SwapTopic:
 		instrumentation.SwapV3Found.Inc()
 		r.processUniV3Swap(l, items, bm, mt)

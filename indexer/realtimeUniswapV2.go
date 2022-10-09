@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func (r *RealtimeIndexer) processMint(
+func (r *RealtimeIndexer) processUniV2Mint(
 	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -50,7 +50,7 @@ func (r *RealtimeIndexer) processMint(
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	mint := itypes.Mint{
-		Type:         "mint",
+		Type:         "uniswapv2mint",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -73,7 +73,7 @@ func (r *RealtimeIndexer) processMint(
 	instrumentation.MintV2Processed.Inc()
 }
 
-func (r *RealtimeIndexer) processBurn(
+func (r *RealtimeIndexer) processUniV2Burn(
 	l types.Log,
 	items *[]interface{},
 	bm *itypes.BlockSynopsis,
@@ -111,7 +111,7 @@ func (r *RealtimeIndexer) processBurn(
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	burn := itypes.Burn{
-		Type:         "burn",
+		Type:         "uniswapv2burn",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -172,7 +172,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	swap := itypes.Swap{
-		Type:         "swap",
+		Type:         "uniswapv2swap",
 		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
@@ -212,7 +212,6 @@ func (r *RealtimeIndexer) isUniswapV2Pair(address common.Address,
 	return false
 }
 
-// TODO: refactor this
 func (r *RealtimeIndexer) GetFormattedAmountsUniV2(amount0 *big.Int,
 	amount1 *big.Int,
 	callopts *bind.CallOpts,
