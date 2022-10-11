@@ -108,6 +108,13 @@ func setupRabbitMQ() (*amqp.Channel, error) {
 }
 
 func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
+
+	type ResumeAt struct {
+		Data struct {
+			Height int `json:"block_height"`
+		} `json:"data"`
+	}
+
 	if !d.isDB {
 		log.Warn("transaction support unavailable for the given persistence backend")
 		if !d.doResume {
@@ -117,10 +124,14 @@ func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
 			resp, err := http.Get(d.resumeURL)
 			util.ENOK(err)
 			body, err := ioutil.ReadAll(resp.Body)
+			var responseObject ResumeAt
+			json.Unmarshal(body, &responseObject)
+			ResumeBlock := int64(responseObject.Data.Height)
 			util.ENOK(err)
 			var respBody struct{ Resume uint64 }
 			util.ENOK(json.Unmarshal(body, &respBody))
-			return respBody.Resume
+			fmt.Println(respBody)
+			return uint64(ResumeBlock)
 		}
 	}
 
