@@ -1,0 +1,32 @@
+{
+    "Network": "avax",
+    "ChainID": 43114,
+    "Oracle_Earliest_Start": 2777777,
+    "Time": "July 19, 2021",
+    "StableCoinsUSD" : [
+        {"id": "DAI", "contract": "0xd586e7f844cea2f87f50152665bcbc2c279d8d70", "oracleContract": "0x51d7180eda2260cc4f6e4eebb82fef5c3c2b8300"},
+        {"id": "USDT", "contract": "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", "oracleContract": "0xebe676ee90fe1112671f19b6b7459bc678b67e8a"},
+        {"id": "USDT.E", "contract": "0xc7198437980c041c805a1edcba50c1ce5db95118", "oracleContract": "0xebe676ee90fe1112671f19b6b7459bc678b67e8a"},
+        {"id": "USDC.E", "contract": "0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664", "oracleContract": "0xf096872672f44d6eba71458d74fe67f9a77a23b9"},
+        {"id": "USDC", "contract": "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e", "oracleContract": "0xf096872672f44d6eba71458d74fe67f9a77a23b9"},
+        {"id": "FRAX", "contract": "0xd24c2ad096400b6fbcd2ad8b24e7acbc21a1da64", "oracleContract": "0xbba56ef1565354217a3353a466edb82e8f25b08e"}
+    ],
+    "Tokens": [
+        {"id": "WAVAX", "contract": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7"},
+        {"id": "ETH", "contract": "0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab"},
+        {"id": "BTC", "contract": "0x50b7545627a5162f82a992c33b87adc75187b218"},
+        {"id": "USDT", "contract": "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7"},
+        {"id": "USDT.E", "contract": "0xc7198437980c041c805a1edcba50c1ce5db95118"},
+        {"id": "USDC.E", "contract": "0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664"},
+        {"id": "USDC", "contract": "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e"},
+        {"id": "DAI", "contract": "0xd586e7f844cea2f87f50152665bcbc2c279d8d70"},
+        {"id": "FRAX", "contract": "0xd24c2ad096400b6fbcd2ad8b24e7acbc21a1da64"}
+
+    ],
+    "Oracles": [
+        {"from": "WAVAX", "to": "USD", "contract": "0x0a77230d17318075983913bc2145db16c7366156"},
+        {"from": "BTC", "to": "USD", "contract": "0x2779d32d5166baaa2b2b658333ba7e6ec0c65743"},
+        {"from": "ETH", "to": "USD", "contract": "0x976b3d034e162d8bd72d6b9c989d545b839003b0"}
+
+    ]
+}
