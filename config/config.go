@@ -34,6 +34,12 @@ var (
 		{"rpc.timeout", "time.Duration", "Timeout per RPC call (in milliseconds)"},
 	}
 
+	mandatoryFieldsERC20Transfer = [...]Field{
+		{"erc20transfer.restrictToWhitelist", "bool", "Restrict erc20transfer indexing only to whitelisted addresses"},
+		{"erc20transfer.restrictionType", "string", "Restriction type: from, to, both"},
+		{"erc20transfer.whitelistFile", "string", "path to file listing whitelisted addresses"},
+	}
+
 	mandatoryFieldsMessageQueue = [...]Field{
 		{"mq.secureConnection", "bool", "MQ connection over secure channel"},
 		{"mq.host", "string", "MQ host"},
@@ -67,6 +73,17 @@ func CheckViperMandatoryFields() error {
 		}
 	}
 
+	for _, event := range viper.GetStringSlice("general.eventsToIndex") {
+		if event == "ERC20Transfer" {
+			for _, mf := range mandatoryFieldsERC20Transfer {
+				err := ensureFieldIntegrity(mf)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	dbType := viper.GetString("general.persistence")
 	if dbType == "mq" {
 		for _, mf := range mandatoryFieldsMessageQueue {
@@ -83,7 +100,7 @@ func CheckViperMandatoryFields() error {
 
 func ensureFieldIntegrity(f Field) error {
 	if !viper.IsSet(f.name) {
-		return errors.New("unset mandatory field: " + f.name + " (" + f._type + "); description: " + f.err)
+		return errors.New("config error: unset mandatory field: " + f.name + " (" + f._type + "); description: " + f.err)
 	}
 	var castOK bool = true
 	var item = viper.Get(f.name)

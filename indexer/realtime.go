@@ -19,6 +19,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+type ERC20TransferRestrictions struct {
+	isRestricted  bool
+	whitelistFrom *map[common.Address]bool
+	whitelistTo   *map[common.Address]bool
+}
+
 type RealtimeIndexer struct {
 	currentHeight    uint64
 	indexedHeight    uint64
@@ -26,6 +32,8 @@ type RealtimeIndexer struct {
 	da               ethrpc.EthRPC
 	eventsToIndex    []common.Hash
 	eventsToIndexStr []string
+
+	erc20TransferRestrictions *ERC20TransferRestrictions
 
 	quitCh chan struct{}
 }
@@ -40,12 +48,13 @@ func NewRealtimeIndexer(indexedHeight uint64,
 	events, err := util.ConstructTopics(eventsToIndex)
 	util.ENOK(err)
 	return &RealtimeIndexer{
-		currentHeight:    0,
-		indexedHeight:    indexedHeight,
-		dbconn:           dbconn,
-		da:               *ethrpc.NewEthRPC(isErigon, masterUpstream, slaveUpstreams, timeout),
-		eventsToIndex:    events,
-		eventsToIndexStr: eventsToIndex,
+		currentHeight:             0,
+		indexedHeight:             indexedHeight,
+		dbconn:                    dbconn,
+		da:                        *ethrpc.NewEthRPC(isErigon, masterUpstream, slaveUpstreams, timeout),
+		eventsToIndex:             events,
+		eventsToIndexStr:          eventsToIndex,
+		erc20TransferRestrictions: setupERC20TransferRestrictions(events),
 
 		quitCh: make(chan struct{}),
 	}
