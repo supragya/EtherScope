@@ -108,52 +108,27 @@ func setupRabbitMQ() (*amqp.Channel, error) {
 }
 
 func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
-
-	type ResumeAt struct {
-		Data struct {
-			Height int `json:"block_height"`
-		} `json:"data"`
+	if d.isDB {
+		panic("unsupported: postgres backend")
 	}
 
-	if !d.isDB {
-		log.Warn("transaction support unavailable for the given persistence backend")
-		if !d.doResume {
-			log.Warn("resume feature skipped in non postgres database. assuming new DB")
-			return d.StartBlock
-		} else {
-			resp, err := http.Get(d.resumeURL)
-			util.ENOK(err)
-			body, err := ioutil.ReadAll(resp.Body)
-			var responseObject ResumeAt
-			json.Unmarshal(body, &responseObject)
-			ResumeBlock := int64(responseObject.Data.Height)
-			util.ENOK(err)
-			var respBody struct{ Resume uint64 }
-			util.ENOK(json.Unmarshal(body, &respBody))
-			fmt.Println(respBody)
-			return uint64(ResumeBlock)
-		}
+	log.Warn("transaction support unavailable for the given persistence backend")
+	if !d.doResume {
+		log.Warn("resume feature skipped in non postgres database. assuming new DB")
+		return d.StartBlock
 	}
 
-	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%d ORDER BY height DESC LIMIT 1",
-		d.metaTable, d.Network, d.ChainID)
-
-	rows, err := d.conn.Query(query)
+	resp, err := http.Get(d.resumeURL)
 	util.ENOK(err)
-	defer rows.Close()
 
-	mostRecent := d.StartBlock - 1
-	foundRow := false
-	for rows.Next() {
-		err = rows.Scan(&mostRecent)
-		util.ENOK(err)
-		foundRow = true
-	}
+	body, err := ioutil.ReadAll(resp.Body)
+	util.ENOK(err)
 
-	if !foundRow {
-		log.Warn("no recent blocks found in db. assuming new db")
-	}
-	return mostRecent
+	var responseObject itypes.ResumeAPIResponse
+	util.ENOK(json.Unmarshal(body, &responseObject))
+
+	log.Info("resuming from block height (via API response): ", responseObject.Data.Height)
+	return responseObject.Data.Height
 }
 
 func (d *DBConn) BeginTx() (context.Context, *sql.Tx) {
