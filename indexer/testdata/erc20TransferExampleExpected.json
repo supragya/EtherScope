@@ -1,5 +1,5 @@
 {
-    "Type": "transfer",
+    "Type": "erc20transfer",
     "Network": 1,
     "LogIdx": 1,
     "Transaction": "0x22db0df3c18a7c7a3a66dd42ad588abf359856771930ceb7d2b5c9e9c5f04838",

@@ -42,8 +42,8 @@ func TestUniswapV2Mint(t *testing.T) {
 	assertBigFloatClose(t, expected.Reserve0, item.Reserve0, nil)
 	assertBigFloatClose(t, expected.Reserve1, item.Reserve1, nil)
 	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD, nil)
-	assertBigFloatClose(t, expected.Price0, item.Price0, nil)
-	assertBigFloatClose(t, expected.Price1, item.Price1, nil)
+	assertBigFloatClose(t, expected.Price0.Price, item.Price0.Price, nil)
+	assertBigFloatClose(t, expected.Price1.Price, item.Price1.Price, nil)
 }
 
 func TestUniswapV2Burn(t *testing.T) {
@@ -80,8 +80,8 @@ func TestUniswapV2Burn(t *testing.T) {
 	assertBigFloatClose(t, expected.Reserve0, item.Reserve0, nil)
 	assertBigFloatClose(t, expected.Reserve1, item.Reserve1, nil)
 	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD, nil)
-	assertBigFloatClose(t, expected.Price0, item.Price0, nil)
-	assertBigFloatClose(t, expected.Price1, item.Price1, nil)
+	assertBigFloatClose(t, expected.Price0.Price, item.Price0.Price, nil)
+	assertBigFloatClose(t, expected.Price1.Price, item.Price1.Price, nil)
 }
 
 func TestUniswapV2Swap(t *testing.T) {
@@ -120,6 +120,6 @@ func TestUniswapV2Swap(t *testing.T) {
 	assertBigFloatClose(t, expected.Reserve0, item.Reserve0, nil)
 	assertBigFloatClose(t, expected.Reserve1, item.Reserve1, nil)
 	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD, nil)
-	assertBigFloatClose(t, expected.Price0, item.Price0, nil)
-	assertBigFloatClose(t, expected.Price1, item.Price1, nil)
+	assertBigFloatClose(t, expected.Price0.Price, item.Price0.Price, nil)
+	assertBigFloatClose(t, expected.Price1.Price, item.Price1.Price, nil)
 }

@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,12 +22,12 @@ func testingSetup() *RealtimeIndexer {
 	util.ENOK(logger.SetLogLevel("error"))
 	util.ENOK(config.LoadViperConfig("testdata/configs/testcfg.yaml"))
 	return NewRealtimeIndexer(0,
-		"https://rpc.ankr.com/eth",
-		[]string{},
+		viper.GetString("rpc.master"),
+		viper.GetStringSlice("rpc.slaves"),
 		time.Second,
 		false,
 		&db.DBConn{ChainID: 1},
-		[]string{})
+		viper.GetStringSlice("general.eventsToIndex"))
 }
 
 func loadLog(t *testing.T, file string) types.Log {
@@ -65,10 +67,10 @@ func loadRawJSON(t *testing.T, file string) string {
 
 func assertBigFloatClose(t *testing.T, expected *big.Float, real *big.Float, threshold *big.Float) {
 	if threshold == nil {
-		threshold = big.NewFloat(0.0001)
+		threshold = big.NewFloat(0.01)
 	}
 	diff := big.NewFloat(0).Sub(expected, real)
 	cmp := big.NewFloat(0).Sub(threshold, diff.Abs(diff))
 	withinThreshold := cmp.Cmp(big.NewFloat(0)) == 1
-	assert.True(t, withinThreshold, "not close enough")
+	assert.True(t, withinThreshold, fmt.Sprintf("not close enough expected: %v vs actual: %v", expected, real))
 }

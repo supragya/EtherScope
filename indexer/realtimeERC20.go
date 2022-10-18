@@ -30,12 +30,15 @@ func setupERC20TransferRestrictions(events []common.Hash) *ERC20TransferRestrict
 	var (
 		restrictionType = viper.GetString("erc20transfer.restrictionType")
 		whitelistFile   = viper.GetString("erc20transfer.whitelistFile")
+		whitelistMap    = make(map[common.Address]bool)
 	)
 
 	var _type ERC20RestrictionType
 	switch restrictionType {
 	case "none":
 		_type = None
+		// short circuit
+		return &ERC20TransferRestrictions{_type, &whitelistMap}
 	case "to":
 		_type = To
 	case "from":
@@ -57,7 +60,6 @@ func setupERC20TransferRestrictions(events []common.Hash) *ERC20TransferRestrict
 	whitelist := []common.Address{}
 	util.ENOK(json.Unmarshal(_bytes, &whitelist))
 
-	whitelistMap := make(map[common.Address]bool, len(whitelist))
 	for _, ra := range whitelist {
 		whitelistMap[ra] = true
 	}
@@ -65,7 +67,7 @@ func setupERC20TransferRestrictions(events []common.Hash) *ERC20TransferRestrict
 	return &ERC20TransferRestrictions{_type, &whitelistMap}
 }
 
-func restrictIndexing(r *ERC20TransferRestrictions, from common.Address, to common.Address) bool {
+func allowIndexing(r *ERC20TransferRestrictions, from common.Address, to common.Address) bool {
 	if r._type == None {
 		return true
 	}
@@ -105,7 +107,7 @@ func (r *RealtimeIndexer) processERC20Transfer(
 		return
 	}
 
-	if restrictIndexing(r.erc20TransferRestrictions, sender, recv) {
+	if !allowIndexing(r.erc20TransferRestrictions, sender, recv) {
 		return
 	}
 

@@ -37,5 +37,5 @@ func TestERC20Transfer(t *testing.T) {
 	assert.Equal(t, expected.Sender, item.Sender, "does not match")
 	assert.Equal(t, expected.Receiver, item.Receiver, "does not match")
 	assertBigFloatClose(t, expected.Amount, item.Amount, nil)
-	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD.Price, nil)
+	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD, nil)
 }
