@@ -35,8 +35,7 @@ var (
 	}
 
 	mandatoryFieldsERC20Transfer = [...]Field{
-		{"erc20transfer.restrictToWhitelist", "bool", "Restrict erc20transfer indexing only to whitelisted addresses"},
-		{"erc20transfer.restrictionType", "string", "Restriction type: from, to, both"},
+		{"erc20transfer.restrictionType", "string", "Restriction type: none, from, to, both, either"},
 		{"erc20transfer.whitelistFile", "string", "path to file listing whitelisted addresses"},
 	}
 

@@ -34,8 +34,7 @@ rpc:
 # Subsection ERC20Transfer
 # Needed iff general.eventsToIndex contains ERC20Transfer.
 erc20transfer:
-  restrictToWhitelist: true
-  restrictionType: both # can be one of ["to", "from", "both"]
+  restrictionType: both # can be one of ["none", "to", "from", "both", "either"]
   whitelistFile: testerc20transferwhitelist.json
 
 # Subsection message queue

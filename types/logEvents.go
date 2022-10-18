@@ -25,18 +25,19 @@ var (
 )
 
 type Transfer struct {
-	Type        string
-	Network     uint
-	LogIdx      uint
-	Transaction common.Hash
-	Time        uint64
-	Height      uint64
-	Token       common.Address
-	Sender      common.Address
-	TxSender    common.Address
-	Receiver    common.Address
-	Amount      *big.Float
-	AmountUSD   *PriceResult
+	Type                string
+	Network             uint
+	LogIdx              uint
+	Transaction         common.Hash
+	Time                uint64
+	Height              uint64
+	Token               common.Address
+	Sender              common.Address
+	TxSender            common.Address
+	Receiver            common.Address
+	Amount              *big.Float
+	AmountUSD           *big.Float
+	PriceDerivationMeta *PriceResult
 }
 
 type Mint struct {

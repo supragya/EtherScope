@@ -28,10 +28,25 @@ func setupERC20TransferRestrictions(events []common.Hash) *ERC20TransferRestrict
 	}
 
 	var (
-		isRestricted    = viper.GetBool("erc20transfer.restrictToWhitelist")
 		restrictionType = viper.GetString("erc20transfer.restrictionType")
 		whitelistFile   = viper.GetString("erc20transfer.whitelistFile")
 	)
+
+	var _type ERC20RestrictionType
+	switch restrictionType {
+	case "none":
+		_type = None
+	case "to":
+		_type = To
+	case "from":
+		_type = From
+	case "both":
+		_type = Both
+	case "either":
+		_type = Either
+	default:
+		panic("unknown ERC20RestrictionType")
+	}
 
 	file, err := os.Open(whitelistFile)
 	util.ENOK(err)
@@ -47,16 +62,36 @@ func setupERC20TransferRestrictions(events []common.Hash) *ERC20TransferRestrict
 		whitelistMap[ra] = true
 	}
 
-	var whitelistFrom, whitelistsTo *map[common.Address]bool = nil, nil
+	return &ERC20TransferRestrictions{_type, &whitelistMap}
+}
 
-	if restrictionType == "to" || restrictionType == "both" {
-		whitelistsTo = &whitelistMap
+func restrictIndexing(r *ERC20TransferRestrictions, from common.Address, to common.Address) bool {
+	if r._type == None {
+		return true
 	}
-	if restrictionType == "from" || restrictionType == "both" {
-		whitelistFrom = &whitelistMap
+	var (
+		whFrom = false
+		whTo   = false
+	)
+	if _, ok := (*r.whitelist)[from]; ok {
+		whFrom = true
 	}
-
-	return &ERC20TransferRestrictions{isRestricted, whitelistFrom, whitelistsTo}
+	if _, ok := (*r.whitelist)[to]; ok {
+		whTo = true
+	}
+	switch r._type {
+	case None:
+		return true
+	case To:
+		return whTo
+	case From:
+		return whFrom
+	case Both:
+		return whTo && whFrom
+	case Either:
+		return whTo || whFrom
+	}
+	return false
 }
 
 func (r *RealtimeIndexer) processERC20Transfer(
@@ -70,19 +105,8 @@ func (r *RealtimeIndexer) processERC20Transfer(
 		return
 	}
 
-	if r.erc20TransferRestrictions != nil {
-		if r.erc20TransferRestrictions.isRestricted {
-			if r.erc20TransferRestrictions.whitelistFrom != nil {
-				if _, ok := (*r.erc20TransferRestrictions.whitelistFrom)[sender]; !ok {
-					return
-				}
-			}
-			if r.erc20TransferRestrictions.whitelistTo != nil {
-				if _, ok := (*r.erc20TransferRestrictions.whitelistTo)[recv]; !ok {
-					return
-				}
-			}
-		}
+	if restrictIndexing(r.erc20TransferRestrictions, sender, recv) {
+		return
 	}
 
 	callopts := GetBlockCallOpts(l.BlockNumber)
@@ -101,18 +125,19 @@ func (r *RealtimeIndexer) processERC20Transfer(
 	util.ENOK(err)
 
 	transfer := itypes.Transfer{
-		Type:        "transfer",
-		Network:     r.dbconn.ChainID,
-		LogIdx:      l.Index,
-		Transaction: l.TxHash,
-		Time:        bm.Time,
-		Height:      l.BlockNumber,
-		Token:       l.Address,
-		Sender:      sender,
-		TxSender:    txSender,
-		Receiver:    recv,
-		Amount:      formattedAmount,
-		AmountUSD:   tokenPrice,
+		Type:                "erc20transfer",
+		Network:             r.dbconn.ChainID,
+		LogIdx:              l.Index,
+		Transaction:         l.TxHash,
+		Time:                bm.Time,
+		Height:              l.BlockNumber,
+		Token:               l.Address,
+		Sender:              sender,
+		TxSender:            txSender,
+		Receiver:            recv,
+		Amount:              formattedAmount,
+		AmountUSD:           tokenPrice.Price,
+		PriceDerivationMeta: tokenPrice,
 	}
 
 	AddToSynopsis(mt, bm, transfer, items, "transfer", true)

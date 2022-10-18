@@ -19,10 +19,19 @@ import (
 	"github.com/spf13/viper"
 )
 
+type ERC20RestrictionType int
+
+const (
+	None ERC20RestrictionType = iota
+	To
+	From
+	Both
+	Either
+)
+
 type ERC20TransferRestrictions struct {
-	isRestricted  bool
-	whitelistFrom *map[common.Address]bool
-	whitelistTo   *map[common.Address]bool
+	_type     ERC20RestrictionType
+	whitelist *map[common.Address]bool
 }
 
 type RealtimeIndexer struct {
