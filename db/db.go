@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	log "github.com/sirupsen/logrus"
@@ -108,41 +108,27 @@ func setupRabbitMQ() (*amqp.Channel, error) {
 }
 
 func (d *DBConn) GetMostRecentPostedBlockHeight() uint64 {
-	if !d.isDB {
-		log.Warn("transaction support unavailable for the given persistence backend")
-		if !d.doResume {
-			log.Warn("resume feature skipped in non postgres database. assuming new DB")
-			return d.StartBlock
-		} else {
-			resp, err := http.Get(d.resumeURL)
-			util.ENOK(err)
-			body, err := ioutil.ReadAll(resp.Body)
-			util.ENOK(err)
-			var respBody struct{ Resume uint64 }
-			util.ENOK(json.Unmarshal(body, &respBody))
-			return respBody.Resume
-		}
+	if d.isDB {
+		panic("unsupported: postgres backend")
 	}
 
-	query := fmt.Sprintf("SELECT height FROM %s WHERE nwtype='%s' AND network=%d ORDER BY height DESC LIMIT 1",
-		d.metaTable, d.Network, d.ChainID)
+	log.Warn("transaction support unavailable for the given persistence backend")
+	if !d.doResume {
+		log.Warn("resume feature skipped in non postgres database. assuming new DB")
+		return d.StartBlock
+	}
 
-	rows, err := d.conn.Query(query)
+	resp, err := http.Get(d.resumeURL)
 	util.ENOK(err)
-	defer rows.Close()
 
-	mostRecent := d.StartBlock - 1
-	foundRow := false
-	for rows.Next() {
-		err = rows.Scan(&mostRecent)
-		util.ENOK(err)
-		foundRow = true
-	}
+	body, err := ioutil.ReadAll(resp.Body)
+	util.ENOK(err)
 
-	if !foundRow {
-		log.Warn("no recent blocks found in db. assuming new db")
-	}
-	return mostRecent
+	var responseObject itypes.ResumeAPIResponse
+	util.ENOK(json.Unmarshal(body, &responseObject))
+
+	log.Info("resuming from block height (via API response): ", responseObject.Data.Height)
+	return responseObject.Data.Height
 }
 
 func (d *DBConn) BeginTx() (context.Context, *sql.Tx) {

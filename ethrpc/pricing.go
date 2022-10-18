@@ -12,19 +12,25 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/chainlink"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/gograph"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
 type OracleMap struct {
-	Network        string   `json:"Network"`
-	ChainID        int      `json:"ChainID"`
-	StableCoinsUSD []string `json:"StableCoinsUSD"`
-	Tokens         []struct {
+	Network        string `json:"Network"`
+	ChainID        int    `json:"ChainID"`
+	StableCoinsUSD []struct {
+		ID             string `json:"id"`
+		Contract       string `json:"contract"`
+		OracleContract string `json:"oracleContract"`
+	} `json:"StableCoinsUSD"`
+	Tokens []struct {
 		ID       string `json:"id"`
 		Contract string `json:"contract"`
 	} `json:"Tokens"`
@@ -47,7 +53,7 @@ type Pricing struct {
 	cacheFile         string
 	oracleHash        string
 	graph             *gograph.Graph[string, string]
-	stableCoins       map[common.Address]bool
+	stableCoins       map[common.Address]util.Tuple2[string, common.Address]
 	tokenMap          map[common.Address]string
 	oracleMap         OracleMap
 }
@@ -60,7 +66,7 @@ func GetPricingEngine() *Pricing {
 		oracleFile:        viper.GetString("general.oracleMapsRootDir") + "/oraclemaps_" + viper.GetString("general.networkName") + ".json",
 		oracleHash:        "", // Computed below
 		graph:             gograph.NewGraphStringUintString(false),
-		stableCoins:       make(map[common.Address]bool),
+		stableCoins:       make(map[common.Address]util.Tuple2[string, common.Address]),
 		tokenMap:          make(map[common.Address]string),
 		oracleMap:         OracleMap{},
 	}
@@ -100,7 +106,10 @@ func GetPricingEngine() *Pricing {
 
 	// Setup stablecoins
 	for _, sc := range pricing.oracleMap.StableCoinsUSD {
-		pricing.stableCoins[common.HexToAddress(sc)] = true
+		pricing.stableCoins[common.HexToAddress(sc.Contract)] = util.Tuple2[string, common.Address]{
+			sc.ID,
+			common.HexToAddress(sc.OracleContract),
+		}
 	}
 
 	// Setup tokenMap
@@ -113,86 +122,157 @@ func GetPricingEngine() *Pricing {
 
 func (d *EthRPC) GetRates2Tokens(
 	callopts *bind.CallOpts,
+	l types.Log,
 	token0Address common.Address,
 	token1Address common.Address,
 	token0Amount *big.Float,
-	token1Amount *big.Float) (token0Price *big.Float,
-	token1Price *big.Float,
+	token1Amount *big.Float) (token0PriceResult *itypes.PriceResult,
+	token1Price *itypes.PriceResult,
 	amountUSD *big.Float) {
-	rates := d.GetRatesForBlock(callopts, []util.Tuple2[common.Address, *big.Float]{
+	prs := d.GetPriceResults(callopts, []util.Tuple2[common.Address, *big.Float]{
 		{token0Address, token0Amount},
 		{token1Address, token1Amount},
 	})
 
 	// prevRates := []bool{rates[0] == nil, rates[1] == nil}
 
-	if rates[0] == nil && rates[1] == nil {
+	if prs[0] == nil && prs[1] == nil {
 		return nil, nil, nil
-	} else if rates[0] == nil && token0Amount.Cmp(ZeroFloat) != 0 {
-		numerator := big.NewFloat(1.0).Mul(rates[1], token1Amount)
-		denominator := token0Amount
-		rates[0] = big.NewFloat(1.0).Quo(numerator, denominator)
+	} else if prs[0] == nil && token0Amount.Cmp(ZeroFloat) != 0 {
+		cpdi := itypes.CounterpartyPriceDerivationInfo{
+			CalculationTx:     l.TxHash,
+			LogIdx:            l.Index,
+			CounterpartyToken: token1Address,
+			CounterpartyQty:   big.NewFloat(0.0).Set(token1Amount),
+			CounterpartyPrice: big.NewFloat(0.0).Set(prs[1].Price),
+			SelfQty:           big.NewFloat(0.0).Set(token0Amount),
+		}
+
+		numerator := big.NewFloat(1.0).Mul(cpdi.CounterpartyPrice, cpdi.CounterpartyQty)
+		denominator := cpdi.SelfQty
+		derivedPrice := big.NewFloat(1.0).Quo(numerator, denominator)
+
+		entry := itypes.PriceResult{
+			Price:                     derivedPrice,
+			IsStablecoin:              false,
+			IsDerivedFromCounterparty: true,
+			CounterpartyInfo:          &cpdi,
+			DerivationInfo:            nil,
+		}
+
 		// cache derived rate
 		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
-		d.PriceCache.Add(lookupKey, rates[0])
+		d.PriceCache.Add(lookupKey, &entry)
+		prs[0] = &entry
 
-	} else if rates[1] == nil && token1Amount.Cmp(ZeroFloat) != 0 {
-		numerator := big.NewFloat(1.0).Mul(rates[0], token0Amount)
-		denominator := token1Amount
-		rates[1] = big.NewFloat(1.0).Quo(numerator, denominator)
+	} else if prs[1] == nil && token1Amount.Cmp(ZeroFloat) != 0 {
+		cpdi := itypes.CounterpartyPriceDerivationInfo{
+			CalculationTx:     l.TxHash,
+			LogIdx:            l.Index,
+			CounterpartyToken: token0Address,
+			CounterpartyQty:   big.NewFloat(0.0).Set(token0Amount),
+			CounterpartyPrice: big.NewFloat(0.0).Set(prs[0].Price),
+			SelfQty:           big.NewFloat(0.0).Set(token1Amount),
+		}
+
+		numerator := big.NewFloat(1.0).Mul(cpdi.CounterpartyPrice, cpdi.CounterpartyQty)
+		denominator := cpdi.SelfQty
+		derivedPrice := big.NewFloat(1.0).Quo(numerator, denominator)
+
+		entry := itypes.PriceResult{
+			Price:                     derivedPrice,
+			IsStablecoin:              false,
+			IsDerivedFromCounterparty: true,
+			CounterpartyInfo:          &cpdi,
+			DerivationInfo:            nil,
+		}
+
 		// cache derived rate
-		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
-		d.PriceCache.Add(lookupKey, rates[1])
+		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
+		d.PriceCache.Add(lookupKey, &entry)
+		prs[1] = &entry
 	}
 
 	amountUSD = big.NewFloat(0.0)
-	if rates[0] != nil && rates[1] != nil {
+	if prs[0] != nil && prs[1] != nil {
 		if token0Amount.Cmp(ZeroFloat) != 0 {
-			amountUSD.Mul(rates[0], token0Amount)
+			amountUSD.Mul(prs[0].Price, token0Amount)
 		} else {
-			amountUSD.Mul(rates[1], token1Amount)
+			amountUSD.Mul(prs[1].Price, token1Amount)
 		}
 	}
-	// log.Info([]util.Tuple2[common.Address, *big.Float]{
-	// 	{token0Address, token0Amount},
-	// 	{token1Address, token1Amount},
-	// }, prevRates, rates)
 
-	return rates[0], rates[1], amountUSD
+	return prs[0], prs[1], amountUSD
 }
 
-func (d *EthRPC) GetRatesForBlock(
+func (d *EthRPC) GetPriceResults(
 	callopts *bind.CallOpts,
-	requests []util.Tuple2[common.Address, *big.Float]) []*big.Float {
-	response := []*big.Float{}
+	requests []util.Tuple2[common.Address, *big.Float]) []*itypes.PriceResult {
+	response := []*itypes.PriceResult{}
 	for _, req := range requests {
 		response = append(response, d.GetRateForBlock(callopts, req))
 	}
 	return response
 }
 
-type ChainlinkLatestRoundData struct {
-	RoundId         *big.Int
-	Answer          *big.Int
-	StartedAt       *big.Int
-	UpdatedAt       *big.Int
-	AnsweredInRound *big.Int
-}
-
 func (d *EthRPC) GetRateForBlock(
 	callopts *bind.CallOpts,
-	request util.Tuple2[common.Address, *big.Float]) *big.Float {
+	request util.Tuple2[common.Address, *big.Float]) *itypes.PriceResult {
 
 	// cache lookup
 	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
 
 	if val, ok := d.PriceCache.Get(lookupKey); ok {
-		return val.(*big.Float)
+		return val.(*itypes.PriceResult)
 	}
 
 	// Is stablecoin
-	if _, ok := d.pricing.stableCoins[request.First]; ok {
-		return big.NewFloat(1.0)
+	if info, ok := d.pricing.stableCoins[request.First]; ok {
+		var (
+			oracleContractAddress = info.Second
+			edgeHumanReadable     = fmt.Sprintf("chainlink %s-USD(%s)", info.First, oracleContractAddress)
+		)
+
+		latestRoundData, err := mspool.Do(d.upstreams,
+			func(ctx context.Context, c *ethclient.Client) (itypes.ChainlinkLatestRoundData, error) {
+				oracle, err := chainlink.NewChainlink(oracleContractAddress, c)
+				if err != nil {
+					return itypes.ChainlinkLatestRoundData{}, err
+				}
+				callopts.Context = ctx
+				return oracle.LatestRoundData(callopts)
+			}, itypes.ChainlinkLatestRoundData{})
+		util.ENOKF(err, oracleContractAddress)
+
+		decimals, err := mspool.Do(d.upstreams,
+			func(ctx context.Context, c *ethclient.Client) (uint8, error) {
+				oracle, err := chainlink.NewChainlink(oracleContractAddress, c)
+				if err != nil {
+					return 0, err
+				}
+				callopts.Context = ctx
+				return oracle.Decimals(callopts)
+			}, 0)
+		util.ENOK(err)
+
+		tokenFormatted := util.DivideBy10pow(latestRoundData.Answer, decimals)
+		routingMetadata := make(map[string]itypes.DirectPriceDerivationInfo, 1)
+		routingMetadata[edgeHumanReadable] = itypes.DirectPriceDerivationInfo{
+			LatestRoundData: latestRoundData,
+			Decimals:        decimals,
+			ConversionPrice: tokenFormatted,
+		}
+
+		result := itypes.PriceResult{
+			Price:                     tokenFormatted,
+			IsStablecoin:              true,
+			IsDerivedFromCounterparty: false,
+			CounterpartyInfo:          nil,
+			DerivationInfo:            routingMetadata,
+		}
+		d.PriceCache.Add(lookupKey, &result)
+
+		return &result
 	}
 
 	// if a known token
@@ -200,17 +280,25 @@ func (d *EthRPC) GetRateForBlock(
 		route := d.pricing.graph.GetShortestRoute(tokenID, "USD")
 		price := big.NewFloat(1.0)
 
-		for _, edge := range route.Edges {
+		if len(route.Edges)+1 != len(route.Vertices) {
+			panic("error in APSP routing logic")
+		}
+
+		routingMetadata := make(map[string]itypes.DirectPriceDerivationInfo, len(route.Edges))
+
+		for idx, edge := range route.Edges {
 			oracleContractAddress := common.HexToAddress(edge.Metadata)
+			edgeHumanReadable := fmt.Sprintf("chainlink %s-%s(%s)", route.Vertices[idx], route.Vertices[idx+1], oracleContractAddress)
+
 			latestRoundData, err := mspool.Do(d.upstreams,
-				func(ctx context.Context, c *ethclient.Client) (ChainlinkLatestRoundData, error) {
+				func(ctx context.Context, c *ethclient.Client) (itypes.ChainlinkLatestRoundData, error) {
 					oracle, err := chainlink.NewChainlink(oracleContractAddress, c)
 					if err != nil {
-						return ChainlinkLatestRoundData{}, err
+						return itypes.ChainlinkLatestRoundData{}, err
 					}
 					callopts.Context = ctx
 					return oracle.LatestRoundData(callopts)
-				}, ChainlinkLatestRoundData{})
+				}, itypes.ChainlinkLatestRoundData{})
 			util.ENOK(err)
 
 			decimals, err := mspool.Do(d.upstreams,
@@ -228,11 +316,26 @@ func (d *EthRPC) GetRateForBlock(
 
 			// Assuming base currency to be worth 1USD
 			price = price.Mul(price, tokenFormatted)
+
+			// Add to metadata
+			routingMetadata[edgeHumanReadable] = itypes.DirectPriceDerivationInfo{
+				LatestRoundData: latestRoundData,
+				Decimals:        decimals,
+				ConversionPrice: tokenFormatted,
+			}
+		}
+
+		result := itypes.PriceResult{
+			Price:                     price,
+			IsStablecoin:              false,
+			IsDerivedFromCounterparty: false,
+			CounterpartyInfo:          nil,
+			DerivationInfo:            routingMetadata,
 		}
 
 		// Cache insert
-		d.PriceCache.Add(lookupKey, price)
-		return price
+		d.PriceCache.Add(lookupKey, &result)
+		return &result
 	}
 
 	return nil

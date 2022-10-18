@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"sync"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -47,7 +47,13 @@ func (r *RealtimeIndexer) processUniV2Mint(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
 	mint := itypes.Mint{
 		Type:         "uniswapv2mint",
@@ -57,6 +63,7 @@ func (r *RealtimeIndexer) processUniV2Mint(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     txSender,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -108,7 +115,13 @@ func (r *RealtimeIndexer) processUniV2Burn(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
 	burn := itypes.Burn{
 		Type:         "uniswapv2burn",
@@ -118,6 +131,7 @@ func (r *RealtimeIndexer) processUniV2Burn(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     txSender,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -161,6 +175,10 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	// due to above condition
 	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
 
+	// if t0 != common.HexToAddress("0x79291a9d692df95334b1a0b3b4ae6bc606782f8c") || t1 != common.HexToAddress("0x79291a9d692df95334b1a0b3b4ae6bc606782f8c") {
+	// 	return
+	// }
+
 	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
@@ -169,7 +187,13 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
 	swap := itypes.Swap{
 		Type:         "uniswapv2swap",
@@ -179,6 +203,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
+		TxSender:     txSender,
 		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
 		PairContract: l.Address,
 		Token0:       t0,

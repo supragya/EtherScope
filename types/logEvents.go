@@ -24,26 +24,20 @@ var (
 	ERC20TransferTopic common.Hash
 )
 
-type tokenMeta struct {
-	RoundId         *big.Int
-	Answer          *big.Int
-	StartedAt       *big.Int
-	UpdatedAt       *big.Int
-	AnsweredInRound *big.Int
-}
-
 type Transfer struct {
-	Type        string
-	Network     uint
-	LogIdx      uint
-	Transaction common.Hash
-	Time        uint64
-	Height      uint64
-	Token       common.Address
-	Sender      common.Address
-	Receiver    common.Address
-	Amount      *big.Float
-	AmountUSD   *big.Float
+	Type                string
+	Network             uint
+	LogIdx              uint
+	Transaction         common.Hash
+	Time                uint64
+	Height              uint64
+	Token               common.Address
+	Sender              common.Address
+	TxSender            common.Address
+	Receiver            common.Address
+	Amount              *big.Float
+	AmountUSD           *big.Float
+	PriceDerivationMeta *PriceResult
 }
 
 type Mint struct {
@@ -54,6 +48,7 @@ type Mint struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
+	TxSender     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address
@@ -62,8 +57,8 @@ type Mint struct {
 	Reserve0     *big.Float
 	Reserve1     *big.Float
 	AmountUSD    *big.Float
-	Price0       *big.Float
-	Price1       *big.Float
+	Price0       *PriceResult
+	Price1       *PriceResult
 }
 
 type Burn struct {
@@ -74,6 +69,7 @@ type Burn struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
+	TxSender     common.Address
 	PairContract common.Address
 	Token0       common.Address
 	Token1       common.Address
@@ -82,8 +78,8 @@ type Burn struct {
 	Reserve0     *big.Float
 	Reserve1     *big.Float
 	AmountUSD    *big.Float
-	Price0       *big.Float
-	Price1       *big.Float
+	Price0       *PriceResult
+	Price1       *PriceResult
 }
 
 type Swap struct {
@@ -94,6 +90,7 @@ type Swap struct {
 	Time         uint64
 	Height       uint64
 	Sender       common.Address
+	TxSender     common.Address
 	Receiver     common.Address
 	PairContract common.Address
 	Token0       common.Address
@@ -103,8 +100,8 @@ type Swap struct {
 	Reserve0     *big.Float
 	Reserve1     *big.Float
 	AmountUSD    *big.Float
-	Price0       *big.Float
-	Price1       *big.Float
+	Price0       *PriceResult
+	Price1       *PriceResult
 }
 
 type BlockSynopsis struct {

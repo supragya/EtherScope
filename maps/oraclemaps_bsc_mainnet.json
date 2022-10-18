@@ -2,10 +2,9 @@
     "Network": "bsc",
     "ChainID": 56,
     "StableCoinsUSD" : [
-        "0x55d398326f99059ff775485246999027b3197955", 
-        "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
-        "0xe9e7cea3dedca5984780bafc599bd69add087d56",
-        "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3"
+        {"id": "BUSD-T", "contract": "0x55d398326f99059ff775485246999027b3197955", "oracleContract": "0xb97ad0e74fa7d920791e90258a6e2085088b4320"},
+        {"id": "USDC", "contract": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", "oracleContract": "0x51597f405303c4377e36123cbc172b13269ea163"},
+        {"id": "BUSD", "contract": "0xe9e7cea3dedca5984780bafc599bd69add087d56", "oracleContract": "0xcbb98864ef56e9042e7d2efef76141f15731b82f"}
     ],
     "Tokens": [
         {"id": "BNB", "contract": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"},

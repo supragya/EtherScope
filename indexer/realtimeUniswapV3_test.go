@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,8 +44,8 @@ func TestUniswapV3Swap(t *testing.T) {
 	assertBigFloatClose(t, expected.Reserve0, item.Reserve0, nil)
 	assertBigFloatClose(t, expected.Reserve1, item.Reserve1, nil)
 	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD, nil)
-	assertBigFloatClose(t, expected.Price0, item.Price0, nil)
-	assertBigFloatClose(t, expected.Price1, item.Price1, nil)
+	assertBigFloatClose(t, expected.Price0.Price, item.Price0.Price, nil)
+	assertBigFloatClose(t, expected.Price1.Price, item.Price1.Price, nil)
 }
 
 func TestUniswapV3Mint(t *testing.T) {
@@ -88,8 +88,8 @@ func TestUniswapV3Mint(t *testing.T) {
 	assertBigFloatClose(t, expected.Reserve0, item.Reserve0, nil)
 	assertBigFloatClose(t, expected.Reserve1, item.Reserve1, nil)
 	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD, nil)
-	assertBigFloatClose(t, expected.Price0, item.Price0, nil)
-	assertBigFloatClose(t, expected.Price1, item.Price1, nil)
+	assertBigFloatClose(t, expected.Price0.Price, item.Price0.Price, nil)
+	assertBigFloatClose(t, expected.Price1.Price, item.Price1.Price, nil)
 }
 
 func TestUniswapV3Burn(t *testing.T) {
@@ -132,6 +132,6 @@ func TestUniswapV3Burn(t *testing.T) {
 	assertBigFloatClose(t, expected.Reserve0, item.Reserve0, nil)
 	assertBigFloatClose(t, expected.Reserve1, item.Reserve1, nil)
 	assertBigFloatClose(t, expected.AmountUSD, item.AmountUSD, nil)
-	assertBigFloatClose(t, expected.Price0, item.Price0, nil)
-	assertBigFloatClose(t, expected.Price1, item.Price1, nil)
+	assertBigFloatClose(t, expected.Price0.Price, item.Price0.Price, nil)
+	assertBigFloatClose(t, expected.Price1.Price, item.Price1.Price, nil)
 }

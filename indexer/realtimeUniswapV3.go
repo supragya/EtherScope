@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"sync"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -55,7 +55,7 @@ func (r *RealtimeIndexer) processUniV3Mint(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	mint := itypes.Mint{
 		Type:         "uniswapv3mint",
@@ -65,6 +65,7 @@ func (r *RealtimeIndexer) processUniV3Mint(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     sender,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -124,7 +125,7 @@ func (r *RealtimeIndexer) processUniV3Burn(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
 	burn := itypes.Burn{
 		Type:         "uniswapv3burn",
@@ -134,6 +135,7 @@ func (r *RealtimeIndexer) processUniV3Burn(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     sender,
 		PairContract: l.Address,
 		Token0:       t0,
 		Token1:       t1,
@@ -188,7 +190,13 @@ func (r *RealtimeIndexer) processUniV3Swap(
 	}
 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+
+	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
 	swap := itypes.Swap{
 		Type:         "uniswapv3swap",
@@ -198,6 +206,7 @@ func (r *RealtimeIndexer) processUniV3Swap(
 		Time:         bm.Time,
 		Height:       l.BlockNumber,
 		Sender:       sender,
+		TxSender:     txSender,
 		Receiver:     receiver,
 		PairContract: l.Address,
 		Token0:       t0,

@@ -45,6 +45,9 @@ func (d *EthRPC) GetBlockTimestamp(height uint64) (uint64, error) {
 		func(ctx context.Context, c *ethclient.Client) (*types.Header, error) {
 			return c.HeaderByNumber(ctx, big.NewInt(int64(height)))
 		}, nil)
+	if err != nil {
+		return 0, err
+	}
 	return header.Time, err
 }
 

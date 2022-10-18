@@ -17,7 +17,7 @@ general:
     - UniswapV3Swap
     - UniswapV3Mint
     - UniswapV3Burn
-    - Transfer
+    - ERC20Transfer
   oracleMapsRootDir: ../maps
   diskCacheRootDir: /tmp
   prometheusEndpoint: 127.0.0.1:9722
@@ -30,6 +30,12 @@ rpc:
   slaves:
   - https://rpc.ankr.com/eth
   - https://rpc.ankr.com/eth
+
+# Subsection ERC20Transfer
+# Needed iff general.eventsToIndex contains ERC20Transfer.
+erc20transfer:
+  restrictionType: both # can be one of ["none", "to", "from", "both", "either"]
+  whitelistFile: testerc20transferwhitelist.json
 
 # Subsection message queue
 # Needed only if general.persistence == "mq".
