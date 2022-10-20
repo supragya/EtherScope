@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	log "github.com/sirupsen/logrus"
 )
 
 // Non-cached RPC access to get sender address for any eth transaction
@@ -46,6 +47,7 @@ func (d *EthRPC) GetBlockTimestamp(height uint64) (uint64, error) {
 			return c.HeaderByNumber(ctx, big.NewInt(int64(height)))
 		}, nil)
 	if err != nil {
+		log.Error("block timestamp error ", err)
 		return 0, err
 	}
 	return header.Time, err

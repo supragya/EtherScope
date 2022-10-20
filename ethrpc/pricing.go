@@ -281,7 +281,8 @@ func (d *EthRPC) GetRateForBlock(
 		price := big.NewFloat(1.0)
 
 		if len(route.Edges)+1 != len(route.Vertices) {
-			panic("error in APSP routing logic")
+			errStr := fmt.Sprintf("err in APSP routing logic\ntokenID: %+v\nroute: %+v\ntokenMap: %+v", tokenID, route, d.pricing.tokenMap)
+			panic(errStr)
 		}
 
 		routingMetadata := make(map[string]itypes.DirectPriceDerivationInfo, len(route.Edges))
