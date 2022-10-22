@@ -120,6 +120,11 @@ func (r *RealtimeIndexer) processERC20Transfer(
 
 	tokenPrice := r.da.GetRateForBlock(callopts, util.Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
 
+	var amountUSD *big.Float = nil
+	if tokenPrice != nil {
+		amountUSD = tokenPrice.Price
+	}
+
 	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
 	if util.IsEthErr(err) {
 		return
@@ -138,7 +143,7 @@ func (r *RealtimeIndexer) processERC20Transfer(
 		TxSender:            txSender,
 		Receiver:            recv,
 		Amount:              formattedAmount,
-		AmountUSD:           tokenPrice.Price,
+		AmountUSD:           amountUSD,
 		PriceDerivationMeta: tokenPrice,
 	}
 
