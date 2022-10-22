@@ -6,7 +6,7 @@ import (
 )
 
 // Codename -- hardcoded
-var ApplicationCodename string = "dubai"
+var ApplicationCodename string = "enterprise"
 
 // Build commit -- supplied compile time
 var buildCommit string = "unknowncommit"
