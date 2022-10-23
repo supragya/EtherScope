@@ -28,7 +28,7 @@ const (
 	LogLevelError = "error"
 )
 
-// Logger defines a generic logging interface compatible with Tendermint.
+// Logger defines a generic logging interface.
 type Logger interface {
 	Debug(msg string, keyVals ...interface{})
 	Info(msg string, keyVals ...interface{})

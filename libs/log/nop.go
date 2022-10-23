@@ -1,11 +1,12 @@
 package log
 
-import (
-	"github.com/rs/zerolog"
-)
+type NoopLogger struct{}
+
+func (n NoopLogger) Info(msg string, keyVals ...interface{})  {}
+func (n NoopLogger) Debug(msg string, keyVals ...interface{}) {}
+func (n NoopLogger) Error(msg string, keyVals ...interface{}) {}
+func (n NoopLogger) With(keyVals ...interface{}) Logger       { return n }
 
 func NewNopLogger() Logger {
-	return &defaultLogger{
-		Logger: zerolog.Nop(),
-	}
+	return NoopLogger{}
 }
