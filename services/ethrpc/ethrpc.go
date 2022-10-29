@@ -14,7 +14,6 @@ const WD = 20
 
 type EthRPC struct {
 	upstreams           *mspool.MasterSlavePool[ethclient.Client]
-	isErigon            bool
 	contractTokensCache *lru.ARCCache
 	ERC20Cache          *lru.ARCCache
 	PriceCache          *lru.ARCCache
@@ -27,7 +26,7 @@ type UniV2Reserves struct {
 	BlockTimestampLast uint32
 }
 
-func NewEthRPC(isErigon bool, masterUpstream string, slaveUpstreams []string, timeout time.Duration) *EthRPC {
+func NewEthRPC(masterUpstream string, slaveUpstreams []string, timeout time.Duration) *EthRPC {
 	ctcache, err := lru.NewARC(1024) // Hardcoded 1024
 	util.ENOK(err)
 
@@ -43,7 +42,6 @@ func NewEthRPC(isErigon bool, masterUpstream string, slaveUpstreams []string, ti
 
 	return &EthRPC{
 		upstreams:           pool,
-		isErigon:            isErigon,
 		contractTokensCache: ctcache,
 		ERC20Cache:          erc20cache,
 		PriceCache:          ratecache,

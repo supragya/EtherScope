@@ -106,6 +106,15 @@ func (l defaultLogger) Info(msg string, keyVals ...interface{}) {
 func (l defaultLogger) Error(msg string, keyVals ...interface{}) {
 	l.logger.WithFields(getLogFields(keyVals...)).Error(msg)
 }
+
+func (l defaultLogger) Warn(msg string, keyVals ...interface{}) {
+	l.logger.WithFields(getLogFields(keyVals...)).Warn(msg)
+}
+
+func (l defaultLogger) Fatal(msg string, keyVals ...interface{}) {
+	l.logger.WithFields(getLogFields(keyVals...)).Fatal(msg)
+}
+
 func (l defaultLogger) Debug(msg string, keyVals ...interface{}) {
 	l.logger.WithFields(getLogFields(keyVals...)).Debug(msg)
 }

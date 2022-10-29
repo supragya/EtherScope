@@ -32,7 +32,9 @@ const (
 type Logger interface {
 	Debug(msg string, keyVals ...interface{})
 	Info(msg string, keyVals ...interface{})
+	Warn(msg string, keyVals ...interface{})
 	Error(msg string, keyVals ...interface{})
+	Fatal(msg string, keyVals ...interface{})
 
 	With(keyVals ...interface{}) Logger
 }

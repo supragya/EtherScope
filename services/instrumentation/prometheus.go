@@ -6,11 +6,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
+
+	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/spf13/viper"
 )
 
-func StartPromServer() {
+func StartPromServer(log logger.Logger) {
 	address := viper.GetString("general.prometheusEndpoint")
 	log.Info("starting metrics server at ", address)
 	http.Handle("/", promhttp.Handler())
