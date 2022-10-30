@@ -1,42 +1,52 @@
 package node
 
 import (
-	"github.com/Blockpour/Blockpour-Geth-Indexer/ethrpc"
+	"context"
+
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
-	localbackend "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
-	outputsink "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 )
 
-type Node struct {
-	service.Service
+type NodeImpl struct {
+	service.BaseService
 
-	log          logger.Logger
-	EthRPC       ethrpc.EthRPC             // HA upstream connection to rpc nodes, uses mspool
-	LocalBackend localbackend.LocalBackend // Local database for caching / processing
-	OutputSink   outputsink.OutputSink     // Consumer for offloading processed data
+	log logger.Logger
+	// EthRPC       ethrpc.EthRPC             // HA upstream connection to rpc nodes, uses mspool
+	// LocalBackend localbackend.LocalBackend // Local database for caching / processing
+	// OutputSink   outputsink.OutputSink     // Consumer for offloading processed data
 }
 
-func NewNode(localBackend localbackend.LocalBackend,
-	outputSink outputsink.OutputSink) (*Node, error) {
-	return &Node{
-		LocalBackend: localBackend,
-		OutputSink:   outputSink,
-	}, nil
+// OnStart starts the Node. It implements service.Service.
+func (n *NodeImpl) OnStart(ctx context.Context) error {
+	n.log.Info("i have started")
+	return nil
 }
 
-func NewNodeWithViperFields(log logger.Logger) (*Node, error) {
+// OnStop stops the Node. It implements service.Service
+func (n *NodeImpl) OnStop() {
+	n.log.Error("i have stopped")
+}
+
+// func NewNode(localBackend localbackend.LocalBackend,
+// 	outputSink outputsink.OutputSink) (*Node, error) {
+// 	return &Node{
+// 		LocalBackend: localBackend,
+// 		OutputSink:   outputSink,
+// 	}, nil
+// }
+
+func NewNodeWithViperFields(log logger.Logger) (*NodeImpl, error) {
 	// Setup local backend
-	localBackend, err := localbackend.NewBadgerDBWithViperFields()
-	if err != nil {
-		return nil, err
-	}
+	// localBackend, err := localbackend.NewBadgerDBWithViperFields()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// Setup output link
-	outputSink, err := outputsink.NewRabbitMQOutputSinkWithViperFields()
-	if err != nil {
-		return nil, err
-	}
+	// outputSink, err := outputsink.NewRabbitMQOutputSinkWithViperFields()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// Setup indexer
 	// var ri indexer.Indexer = indexer.NewRealtimeIndexer(mostRecent,
@@ -46,8 +56,7 @@ func NewNodeWithViperFields(log logger.Logger) (*Node, error) {
 	// 	&dbconn,
 	// 	viper.GetStringSlice("general.eventsToIndex"))
 	// ri.Init()
-	return &Node{
-		log: log,
-		EthRPC: ,
-	}
+	node := &NodeImpl{log: log}
+	node.BaseService = *service.NewBaseService(log, "rinode", node)
+	return node, nil
 }

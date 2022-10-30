@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/spf13/viper"
 )
 

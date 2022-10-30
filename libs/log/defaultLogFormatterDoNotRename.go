@@ -38,12 +38,13 @@ func (f *RuntimeFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 	if _file, ok := entry.Data["file"]; ok {
 		// ENOK or ENOKS invoked
-		line, _ := entry.Data["line"]
-		entry.Data = logrus.Fields{"CODE": fmt.Sprintf("(%s) %s:%d", functionName, _file.(string), line.(int))}
+		line := entry.Data["line"]
+		entry.Data["zz"] = fmt.Sprintf("(%s) %s:%d", functionName, _file.(string), line.(int))
 		return f.ChildFormatter.Format(entry)
 	}
 
-	entry.Data = logrus.Fields{"CODE": fmt.Sprintf("(%s) %s:%s", functionName, filepath.Base(file), line)}
+	entry.Data["zz"] = fmt.Sprintf("(%s) %s:%s", functionName, filepath.Base(file), line)
+
 	return f.ChildFormatter.Format(entry)
 }
 
@@ -59,7 +60,8 @@ start:
 		lineNumber = fmt.Sprintf("%d", line)
 	}
 	function := runtime.FuncForPC(pc).Name()
-	if strings.LastIndex(function, "sirupsen/logrus.") != -1 {
+	if strings.LastIndex(function, "sirupsen/logrus.") != -1 ||
+		strings.LastIndex(file, "defaultLogFormatterDoNotRename") != -1 {
 		skip++
 		goto start
 	}
@@ -69,6 +71,7 @@ start:
 var _ Logger = (*defaultLogger)(nil)
 
 type defaultLogger struct {
+	vals   []interface{}
 	logger *logrus.Logger
 }
 
@@ -96,32 +99,33 @@ func NewDefaultLogger(level string) (*defaultLogger, error) {
 		ExitFunc:     os.Exit,
 		ReportCaller: false,
 	}
-	return &defaultLogger{logger}, nil
+	return &defaultLogger{vals: nil, logger: logger}, nil
 }
 
 func (l defaultLogger) Info(msg string, keyVals ...interface{}) {
-	l.logger.WithFields(getLogFields(keyVals...)).Info(msg)
+	l.logger.WithFields(getLogFields(append(keyVals, l.vals...)...)).Info(msg)
 }
 
 func (l defaultLogger) Error(msg string, keyVals ...interface{}) {
-	l.logger.WithFields(getLogFields(keyVals...)).Error(msg)
+	l.logger.WithFields(getLogFields(append(keyVals, l.vals...)...)).Error(msg)
 }
 
 func (l defaultLogger) Warn(msg string, keyVals ...interface{}) {
-	l.logger.WithFields(getLogFields(keyVals...)).Warn(msg)
+	l.logger.WithFields(getLogFields(append(keyVals, l.vals...)...)).Warn(msg)
 }
 
 func (l defaultLogger) Fatal(msg string, keyVals ...interface{}) {
-	l.logger.WithFields(getLogFields(keyVals...)).Fatal(msg)
+	l.logger.WithFields(getLogFields(append(keyVals, l.vals...)...)).Fatal(msg)
 }
 
 func (l defaultLogger) Debug(msg string, keyVals ...interface{}) {
-	l.logger.WithFields(getLogFields(keyVals...)).Debug(msg)
+	l.logger.WithFields(getLogFields(append(keyVals, l.vals...)...)).Debug(msg)
 }
 
 func (l defaultLogger) With(keyVals ...interface{}) Logger {
 	return &defaultLogger{
-		logger: l.logger.WithFields(getLogFields(keyVals...)).Logger,
+		vals:   keyVals,
+		logger: l.logger,
 	}
 }
 

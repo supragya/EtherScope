@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	"github.com/spf13/cobra"
 )

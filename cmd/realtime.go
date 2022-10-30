@@ -1,14 +1,15 @@
 package cmd
 
 import (
+	"context"
+	"os"
+	"os/signal"
 	"runtime"
+	"syscall"
+	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/db"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/indexer"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -30,40 +31,65 @@ var RealtimeCmd = &cobra.Command{
 
 		maxParallelsRequested := viper.GetInt("general.maxCPUParallels")
 		if maxParallelsRequested > runtime.NumCPU() {
-			log.Warn("running on fewer threads than requested parallels: ", runtime.NumCPU(), " vs requested ", maxParallelsRequested)
+			log.Warn("running on fewer threads than requested parallels",
+				"parallels", runtime.NumCPU(),
+				"requested", maxParallelsRequested)
 			maxParallelsRequested = runtime.NumCPU()
 		}
 
 		runtime.GOMAXPROCS(maxParallelsRequested)
-		log.Info("set runtime max parallelism: ", maxParallelsRequested)
+		log.Info("set runtime max parallelism",
+			"parallels", maxParallelsRequested)
 	},
 	Run: StartRealtimeNode,
 }
 
 func StartRealtimeNode(cmd *cobra.Command, args []string) {
-	node.SetupNodeWithViperFields(globalLogger)
 	var log = globalLogger
 
-	// Setup local backend
+	log.Info("setting up a new indexer node")
+	globalLogger.With("service", "rinode").Info("hello")
+	_n, err := node.NewNodeWithViperFields(globalLogger.With("service", "rinode"))
+	if err != nil {
+		log.Fatal(err.Error(), nil)
+	}
 
-	// Setup output link
-	log.Info("trying to connect to database")
-	dbconn, err := db.SetupConnection()
-	util.ENOK(err)
-	mostRecent := dbconn.GetMostRecentPostedBlockHeight()
+	_n.Start(context.Background())
 
-	// Setup indexer
-	var ri indexer.Indexer = indexer.NewRealtimeIndexer(mostRecent,
-		viper.GetString("rpc.master"),
-		viper.GetStringSlice("rpc.slaves"),
-		viper.GetDuration("rpc.timeout"),
-		&dbconn,
-		viper.GetStringSlice("general.eventsToIndex"))
-	ri.Init()
+	handleSig(_n, log)
+}
 
-	// Start services
-	go instrumentation.StartPromServer(log.With("module", "promserver"))
-	util.ENOK(ri.Start())
+// Keep listening for SIGTERM / SIGINT and handle graceful shutdown
+func handleSig(_n *node.NodeImpl, log logger.Logger) {
+	c := make(chan os.Signal, 4)
+	go signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	const MOSTGRACE = 3
+	grace := MOSTGRACE
+	lastSignal := time.Now()
+	for {
+		signal := <-c
 
-	// Keep listening for SIGTERM / SIGINT and handle graceful shutdown
+		if time.Since(lastSignal) > time.Minute {
+			grace = MOSTGRACE
+		}
+		lastSignal = time.Now()
+
+		if grace > 2 {
+			log.Info("encountered os signal. shutting down services", "signal", signal)
+			grace--
+			_n.Stop()
+			_n.Wait()
+			os.Exit(1)
+		} else if grace > 0 {
+			log.Warn("requesting forceful shutdown, indexer may end up in an inconsistent state",
+				"signal", signal,
+				"grace", grace-1)
+			grace--
+			_n.Stop()
+			_n.Wait()
+			os.Exit(1)
+		} else {
+			log.Fatal("too many signals, shutting down forcefully", "signal", signal)
+		}
+	}
 }
