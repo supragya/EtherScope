@@ -115,6 +115,9 @@ func (bs *BaseService) Start(ctx context.Context) error {
 	default:
 		bs.logger.Info("starting service", "service", bs.name)
 		if err := bs.impl.OnStart(ctx); err != nil {
+			bs.logger.Error("error while starting service",
+				"service", bs.name,
+				"error", err.Error())
 			return err
 		}
 
@@ -137,6 +140,8 @@ func (bs *BaseService) Start(ctx context.Context) error {
 			bs.logger.Info("stopped service",
 				"service", bs.name)
 		}(ctx)
+
+		bs.logger.Info("started service", "service", bs.name)
 
 		return nil
 	}

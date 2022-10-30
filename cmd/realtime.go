@@ -54,7 +54,9 @@ func StartRealtimeNode(cmd *cobra.Command, args []string) {
 		log.Fatal(err.Error(), nil)
 	}
 
-	_n.Start(context.Background())
+	if err := _n.Start(context.Background()); err != nil {
+		log.Fatal("error while starting node", "error", err.Error())
+	}
 
 	handleSig(_n, log)
 }
