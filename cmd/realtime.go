@@ -9,6 +9,7 @@ import (
 	"time"
 
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -48,8 +49,7 @@ func StartRealtimeNode(cmd *cobra.Command, args []string) {
 	var log = globalLogger
 
 	log.Info("setting up a new indexer node")
-	globalLogger.With("service", "rinode").Info("hello")
-	_n, err := node.NewNodeWithViperFields(globalLogger.With("service", "rinode"))
+	_n, err := node.NewNodeWithViperFields(globalLogger)
 	if err != nil {
 		log.Fatal(err.Error(), nil)
 	}
@@ -60,9 +60,10 @@ func StartRealtimeNode(cmd *cobra.Command, args []string) {
 }
 
 // Keep listening for SIGTERM / SIGINT and handle graceful shutdown
-func handleSig(_n *node.NodeImpl, log logger.Logger) {
+func handleSig(_n service.Service, log logger.Logger) {
 	c := make(chan os.Signal, 4)
-	go signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
 	const MOSTGRACE = 3
 	grace := MOSTGRACE
 	lastSignal := time.Now()

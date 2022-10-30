@@ -5,3 +5,4 @@ _pgdata/
 cache/
 vendor/
 profile.cov
+*.badger.db

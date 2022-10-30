@@ -3,6 +3,8 @@ package log
 import (
 	"io"
 	"sync"
+
+	"github.com/dgraph-io/badger/v3"
 )
 
 const (
@@ -35,6 +37,9 @@ type Logger interface {
 	Warn(msg string, keyVals ...interface{})
 	Error(msg string, keyVals ...interface{})
 	Fatal(msg string, keyVals ...interface{})
+
+	// For badger-db
+	badger.Logger
 
 	With(keyVals ...interface{}) Logger
 }

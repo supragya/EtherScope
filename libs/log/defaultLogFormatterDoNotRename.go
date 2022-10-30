@@ -122,9 +122,25 @@ func (l defaultLogger) Debug(msg string, keyVals ...interface{}) {
 	l.logger.WithFields(getLogFields(append(keyVals, l.vals...)...)).Debug(msg)
 }
 
+func (l defaultLogger) Errorf(msg string, keyVals ...interface{}) {
+	l.logger.WithFields(getLogFields(l.vals...)).Errorf(msg, keyVals...)
+}
+
+func (l defaultLogger) Warningf(msg string, keyVals ...interface{}) {
+	l.logger.WithFields(getLogFields(l.vals...)).Warnf(msg, keyVals...)
+}
+
+func (l defaultLogger) Infof(msg string, keyVals ...interface{}) {
+	l.logger.WithFields(getLogFields(l.vals...)).Infof(msg, keyVals...)
+}
+
+func (l defaultLogger) Debugf(msg string, keyVals ...interface{}) {
+	l.logger.WithFields(getLogFields(l.vals...)).Debugf(msg, keyVals...)
+}
+
 func (l defaultLogger) With(keyVals ...interface{}) Logger {
 	return &defaultLogger{
-		vals:   keyVals,
+		vals:   append(keyVals, l.vals...),
 		logger: l.logger,
 	}
 }

@@ -26,6 +26,9 @@ type Service interface {
 	// Return true if the service is running
 	IsRunning() bool
 
+	// Stop the service
+	Stop()
+
 	// Wait blocks until the service is stopped.
 	Wait()
 }
@@ -110,7 +113,7 @@ func (bs *BaseService) Start(ctx context.Context) error {
 	case <-bs.quit:
 		return errAlreadyStopped
 	default:
-		bs.logger.Info("starting service", "service", bs.name, "impl", bs.name)
+		bs.logger.Info("starting service", "service", bs.name)
 		if err := bs.impl.OnStart(ctx); err != nil {
 			return err
 		}
