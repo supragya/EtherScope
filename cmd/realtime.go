@@ -8,8 +8,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -23,6 +25,11 @@ var RealtimeCmd = &cobra.Command{
 	Short: "run geth indexer in realtime",
 	Long:  `run geth indexer in realtime`,
 	PreRun: func(cmd *cobra.Command, args []string) {
+		if cfgFile == "" {
+			cfgFile = util.GetUserHomedir() + "/.blockpour/bgidx/config.yaml"
+		}
+		util.ENOK(config.LoadViperConfig(cfgFile))
+
 		// Setup logger
 		log, err := logger.NewDefaultLogger(logLevel)
 		if err != nil {

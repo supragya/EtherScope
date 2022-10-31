@@ -2,7 +2,7 @@ package version
 
 import (
 	"bytes"
-	"strconv"
+	"fmt"
 )
 
 // Codename -- hardcoded
@@ -22,18 +22,28 @@ var gover string = "unknownver"
 
 // Persistence version -- database compatibility index.
 // NOT TO be supplied compile time. Should be hardcoded.
-var PersistenceVersion uint8 = 4
+var PersistenceVersion uint8 = 5
 
 var RootCmdVersion string = prepareVersionString()
+
+func GetVersionStrings() []string {
+	return []string{
+		fmt.Sprintf("%s persistence v%d (%s)", buildCommit, PersistenceVersion, ApplicationCodename),
+		fmt.Sprintf("compiled at %s by %s using %s", buildTime, builder, gover),
+	}
+}
 
 func prepareVersionString() string {
 	var buffer bytes.Buffer
 
-	buffer.WriteString(buildCommit + " persistence v" + strconv.Itoa(int(PersistenceVersion)))
-	buffer.WriteString(" (" + ApplicationCodename + ")")
-
-	buffer.WriteString("\ncompiled at " + buildTime + " by " + builder)
-	buffer.WriteString(" using " + gover)
+	firstLine := true
+	for _, line := range GetVersionStrings() {
+		if firstLine {
+			buffer.WriteString(line)
+			firstLine = false
+		}
+		buffer.WriteString("\n" + line)
+	}
 
 	return buffer.String()
 }
