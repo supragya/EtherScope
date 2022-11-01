@@ -231,7 +231,7 @@ func (r *RealtimeIndexer) isUniswapV3(address common.Address,
 		return true
 	}
 
-	if !util.IsExecutionReverted(err) {
+	if !util.IsEthErr(err) {
 		util.ENOKS(2, err)
 	}
 	return false
@@ -244,7 +244,7 @@ func (r *RealtimeIndexer) isUniswapV3NFT(address common.Address,
 		return true
 	}
 
-	if !util.IsExecutionReverted(err) {
+	if !util.IsEthErr(err) {
 		util.ENOKS(2, err)
 	}
 	return false
