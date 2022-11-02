@@ -3,8 +3,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
+	localbackend "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
+	outputsink "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	"github.com/spf13/cobra"
 )
@@ -39,23 +43,51 @@ func GenConfig(cmd *cobra.Command, args []string) {
 	content += "\n"
 
 	// Services config
-	content += fmt.Sprintf("# ++++++++++++++++++++++ BEGIN: %s\n", node.NodeSection)
-	for _, line := range node.NodeCFGHeader {
-		content += fmt.Sprintf("# %s\n", line)
-	}
-	content += node.NodeSection + ":\n"
-	for _, field := range node.NodeCFGFields {
-		content += fmt.Sprintf("#   FIELD: %s\n", field.Name)
-		content += fmt.Sprintf("#   EXPECTED_TYPE: %s\n", field.Type)
-		for _, line := range field.Err {
-			content += "#   " + line + "\n"
-		}
-		content += fmt.Sprintf("    %s: %v\n", field.Name, field.Default)
-		content += "\n"
-	}
-	content += fmt.Sprintf("# ++++++++++++++++++++++ END: %s\n", node.NodeSection)
+	content += sectionGen(node.NodeCFGSection, node.NodeCFGNecessity,
+		node.NodeCFGHeader, node.NodeCFGFields[:])
+	content += sectionGen(localbackend.BadgerCFGSection, localbackend.BadgerCFGNecessity,
+		localbackend.BadgerCFGHeader, localbackend.BadgerCFGFields[:])
+	content += sectionGen(outputsink.RabbitMQCFGSection, outputsink.RabbitMQCFGNecessity,
+		outputsink.RabbitMQCFGHeader, outputsink.RabbitMQCFGFields[:])
 
 	if err := os.WriteFile(cfgFile, []byte(content), 0600); err != nil {
 		panic(err)
 	}
+}
+
+func sectionGen(section, necessity string, header []string, fields []config.Field) string {
+	content := ""
+	content += "# +" + strings.Repeat("-", 78) + "+\n"
+	content += fmt.Sprintf("# | %-15s: %-60s|\n", "SERVICE", section)
+	content += fmt.Sprintf("# | %-15s: %-60s|\n", "NECESSITY", necessity)
+	isFirst := true
+	for _, line := range header {
+		if isFirst {
+			content += fmt.Sprintf("# | %-15s: %-60s|\n", "INFO", line)
+			isFirst = false
+		} else {
+			content += fmt.Sprintf("# | %-15s  %-60s|\n", "", line)
+		}
+	}
+	content += "# +" + strings.Repeat("-", 78) + "+\n"
+
+	content += section + ":\n"
+	for _, field := range fields {
+		content += fmt.Sprintf("#   %-5s: %-20s\n", "FIELD", field.Name)
+		content += fmt.Sprintf("#   %-5s: %-20s\n", "TYPE", field.Type)
+		isFirst := true
+		for _, line := range field.Info {
+			if isFirst {
+				content += fmt.Sprintf("#   %-5s: %-60s\n", "INFO", line)
+				isFirst = false
+			} else {
+				content += fmt.Sprintf("#   %-5s  %-60s\n", "", line)
+			}
+		}
+		content += fmt.Sprintf("    %s: %v\n", field.Name, field.Default)
+		content += "\n"
+	}
+	content += "\n"
+
+	return content
 }

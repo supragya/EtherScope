@@ -13,36 +13,58 @@ import (
 )
 
 var (
-	NodeSection   = "node"
-	NodeCFGHeader = cfg.SArr("node is core indexing service for bgidx",
+	NodeCFGSection   = "node"
+	NodeCFGNecessity = "always needed"
+	NodeCFGHeader    = cfg.SArr("node is core indexing service for bgidx",
 		"node is tasked with initiating other services such as",
 		"localbackend (badger-db) and outputsink (rabbitmq)")
 	NodeCFGFields = [...]cfg.Field{
 		{
-			Name: "startBlock",
-			Type: "uint64",
-			Err: cfg.SArr("user defined blockheight to start sync from.",
+			Name:      "startBlock",
+			Type:      "uint64",
+			Necessity: "always needed",
+			Info: cfg.SArr("user defined blockheight to start sync from.",
 				"this may be overriden at runtime using resume from localbackend",
 				"and remoteHTTP endpoint"),
 			Default: 15865859,
 		},
 		{
-			Name:    "skipResumeRemote",
-			Type:    "bool",
-			Err:     cfg.SArr("disables fetch for blockheight from remoteHTTP"),
-			Default: false,
+			Name:      "skipResumeRemote",
+			Type:      "bool",
+			Necessity: "always needed",
+			Info:      cfg.SArr("disables fetch for blockheight from remoteHTTP"),
+			Default:   false,
 		},
 		{
-			Name:    "skipResumeLocal",
-			Type:    "bool",
-			Err:     cfg.SArr("disables fetch for blockheight from localbackend"),
-			Default: false,
+			Name:      "skipResumeLocal",
+			Type:      "bool",
+			Necessity: "always needed",
+			Info:      cfg.SArr("disables fetch for blockheight from localbackend"),
+			Default:   false,
 		},
 		{
-			Name:    "remoteResumeURL",
-			Type:    "bool",
-			Err:     cfg.SArr("remoteHTTP URL for fetching blockheight to resume from"),
-			Default: "https://myremote.blockpour.com",
+			Name:      "remoteResumeURL",
+			Type:      "string",
+			Necessity: "always needed",
+			Info:      cfg.SArr("remoteHTTP URL for fetching blockheight to resume from"),
+			Default:   "https://myremote.blockpour.com",
+		},
+		{
+			Name:      "localBackendType",
+			Type:      "string",
+			Necessity: "always needed",
+			Info: cfg.SArr("type of local backend indexer should use.",
+				"only possible type right now is `badgerdb`"),
+			Default: "badgerdb",
+		},
+		{
+			Name:      "outputSinkType",
+			Type:      "string",
+			Necessity: "always needed",
+			Info: cfg.SArr("type of output sink backend indexer should",
+				"offload indexed information to. only possible type",
+				"right now is `rabbitmq`"),
+			Default: "rabbitmq",
 		},
 	}
 )
@@ -112,19 +134,30 @@ func (n *NodeImpl) Loop() {
 func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	// ensure field integrity for viper
 	for _, mf := range NodeCFGFields {
-		err := cfg.EnsureFieldIntegrity(NodeSection, mf)
+		err := cfg.EnsureFieldIntegrity(NodeCFGSection, mf)
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	var (
+		lbType   = viper.GetString(NodeCFGSection + ".localBackendType")
+		outsType = viper.GetString(NodeCFGSection + ".outputSinkType")
+	)
+
 	// Setup local backend
+	if lbType != "badgerdb" {
+		log.Fatal("unsupported localbackend: " + lbType)
+	}
 	localBackend, err := lb.NewBadgerDBWithViperFields(log.With("service", "localbackend"))
 	if err != nil {
 		return nil, err
 	}
 
 	// Setup output link
+	if outsType != "rabbitmq" {
+		log.Fatal("unsupported outputsink: " + outsType)
+	}
 	outputSink, err := outs.NewRabbitMQOutputSinkWithViperFields(log.With("service", "outputsink"))
 	if err != nil {
 		return nil, err
@@ -134,10 +167,10 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		log:              log.With("service", "node"),
 		LocalBackend:     localBackend,
 		OutputSink:       outputSink,
-		startBlock:       viper.GetUint64(NodeSection + ".startBlock"),
-		skipResumeRemote: viper.GetBool(NodeSection + ".skipResumeRemote"),
-		skipResumeLocal:  viper.GetBool(NodeSection + ".skipResumeLocal"),
-		remoteResumeURL:  viper.GetString(NodeSection + ".remoteResumeURL"),
+		startBlock:       viper.GetUint64(NodeCFGSection + ".startBlock"),
+		skipResumeRemote: viper.GetBool(NodeCFGSection + ".skipResumeRemote"),
+		skipResumeLocal:  viper.GetBool(NodeCFGSection + ".skipResumeLocal"),
+		remoteResumeURL:  viper.GetString(NodeCFGSection + ".remoteResumeURL"),
 	}
 	node.BaseService = *service.NewBaseService(log, "node", node)
 	return node, nil

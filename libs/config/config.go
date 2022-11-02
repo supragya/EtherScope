@@ -8,10 +8,11 @@ import (
 )
 
 type Field struct {
-	Name    string
-	Type    string
-	Err     []string
-	Default interface{}
+	Name      string
+	Type      string
+	Necessity string
+	Info      []string
+	Default   interface{}
 }
 
 var (
@@ -87,7 +88,7 @@ func LoadViperConfig(file string) error {
 func EnsureFieldIntegrity(section string, f Field) error {
 	fieldName := section + "." + f.Name
 	if !viper.IsSet(fieldName) {
-		return errors.New("config error: unset mandatory field: " + fieldName + " (" + f.Type + "); description:" + SFmt(f.Err))
+		return errors.New("config error: unset mandatory field: " + fieldName + " (" + f.Type + "); description:" + SFmt(f.Info))
 	}
 	var castOK bool = true
 	var item = viper.Get(fieldName)
@@ -112,7 +113,7 @@ func EnsureFieldIntegrity(section string, f Field) error {
 	}
 
 	if !castOK {
-		return errors.New("mandatory field type invalid: " + fieldName + " (" + f.Type + "); description:" + SFmt(f.Err))
+		return errors.New("mandatory field type invalid: " + fieldName + " (" + f.Type + "); description:" + SFmt(f.Info))
 	}
 	return nil
 }
