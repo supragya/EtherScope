@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
 	localbackend "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
 	outputsink "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
@@ -49,6 +50,8 @@ func GenConfig(cmd *cobra.Command, args []string) {
 		localbackend.BadgerCFGHeader, localbackend.BadgerCFGFields[:])
 	content += sectionGen(outputsink.RabbitMQCFGSection, outputsink.RabbitMQCFGNecessity,
 		outputsink.RabbitMQCFGHeader, outputsink.RabbitMQCFGFields[:])
+	content += sectionGen(ethrpc.EthRPCMSPoolCFGSection, ethrpc.EthRPCMSPoolCFGNecessity,
+		ethrpc.EthRPCMSPoolCFGHeader, ethrpc.EthRPCMSPoolCFGFields[:])
 
 	if err := os.WriteFile(cfgFile, []byte(content), 0600); err != nil {
 		panic(err)

@@ -1,4 +1,4 @@
-package mspool
+package ethrpc
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
 )
@@ -273,9 +274,9 @@ func MakeAlive(m *PoolNodeMeta) {
 
 // No Read lock based approach, may be wrong but avoids
 // locking / unlocking saving mutex access for other goroutines
-func (m *MasterSlavePool[I]) PeriodicRecording() {
+func (m *MasterSlavePool[I]) PeriodicRecording(dur time.Duration, log logger.Logger) {
 	for {
-		time.Sleep(m.config.TimeStep * time.Duration(m.config.WindowSize))
+		time.Sleep(dur)
 		var report string = "mspool health: "
 		report = report + fmt.Sprintf("{%s(%s):%d/%d} ", m.Master.Meta.Identity, alStr(m.Master.Meta.IsAlive), m.Master.Meta.Reports, m.config.ToleranceCount)
 		for _, slv := range m.Slaves {

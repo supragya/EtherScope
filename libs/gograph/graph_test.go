@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/gograph"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/gograph"
 	"github.com/stretchr/testify/assert"
 )
 

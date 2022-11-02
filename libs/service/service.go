@@ -113,7 +113,7 @@ func (bs *BaseService) Start(ctx context.Context) error {
 	case <-bs.quit:
 		return errAlreadyStopped
 	default:
-		bs.logger.Info("starting service", "service", bs.name)
+		bs.logger.Info("attempting to start service", "service", bs.name)
 		if err := bs.impl.OnStart(ctx); err != nil {
 			bs.logger.Error("error while starting service",
 				"service", bs.name,
@@ -141,7 +141,7 @@ func (bs *BaseService) Start(ctx context.Context) error {
 				"service", bs.name)
 		}(ctx)
 
-		bs.logger.Info("started service", "service", bs.name)
+		bs.logger.Info("start successful", "service", bs.name)
 
 		return nil
 	}

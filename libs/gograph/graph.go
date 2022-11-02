@@ -5,7 +5,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/alecthomas/binary"
 )
 

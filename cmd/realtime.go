@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var globalLogger logger.Logger
@@ -36,18 +34,6 @@ var RealtimeCmd = &cobra.Command{
 			panic(err)
 		}
 		globalLogger = log
-
-		maxParallelsRequested := viper.GetInt("general.maxCPUParallels")
-		if maxParallelsRequested > runtime.NumCPU() {
-			log.Warn("running on fewer threads than requested parallels",
-				"parallels", runtime.NumCPU(),
-				"requested", maxParallelsRequested)
-			maxParallelsRequested = runtime.NumCPU()
-		}
-
-		runtime.GOMAXPROCS(maxParallelsRequested)
-		log.Info("set runtime max parallelism",
-			"parallels", maxParallelsRequested)
 	},
 	Run: StartRealtimeNode,
 }

@@ -1,4 +1,4 @@
-package mspool
+package ethrpc
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -1,4 +1,4 @@
-package mspool
+package ethrpc
 
 import (
 	"context"
