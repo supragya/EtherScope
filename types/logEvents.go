@@ -22,6 +22,10 @@ var (
 
 	// ---- ERC 20 ----
 	ERC20TransferTopic common.Hash
+
+	// ---- Topic Map and Reverse Map ---
+	topicMap  map[string]common.Hash
+	rTopicMap map[common.Hash]string
 )
 
 type Transfer struct {
@@ -117,16 +121,36 @@ func toHash(str string) common.Hash {
 }
 
 func init() {
+	topicMap = make(map[string]common.Hash, 10)
+	rTopicMap = make(map[common.Hash]string, 10)
+
 	// ---- Uniswap V2 ----
-	UniV2MintTopic = toHash("Mint(address,uint256,uint256)")
-	UniV2BurnTopic = toHash("Burn(address,uint256,uint256,address)")
-	UniV2SwapTopic = toHash("Swap(address,uint256,uint256,uint256,uint256,address)")
+	UniV2MintTopic = setTopic("Mint(address,uint256,uint256)", "UniswapV2Mint")
+	UniV2BurnTopic = setTopic("Burn(address,uint256,uint256,address)", "UniswapV2Burn")
+	UniV2SwapTopic = setTopic("Swap(address,uint256,uint256,uint256,uint256,address)", "UniswapV2Swap")
 
 	// ---- Uniswap V3 ----
-	UniV3MintTopic = toHash("Mint(address,address,int24,int24,uint128,uint256,uint256)")
-	UniV3BurnTopic = toHash("Burn(address,int24,int24,uint128,uint256,uint256)")
-	UniV3SwapTopic = toHash("Swap(address,address,int256,int256,uint160,uint128,int24)")
+	UniV3MintTopic = setTopic("Mint(address,address,int24,int24,uint128,uint256,uint256)", "UniswapV3Mint")
+	UniV3BurnTopic = setTopic("Burn(address,int24,int24,uint128,uint256,uint256)", "UniswapV3Burn")
+	UniV3SwapTopic = setTopic("Swap(address,address,int256,int256,uint160,uint128,int24)", "UniswapV3Swap")
 
 	// ---- ERC 20 ---
-	ERC20TransferTopic = toHash("Transfer(address,address,uint256)")
+	ERC20TransferTopic = setTopic("Transfer(address,address,uint256)", "ERC20Transfer")
+}
+
+func setTopic(topicString, infoString string) common.Hash {
+	topicHash := toHash(topicString)
+	topicMap[infoString] = topicHash
+	rTopicMap[topicHash] = infoString
+	return topicHash
+}
+
+func GetTopicForString(topicString string) (common.Hash, bool) {
+	val, ok := topicMap[topicString]
+	return val, ok
+}
+
+func GetStringForTopic(topicHash common.Hash) (string, bool) {
+	val, ok := rTopicMap[topicHash]
+	return val, ok
 }

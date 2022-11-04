@@ -2,28 +2,24 @@ package node
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"runtime"
 	"sync"
 	"time"
 
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	uniswapv2 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV2"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/instrumentation"
 	lb "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	outs "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/harmony-one/harmony/accounts/abi/bind"
 	"github.com/spf13/viper"
 )
 
@@ -148,6 +144,8 @@ type NodeImpl struct {
 	indexedHeight    uint64
 	currentHeight    uint64
 	quitCh           chan struct{}
+
+	procUniV2 uniswapv2.UniswapV2Processor
 }
 
 // OnStart starts the Node. It implements service.Service.
@@ -189,11 +187,21 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	keys := make([]common.Hash, len(n.mergedTopics))
 
 	i := 0
-	for val, _ := range n.mergedTopics {
+	for val, ptype := range n.mergedTopics {
+		// Display
+		str, _ := itypes.GetStringForTopic(val)
+		vh := val.Hex()
+		fingerPrint := vh[:7] + ".." + vh[len(vh)-3:]
+		n.log.Info(fmt.Sprintf("enabled %s (%s)", str, fingerPrint), "foruser", ptype == itypes.UserRequested)
+
+		// Set val
 		keys[i] = val
 		i++
 	}
 	n.mergedTopicsKeys = keys
+
+	// Setup processors
+	n.procUniV2 = uniswapv2.UniswapV2Processor{n.mergedTopics, n.EthRPC}
 
 	// TODO: Do height syncup using both LocalBackend and remote http
 	// startHeight, err := n.getResumeHeight()
@@ -303,7 +311,7 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 
 		for idx, _log := range logs {
 			wg.Add(1)
-			go n.decodeLog(_log, &mt, &items, idx, &blockMeta, &wg)
+			go n.decodeLog(_log, &mt, items, idx, &blockMeta, &wg)
 		}
 		wg.Wait()
 	}
@@ -311,7 +319,7 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 
 func (n *NodeImpl) decodeLog(l types.Log,
 	mt *sync.Mutex,
-	items *[]interface{},
+	items []interface{},
 	idx int,
 	bm *itypes.BlockSynopsis,
 	wg *sync.WaitGroup) {
@@ -322,512 +330,512 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	// ---- Uniswap V2 ----
 	case itypes.UniV2MintTopic:
 		// instrumentation.MintV2Found.Inc()
-		n.processUniV2Mint(l, items, bm, mt)
-	case itypes.UniV2BurnTopic:
-		// instrumentation.BurnV2Found.Inc()
-		n.processUniV2Burn(l, items, bm, mt)
-	case itypes.UniV2SwapTopic:
-		// instrumentation.SwapV2Found.Inc()
-		n.processUniV2Swap(l, items, bm, mt)
+		n.procUniV2.ProcessUniV2Mint(l, items, idx, bm, mt)
+		// case itypes.UniV2BurnTopic:
+		// 	// instrumentation.BurnV2Found.Inc()
+		// 	n.processUniV2Burn(l, items, bm, mt)
+		// case itypes.UniV2SwapTopic:
+		// 	// instrumentation.SwapV2Found.Inc()
+		// 	n.processUniV2Swap(l, items, bm, mt)
 
-	// ---- Uniswap V3 ----
-	case itypes.UniV3MintTopic:
-		// instrumentation.MintV3Found.Inc()
-		n.processUniV3Mint(l, items, bm, mt)
-	case itypes.UniV3BurnTopic:
-		// instrumentation.BurnV3Found.Inc()
-		n.processUniV3Burn(l, items, bm, mt)
-	case itypes.UniV3SwapTopic:
-		// instrumentation.SwapV3Found.Inc()
-		n.processUniV3Swap(l, items, bm, mt)
+		// // ---- Uniswap V3 ----
+		// case itypes.UniV3MintTopic:
+		// 	// instrumentation.MintV3Found.Inc()
+		// 	n.processUniV3Mint(l, items, bm, mt)
+		// case itypes.UniV3BurnTopic:
+		// 	// instrumentation.BurnV3Found.Inc()
+		// 	n.processUniV3Burn(l, items, bm, mt)
+		// case itypes.UniV3SwapTopic:
+		// 	// instrumentation.SwapV3Found.Inc()
+		// 	n.processUniV3Swap(l, items, bm, mt)
 
-	// ---- ERC 20 ----
-	case itypes.ERC20TransferTopic:
-		// instrumentation.TfrFound.Inc()
-		n.processERC20Transfer(l, items, bm, mt)
+		// // ---- ERC 20 ----
+		// case itypes.ERC20TransferTopic:
+		// 	// instrumentation.TfrFound.Inc()
+		// 	n.processERC20Transfer(l, items, bm, mt)
 	}
 }
 
-// For Uniswap V3
+// // For Uniswap V3
 
-func (r *NodeImpl) processUniV3Mint(
-	l types.Log,
-	items *[]interface{},
-	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
-) {
-	callopts := GetBlockCallOpts(l.BlockNumber)
-	// Test if the contract is a UniswapV3Pair type contract
-	if !r.isUniswapV3(l.Address, callopts) {
-		return
-	}
+// func (r *NodeImpl) processUniV3Mint(
+// 	l types.Log,
+// 	items *[]interface{},
+// 	bm *itypes.BlockSynopsis,
+// 	mt *sync.Mutex,
+// ) {
+// 	callopts := GetBlockCallOpts(l.BlockNumber)
+// 	// Test if the contract is a UniswapV3Pair type contract
+// 	if !r.isUniswapV3(l.Address, callopts) {
+// 		return
+// 	}
 
-	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	ok, _, am0, am1 := InfoUniV3Mint(l)
-	if !ok {
-		return
-	}
+// 	ok, _, am0, am1 := InfoUniV3Mint(l)
+// 	if !ok {
+// 		return
+// 	}
 
-	// Test if the contract is a UniswapV3NFT type contract
-	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	// Test if the contract is a UniswapV3NFT type contract
+// 	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
-	if !ok {
-		return
-	}
+// 	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
+// 	if !ok {
+// 		return
+// 	}
 
-	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
-		{l.Address, t0}, {l.Address, t1},
-	}, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+// 		{l.Address, t0}, {l.Address, t1},
+// 	}, callopts)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+// 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
-	mint := itypes.Mint{
-		Type:         "uniswapv3mint",
-		Network:      r.dbconn.ChainID,
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       sender,
-		TxSender:     sender,
-		PairContract: l.Address,
-		Token0:       t0,
-		Token1:       t1,
-		Amount0:      f0,
-		Amount1:      f1,
-		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
-		Reserve1:     util.DivideBy10pow(reserves[1].Second, t1d),
-		AmountUSD:    amountusd,
-		Price0:       token0Price,
-		Price1:       token1Price,
-	}
+// 	mint := itypes.Mint{
+// 		Type:         "uniswapv3mint",
+// 		Network:      r.dbconn.ChainID,
+// 		LogIdx:       l.Index,
+// 		Transaction:  l.TxHash,
+// 		Time:         bm.Time,
+// 		Height:       l.BlockNumber,
+// 		Sender:       sender,
+// 		TxSender:     sender,
+// 		PairContract: l.Address,
+// 		Token0:       t0,
+// 		Token1:       t1,
+// 		Amount0:      f0,
+// 		Amount1:      f1,
+// 		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
+// 		Reserve1:     util.DivideBy10pow(reserves[1].Second, t1d),
+// 		AmountUSD:    amountusd,
+// 		Price0:       token0Price,
+// 		Price1:       token1Price,
+// 	}
 
-	AddToSynopsis(mt, bm, mint, items, "mint", true)
-	instrumentation.MintV3Processed.Inc()
-}
+// 	AddToSynopsis(mt, bm, mint, items, "mint", true)
+// 	instrumentation.MintV3Processed.Inc()
+// }
 
-func (r *NodeImpl) processUniV3Burn(
-	l types.Log,
-	items *[]interface{},
-	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
-) {
-	callopts := GetBlockCallOpts(l.BlockNumber)
+// func (r *NodeImpl) processUniV3Burn(
+// 	l types.Log,
+// 	items *[]interface{},
+// 	bm *itypes.BlockSynopsis,
+// 	mt *sync.Mutex,
+// ) {
+// 	callopts := GetBlockCallOpts(l.BlockNumber)
 
-	// Test if the contract is a UniswapV3Pair type contract
-	if !r.isUniswapV3(l.Address, callopts) {
-		return
-	}
+// 	// Test if the contract is a UniswapV3Pair type contract
+// 	if !r.isUniswapV3(l.Address, callopts) {
+// 		return
+// 	}
 
-	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	sender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	ok, _, am0, am1 := InfoUniV3Burn(l)
-	if !ok {
-		return
-	}
+// 	ok, _, am0, am1 := InfoUniV3Burn(l)
+// 	if !ok {
+// 		return
+// 	}
 
-	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
-	if !ok {
-		return
-	}
+// 	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
+// 	if !ok {
+// 		return
+// 	}
 
-	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
-		{l.Address, t0}, {l.Address, t1},
-	}, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+// 		{l.Address, t0}, {l.Address, t1},
+// 	}, callopts)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+// 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
-	burn := itypes.Burn{
-		Type:         "uniswapv3burn",
-		Network:      r.dbconn.ChainID,
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       sender,
-		TxSender:     sender,
-		PairContract: l.Address,
-		Token0:       t0,
-		Token1:       t1,
-		Amount0:      f0,
-		Amount1:      f1,
-		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
-		Reserve1:     util.DivideBy10pow(reserves[1].Second, t1d),
-		AmountUSD:    amountusd,
-		Price0:       token0Price,
-		Price1:       token1Price,
-	}
+// 	burn := itypes.Burn{
+// 		Type:         "uniswapv3burn",
+// 		Network:      r.dbconn.ChainID,
+// 		LogIdx:       l.Index,
+// 		Transaction:  l.TxHash,
+// 		Time:         bm.Time,
+// 		Height:       l.BlockNumber,
+// 		Sender:       sender,
+// 		TxSender:     sender,
+// 		PairContract: l.Address,
+// 		Token0:       t0,
+// 		Token1:       t1,
+// 		Amount0:      f0,
+// 		Amount1:      f1,
+// 		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
+// 		Reserve1:     util.DivideBy10pow(reserves[1].Second, t1d),
+// 		AmountUSD:    amountusd,
+// 		Price0:       token0Price,
+// 		Price1:       token1Price,
+// 	}
 
-	AddToSynopsis(mt, bm, burn, items, "burn", true)
-	instrumentation.BurnV3Processed.Inc()
-}
+// 	AddToSynopsis(mt, bm, burn, items, "burn", true)
+// 	instrumentation.BurnV3Processed.Inc()
+// }
 
-func (r *NodeImpl) processUniV3Swap(
-	l types.Log,
-	items *[]interface{},
-	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
-) {
-	callopts := GetBlockCallOpts(l.BlockNumber)
+// func (r *NodeImpl) processUniV3Swap(
+// 	l types.Log,
+// 	items *[]interface{},
+// 	bm *itypes.BlockSynopsis,
+// 	mt *sync.Mutex,
+// ) {
+// 	callopts := GetBlockCallOpts(l.BlockNumber)
 
-	// Test if the contract is a UniswapV3 NFT type contract
-	if !r.isUniswapV3(l.Address, callopts) {
-		return
-	}
+// 	// Test if the contract is a UniswapV3 NFT type contract
+// 	if !r.isUniswapV3(l.Address, callopts) {
+// 		return
+// 	}
 
-	ok, sender, receiver, am0, am1 := InfoUniV3Swap(l)
-	if !ok {
-		return
-	}
+// 	ok, sender, receiver, am0, am1 := InfoUniV3Swap(l)
+// 	if !ok {
+// 		return
+// 	}
 
-	// Test if the contract is a UniswapV3NFT type contract
-	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	// Test if the contract is a UniswapV3NFT type contract
+// 	t0, t1, err := r.da.GetTokensUniV3(l.Address, callopts)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
-	if !ok {
-		return
-	}
+// 	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV3(am0, am1, callopts, l.Address)
+// 	if !ok {
+// 		return
+// 	}
 
-	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
-		{l.Address, t0}, {l.Address, t1},
-	}, callopts)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+// 		{l.Address, t0}, {l.Address, t1},
+// 	}, callopts)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+// 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
 
-	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	swap := itypes.Swap{
-		Type:         "uniswapv3swap",
-		Network:      r.dbconn.ChainID,
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       sender,
-		TxSender:     txSender,
-		Receiver:     receiver,
-		PairContract: l.Address,
-		Token0:       t0,
-		Token1:       t1,
-		Amount0:      f0,
-		Amount1:      f1,
-		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
-		Reserve1:     util.DivideBy10pow(reserves[0].Second, t1d),
-		AmountUSD:    amountusd,
-		Price0:       token0Price,
-		Price1:       token1Price,
-	}
+// 	swap := itypes.Swap{
+// 		Type:         "uniswapv3swap",
+// 		Network:      r.dbconn.ChainID,
+// 		LogIdx:       l.Index,
+// 		Transaction:  l.TxHash,
+// 		Time:         bm.Time,
+// 		Height:       l.BlockNumber,
+// 		Sender:       sender,
+// 		TxSender:     txSender,
+// 		Receiver:     receiver,
+// 		PairContract: l.Address,
+// 		Token0:       t0,
+// 		Token1:       t1,
+// 		Amount0:      f0,
+// 		Amount1:      f1,
+// 		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
+// 		Reserve1:     util.DivideBy10pow(reserves[0].Second, t1d),
+// 		AmountUSD:    amountusd,
+// 		Price0:       token0Price,
+// 		Price1:       token1Price,
+// 	}
 
-	AddToSynopsis(mt, bm, swap, items, "swap", true)
-	instrumentation.SwapV3Processed.Inc()
-}
+// 	AddToSynopsis(mt, bm, swap, items, "swap", true)
+// 	instrumentation.SwapV3Processed.Inc()
+// }
 
-func (r *NodeImpl) isUniswapV3(address common.Address,
-	callopts *bind.CallOpts) bool {
-	_, _, err := r.da.GetTokensUniV3(address, callopts)
-	if err == nil {
-		return true
-	}
+// func (r *NodeImpl) isUniswapV3(address common.Address,
+// 	callopts *bind.CallOpts) bool {
+// 	_, _, err := r.da.GetTokensUniV3(address, callopts)
+// 	if err == nil {
+// 		return true
+// 	}
 
-	if !util.IsExecutionReverted(err) {
-		util.ENOKS(2, err)
-	}
-	return false
-}
+// 	if !util.IsExecutionReverted(err) {
+// 		util.ENOKS(2, err)
+// 	}
+// 	return false
+// }
 
-func (r *NodeImpl) isUniswapV3NFT(address common.Address,
-	callopts *bind.CallOpts) bool {
-	_, _, err := r.da.GetTokensUniV3NFT(address, big.NewInt(1), callopts)
-	if err == nil {
-		return true
-	}
+// func (r *NodeImpl) isUniswapV3NFT(address common.Address,
+// 	callopts *bind.CallOpts) bool {
+// 	_, _, err := r.da.GetTokensUniV3NFT(address, big.NewInt(1), callopts)
+// 	if err == nil {
+// 		return true
+// 	}
 
-	if !util.IsExecutionReverted(err) {
-		util.ENOKS(2, err)
-	}
-	return false
-}
+// 	if !util.IsExecutionReverted(err) {
+// 		util.ENOKS(2, err)
+// 	}
+// 	return false
+// }
 
-func (r *NodeImpl) GetFormattedAmountsUniV3NFT(amount0 *big.Int,
-	amount1 *big.Int,
-	tokenID *big.Int,
-	callopts *bind.CallOpts,
-	address common.Address) (ok bool,
-	formattedAmount0 *big.Float,
-	formattedAmount1 *big.Float,
-	token0Decimals uint8,
-	token1Decimals uint8) {
-	t0, t1, err := r.da.GetTokensUniV3NFT(address, tokenID, callopts)
-	if err != nil {
-		return false,
-			big.NewFloat(0.0),
-			big.NewFloat(0.0),
-			0,
-			0
-	}
+// func (r *NodeImpl) GetFormattedAmountsUniV3NFT(amount0 *big.Int,
+// 	amount1 *big.Int,
+// 	tokenID *big.Int,
+// 	callopts *bind.CallOpts,
+// 	address common.Address) (ok bool,
+// 	formattedAmount0 *big.Float,
+// 	formattedAmount1 *big.Float,
+// 	token0Decimals uint8,
+// 	token1Decimals uint8) {
+// 	t0, t1, err := r.da.GetTokensUniV3NFT(address, tokenID, callopts)
+// 	if err != nil {
+// 		return false,
+// 			big.NewFloat(0.0),
+// 			big.NewFloat(0.0),
+// 			0,
+// 			0
+// 	}
 
-	token0Decimals, err = r.da.GetERC20Decimals(t0, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token0Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return false,
-				big.NewFloat(0.0),
-				big.NewFloat(0.0),
-				0,
-				0
-		}
-		util.ENOKS(2, err)
-	}
+// 	token0Decimals, err = r.da.GetERC20Decimals(t0, callopts)
+// 	if util.IsExecutionReverted(err) {
+// 		// Non ERC-20 contract
+// 		token0Decimals = 0
+// 	} else {
+// 		if util.IsEthErr(err) {
+// 			return false,
+// 				big.NewFloat(0.0),
+// 				big.NewFloat(0.0),
+// 				0,
+// 				0
+// 		}
+// 		util.ENOKS(2, err)
+// 	}
 
-	token1Decimals, err = r.da.GetERC20Decimals(t1, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token1Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return false,
-				big.NewFloat(0.0),
-				big.NewFloat(0.0),
-				0,
-				0
-		}
-		util.ENOKS(2, err)
-	}
+// 	token1Decimals, err = r.da.GetERC20Decimals(t1, callopts)
+// 	if util.IsExecutionReverted(err) {
+// 		// Non ERC-20 contract
+// 		token1Decimals = 0
+// 	} else {
+// 		if util.IsEthErr(err) {
+// 			return false,
+// 				big.NewFloat(0.0),
+// 				big.NewFloat(0.0),
+// 				0,
+// 				0
+// 		}
+// 		util.ENOKS(2, err)
+// 	}
 
-	return true,
-		util.DivideBy10pow(amount0, token0Decimals),
-		util.DivideBy10pow(amount1, token1Decimals),
-		token0Decimals,
-		token1Decimals
-}
+// 	return true,
+// 		util.DivideBy10pow(amount0, token0Decimals),
+// 		util.DivideBy10pow(amount1, token1Decimals),
+// 		token0Decimals,
+// 		token1Decimals
+// }
 
-func (r *NodeImpl) GetFormattedAmountsUniV3(amount0 *big.Int,
-	amount1 *big.Int,
-	callopts *bind.CallOpts,
-	address common.Address) (ok bool,
-	formattedAmount0 *big.Float,
-	formattedAmount1 *big.Float,
-	token0Decimals uint8,
-	token1Decimals uint8) {
-	t0, t1, err := r.da.GetTokensUniV3(address, callopts)
-	if err != nil {
-		return false,
-			big.NewFloat(0.0),
-			big.NewFloat(0.0),
-			0,
-			0
-	}
+// func (r *NodeImpl) GetFormattedAmountsUniV3(amount0 *big.Int,
+// 	amount1 *big.Int,
+// 	callopts *bind.CallOpts,
+// 	address common.Address) (ok bool,
+// 	formattedAmount0 *big.Float,
+// 	formattedAmount1 *big.Float,
+// 	token0Decimals uint8,
+// 	token1Decimals uint8) {
+// 	t0, t1, err := r.da.GetTokensUniV3(address, callopts)
+// 	if err != nil {
+// 		return false,
+// 			big.NewFloat(0.0),
+// 			big.NewFloat(0.0),
+// 			0,
+// 			0
+// 	}
 
-	token0Decimals, err = r.da.GetERC20Decimals(t0, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token0Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return false,
-				big.NewFloat(0.0),
-				big.NewFloat(0.0),
-				0,
-				0
-		}
-		util.ENOKS(2, err)
-	}
+// 	token0Decimals, err = r.da.GetERC20Decimals(t0, callopts)
+// 	if util.IsExecutionReverted(err) {
+// 		// Non ERC-20 contract
+// 		token0Decimals = 0
+// 	} else {
+// 		if util.IsEthErr(err) {
+// 			return false,
+// 				big.NewFloat(0.0),
+// 				big.NewFloat(0.0),
+// 				0,
+// 				0
+// 		}
+// 		util.ENOKS(2, err)
+// 	}
 
-	token1Decimals, err = r.da.GetERC20Decimals(t1, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token1Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return false,
-				big.NewFloat(0.0),
-				big.NewFloat(0.0),
-				0,
-				0
-		}
-		util.ENOKS(2, err)
-	}
+// 	token1Decimals, err = r.da.GetERC20Decimals(t1, callopts)
+// 	if util.IsExecutionReverted(err) {
+// 		// Non ERC-20 contract
+// 		token1Decimals = 0
+// 	} else {
+// 		if util.IsEthErr(err) {
+// 			return false,
+// 				big.NewFloat(0.0),
+// 				big.NewFloat(0.0),
+// 				0,
+// 				0
+// 		}
+// 		util.ENOKS(2, err)
+// 	}
 
-	return true,
-		util.DivideBy10pow(amount0, token0Decimals),
-		util.DivideBy10pow(amount1, token1Decimals),
-		token0Decimals,
-		token1Decimals
-}
+// 	return true,
+// 		util.DivideBy10pow(amount0, token0Decimals),
+// 		util.DivideBy10pow(amount1, token1Decimals),
+// 		token0Decimals,
+// 		token1Decimals
+// }
 
-// For ERC20
-func setupERC20TransferRestrictions(events []common.Hash) *ERC20TransferRestrictions {
-	isERC20TransferToBeIndexed := false
-	for _, e := range events {
-		if e == itypes.ERC20TransferTopic {
-			isERC20TransferToBeIndexed = true
-		}
-	}
+// // For ERC20
+// func setupERC20TransferRestrictions(events []common.Hash) *ERC20TransferRestrictions {
+// 	isERC20TransferToBeIndexed := false
+// 	for _, e := range events {
+// 		if e == itypes.ERC20TransferTopic {
+// 			isERC20TransferToBeIndexed = true
+// 		}
+// 	}
 
-	if !isERC20TransferToBeIndexed {
-		return nil
-	}
+// 	if !isERC20TransferToBeIndexed {
+// 		return nil
+// 	}
 
-	var (
-		restrictionType = viper.GetString("erc20transfer.restrictionType")
-		whitelistFile   = viper.GetString("erc20transfer.whitelistFile")
-		whitelistMap    = make(map[common.Address]bool)
-	)
+// 	var (
+// 		restrictionType = viper.GetString("erc20transfer.restrictionType")
+// 		whitelistFile   = viper.GetString("erc20transfer.whitelistFile")
+// 		whitelistMap    = make(map[common.Address]bool)
+// 	)
 
-	var _type ERC20RestrictionType
-	switch restrictionType {
-	case "none":
-		_type = None
-		// short circuit
-		return &ERC20TransferRestrictions{_type, &whitelistMap}
-	case "to":
-		_type = To
-	case "from":
-		_type = From
-	case "both":
-		_type = Both
-	case "either":
-		_type = Either
-	default:
-		panic("unknown ERC20RestrictionType")
-	}
+// 	var _type ERC20RestrictionType
+// 	switch restrictionType {
+// 	case "none":
+// 		_type = None
+// 		// short circuit
+// 		return &ERC20TransferRestrictions{_type, &whitelistMap}
+// 	case "to":
+// 		_type = To
+// 	case "from":
+// 		_type = From
+// 	case "both":
+// 		_type = Both
+// 	case "either":
+// 		_type = Either
+// 	default:
+// 		panic("unknown ERC20RestrictionType")
+// 	}
 
-	file, err := os.Open(whitelistFile)
-	util.ENOK(err)
+// 	file, err := os.Open(whitelistFile)
+// 	util.ENOK(err)
 
-	_bytes, err := ioutil.ReadAll(file)
-	util.ENOK(err)
+// 	_bytes, err := ioutil.ReadAll(file)
+// 	util.ENOK(err)
 
-	whitelist := []common.Address{}
-	util.ENOK(json.Unmarshal(_bytes, &whitelist))
+// 	whitelist := []common.Address{}
+// 	util.ENOK(json.Unmarshal(_bytes, &whitelist))
 
-	for _, ra := range whitelist {
-		whitelistMap[ra] = true
-	}
+// 	for _, ra := range whitelist {
+// 		whitelistMap[ra] = true
+// 	}
 
-	return &ERC20TransferRestrictions{_type, &whitelistMap}
-}
+// 	return &ERC20TransferRestrictions{_type, &whitelistMap}
+// }
 
-func allowIndexing(r *ERC20TransferRestrictions, from common.Address, to common.Address) bool {
-	if r._type == None {
-		return true
-	}
-	var (
-		whFrom = false
-		whTo   = false
-	)
-	if _, ok := (*r.whitelist)[from]; ok {
-		whFrom = true
-	}
-	if _, ok := (*r.whitelist)[to]; ok {
-		whTo = true
-	}
-	switch r._type {
-	case None:
-		return true
-	case To:
-		return whTo
-	case From:
-		return whFrom
-	case Both:
-		return whTo && whFrom
-	case Either:
-		return whTo || whFrom
-	}
-	return false
-}
+// func allowIndexing(r *ERC20TransferRestrictions, from common.Address, to common.Address) bool {
+// 	if r._type == None {
+// 		return true
+// 	}
+// 	var (
+// 		whFrom = false
+// 		whTo   = false
+// 	)
+// 	if _, ok := (*r.whitelist)[from]; ok {
+// 		whFrom = true
+// 	}
+// 	if _, ok := (*r.whitelist)[to]; ok {
+// 		whTo = true
+// 	}
+// 	switch r._type {
+// 	case None:
+// 		return true
+// 	case To:
+// 		return whTo
+// 	case From:
+// 		return whFrom
+// 	case Both:
+// 		return whTo && whFrom
+// 	case Either:
+// 		return whTo || whFrom
+// 	}
+// 	return false
+// }
 
-func (r *NodeImpl) processERC20Transfer(
-	l types.Log,
-	items *[]interface{},
-	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
-) {
-	ok, sender, recv, amt := InfoTransfer(l)
-	if !ok {
-		return
-	}
+// func (r *NodeImpl) processERC20Transfer(
+// 	l types.Log,
+// 	items *[]interface{},
+// 	bm *itypes.BlockSynopsis,
+// 	mt *sync.Mutex,
+// ) {
+// 	ok, sender, recv, amt := InfoTransfer(l)
+// 	if !ok {
+// 		return
+// 	}
 
-	if !allowIndexing(r.erc20TransferRestrictions, sender, recv) {
-		return
-	}
+// 	if !allowIndexing(r.erc20TransferRestrictions, sender, recv) {
+// 		return
+// 	}
 
-	callopts := GetBlockCallOpts(l.BlockNumber)
+// 	callopts := GetBlockCallOpts(l.BlockNumber)
 
-	ok, formattedAmount := r.GetFormattedAmount(amt, callopts, l.Address)
-	if !ok {
-		return
-	}
+// 	ok, formattedAmount := r.GetFormattedAmount(amt, callopts, l.Address)
+// 	if !ok {
+// 		return
+// 	}
 
-	tokenPrice := r.da.GetRateForBlock(callopts, util.Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
+// 	tokenPrice := r.da.GetRateForBlock(callopts, util.Tuple2[common.Address, *big.Float]{l.Address, formattedAmount})
 
-	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-	if util.IsEthErr(err) {
-		return
-	}
-	util.ENOK(err)
+// 	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+// 	if util.IsEthErr(err) {
+// 		return
+// 	}
+// 	util.ENOK(err)
 
-	transfer := itypes.Transfer{
-		Type:                "erc20transfer",
-		Network:             r.dbconn.ChainID,
-		LogIdx:              l.Index,
-		Transaction:         l.TxHash,
-		Time:                bm.Time,
-		Height:              l.BlockNumber,
-		Token:               l.Address,
-		Sender:              sender,
-		TxSender:            txSender,
-		Receiver:            recv,
-		Amount:              formattedAmount,
-		AmountUSD:           tokenPrice.Price,
-		PriceDerivationMeta: tokenPrice,
-	}
+// 	transfer := itypes.Transfer{
+// 		Type:                "erc20transfer",
+// 		Network:             r.dbconn.ChainID,
+// 		LogIdx:              l.Index,
+// 		Transaction:         l.TxHash,
+// 		Time:                bm.Time,
+// 		Height:              l.BlockNumber,
+// 		Token:               l.Address,
+// 		Sender:              sender,
+// 		TxSender:            txSender,
+// 		Receiver:            recv,
+// 		Amount:              formattedAmount,
+// 		AmountUSD:           tokenPrice.Price,
+// 		PriceDerivationMeta: tokenPrice,
+// 	}
 
-	AddToSynopsis(mt, bm, transfer, items, "transfer", true)
-	instrumentation.TfrProcessed.Inc()
-}
+// 	AddToSynopsis(mt, bm, transfer, items, "transfer", true)
+// 	instrumentation.TfrProcessed.Inc()
+// }
 
 // Creates a new node service with spf13/viper fields (yaml)
 // CONTRACT: NodeCFGFields enlists all the fields to be accessed in this function
@@ -891,18 +899,18 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	return node, nil
 }
 
-func mergeTopics(requestedEvents, requiredEvents []common.Hash) map[common.Hash]processingType {
+func mergeTopics(requestedEvents, requiredEvents []common.Hash) map[common.Hash]itypes.ProcessingType {
 	maxEvents := len(requestedEvents)
 	if len(requiredEvents) > maxEvents {
 		maxEvents = len(requiredEvents)
 	}
-	mergedMap := make(map[common.Hash]processingType)
+	mergedMap := make(map[common.Hash]itypes.ProcessingType, maxEvents)
 
 	for _, item := range requiredEvents {
-		mergedMap[item] = OnlyPricingEngine
+		mergedMap[item] = itypes.PricingEngineRequest
 	}
 	for _, item := range requestedEvents {
-		mergedMap[item] = UserRequested
+		mergedMap[item] = itypes.UserRequested
 	}
 	return mergedMap
 }

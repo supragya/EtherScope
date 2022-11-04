@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/spf13/viper"
 )
 
@@ -94,6 +95,22 @@ var (
 				"service. Setting this to 0ms will turn periodic display off"),
 			Default: "10s",
 		},
+		{
+			Name:      "cacheSizeContractTokens",
+			Type:      "uint32",
+			Necessity: "always needed",
+			Info: cfg.SArr("number of slots for LRU cache in-memory for storing",
+				"contract token sides for queried contracts"),
+			Default: 20000,
+		},
+		{
+			Name:      "cacheSizeERC20",
+			Type:      "uint32",
+			Necessity: "always needed",
+			Info: cfg.SArr("number of slots for LRU cache in-memory for storing",
+				"erc20 decimal places for queried contracts"),
+			Default: 20000,
+		},
 	}
 )
 
@@ -111,6 +128,10 @@ type MSPoolEthRPCImpl struct {
 	// Internal Data Structures
 	pool         *MasterSlavePool[ethclient.Client]
 	localBackend lb.LocalBackend
+
+	// In-memory caches
+	cacheContractTokens *lru.ARCCache
+	cacheERC20          *lru.ARCCache
 }
 
 // OnStart starts the badgerdb LocalBackend. It implements service.Service.
@@ -136,6 +157,22 @@ func (n *MSPoolEthRPCImpl) OnStop() {
 }
 
 func NewMSPoolEthRPCWithViperFields(log logger.Logger, localBackend lb.LocalBackend) (EthRPC, error) {
+	// ensure field integrity for viper
+	for _, mf := range EthRPCMSPoolCFGFields {
+		err := cfg.EnsureFieldIntegrity(EthRPCMSPoolCFGSection, mf)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	cacheContractTokens, err := lru.NewARC(viper.GetInt(EthRPCMSPoolCFGSection + ".cacheSizeContractTokens"))
+	if err != nil {
+		return nil, err
+	}
+	cacheERC20, err := lru.NewARC(viper.GetInt(EthRPCMSPoolCFGSection + ".cacheSizeERC20"))
+	if err != nil {
+		return nil, err
+	}
 	lb := &MSPoolEthRPCImpl{
 		log:     log,
 		master:  viper.GetString(EthRPCMSPoolCFGSection + ".master"),
@@ -147,8 +184,10 @@ func NewMSPoolEthRPCWithViperFields(log logger.Logger, localBackend lb.LocalBack
 			TimeStep:       viper.GetDuration(EthRPCMSPoolCFGSection + ".timeStep"),
 			RetryTimesteps: viper.GetUint32(EthRPCMSPoolCFGSection + ".retryTimesteps"),
 		},
-		periodicRecording: viper.GetDuration(EthRPCMSPoolCFGSection + ".periodicRecording"),
-		localBackend:      localBackend,
+		periodicRecording:   viper.GetDuration(EthRPCMSPoolCFGSection + ".periodicRecording"),
+		localBackend:        localBackend,
+		cacheContractTokens: cacheContractTokens,
+		cacheERC20:          cacheERC20,
 	}
 	lb.BaseService = *service.NewBaseService(log, "ethrpc", lb)
 	return lb, nil
@@ -207,7 +246,7 @@ func (n *MSPoolEthRPCImpl) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log
 func (n *MSPoolEthRPCImpl) GetTokensUniV2(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
 	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
-	if ret, ok := n.contractTokensCache.Get(lookupKey); ok {
+	if ret, ok := n.cacheContractTokens.Get(lookupKey); ok {
 		retI := ret.(util.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
@@ -238,14 +277,14 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV2(pairContract common.Address, callopts 
 		return common.Address{}, common.Address{}, err
 	}
 
-	n.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
+	n.cacheContractTokens.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
 	return token0, token1, nil
 }
 
 // Cached RPC access to get decimals for ERC20 addresses
 func (n *MSPoolEthRPCImpl) GetERC20Decimals(erc20Address common.Address, callopts *bind.CallOpts) (uint8, error) {
 	lookupKey := erc20Address
-	if ret, ok := n.ERC20Cache.Get(lookupKey); ok {
+	if ret, ok := n.cacheERC20.Get(lookupKey); ok {
 		retI := ret.(uint8)
 		return retI, nil
 	}
@@ -264,14 +303,14 @@ func (n *MSPoolEthRPCImpl) GetERC20Decimals(erc20Address common.Address, callopt
 		return 0, err
 	}
 
-	n.ERC20Cache.Add(lookupKey, decimals)
+	n.cacheERC20.Add(lookupKey, decimals)
 	return decimals, nil
 }
 
 // Non-cached RPC access to get balances for tuple (holderAddress, tokenAddress)
 func (n *MSPoolEthRPCImpl) GetERC20Balances(requests []util.Tuple2[common.Address, common.Address],
-	callopts *bind.CallOpts) ([]util.Tuple2[common.Address, *big.Int], error) {
-	results := []util.Tuple2[common.Address, *big.Int]{}
+	callopts *bind.CallOpts) ([]*big.Int, error) {
+	results := []*big.Int{}
 
 	for _, req := range requests {
 		balance, err := Do(n.pool,
@@ -286,7 +325,7 @@ func (n *MSPoolEthRPCImpl) GetERC20Balances(requests []util.Tuple2[common.Addres
 		if err != nil {
 			return results, err
 		}
-		results = append(results, util.Tuple2[common.Address, *big.Int]{req.First, balance})
+		results = append(results, balance)
 	}
 	return results, nil
 }
@@ -294,12 +333,12 @@ func (n *MSPoolEthRPCImpl) GetERC20Balances(requests []util.Tuple2[common.Addres
 func (n *MSPoolEthRPCImpl) GetTokensUniV3(pairContract common.Address,
 	callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
-	if ret, ok := n.contractTokensCache.Get(lookupKey); ok {
+	if ret, ok := n.cacheContractTokens.Get(lookupKey); ok {
 		retI := ret.(util.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
 
-	token0, err := Do(n.upstreams,
+	token0, err := Do(n.pool,
 		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ3pair.NewUniv3pair(pairContract, c)
 			if err != nil {
@@ -312,7 +351,7 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV3(pairContract common.Address,
 		return common.Address{}, common.Address{}, err
 	}
 
-	token1, err := Do(n.upstreams,
+	token1, err := Do(n.pool,
 		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ3pair.NewUniv3pair(pairContract, c)
 			if err != nil {
@@ -325,14 +364,14 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV3(pairContract common.Address,
 		return common.Address{}, common.Address{}, err
 	}
 
-	n.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
+	n.cacheContractTokens.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
 	return token0, token1, nil
 }
 
 func (n *MSPoolEthRPCImpl) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
 	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{nftContract, *callopts}
-	if ret, ok := n.contractTokensCache.Get(lookupKey); ok {
+	if ret, ok := n.cacheContractTokens.Get(lookupKey); ok {
 		retI := ret.(util.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
@@ -351,7 +390,7 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV3NFT(nftContract common.Address, tokenID
 		return common.Address{}, common.Address{}, err
 	}
 
-	n.contractTokensCache.Add(lookupKey, tokens)
+	n.cacheContractTokens.Add(lookupKey, tokens)
 	return tokens.First, tokens.Second, nil
 
 }
