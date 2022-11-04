@@ -5,11 +5,17 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/ERC20"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ2pair"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ3pair"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ3positionsnft"
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	lb "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -195,4 +201,157 @@ func (n *MSPoolEthRPCImpl) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log
 		func(ctx context.Context, c *ethclient.Client) ([]types.Log, error) {
 			return c.FilterLogs(ctx, fq)
 		}, []types.Log{})
+}
+
+// Cached RPC access to get token sides for uniswap v2
+func (n *MSPoolEthRPCImpl) GetTokensUniV2(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
+	// Cache checkup
+	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
+	if ret, ok := n.contractTokensCache.Get(lookupKey); ok {
+		retI := ret.(util.Tuple2[common.Address, common.Address])
+		return retI.First, retI.Second, nil
+	}
+
+	token0, err := Do(n.pool,
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
+			pc, err := univ2pair.NewUniv2pair(pairContract, c)
+			if err != nil {
+				return common.Address{}, err
+			}
+			callopts.Context = ctx
+			return pc.Token0(callopts)
+		}, common.Address{})
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+
+	token1, err := Do(n.pool,
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
+			pc, err := univ2pair.NewUniv2pair(pairContract, c)
+			if err != nil {
+				return common.Address{}, err
+			}
+			callopts.Context = ctx
+			return pc.Token1(callopts)
+		}, common.Address{})
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+
+	n.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
+	return token0, token1, nil
+}
+
+// Cached RPC access to get decimals for ERC20 addresses
+func (n *MSPoolEthRPCImpl) GetERC20Decimals(erc20Address common.Address, callopts *bind.CallOpts) (uint8, error) {
+	lookupKey := erc20Address
+	if ret, ok := n.ERC20Cache.Get(lookupKey); ok {
+		retI := ret.(uint8)
+		return retI, nil
+	}
+
+	decimals, err := Do(n.pool,
+		func(ctx context.Context, c *ethclient.Client) (uint8, error) {
+			erc20, err := ERC20.NewERC20(erc20Address, c)
+			if err != nil {
+				return 0, nil
+			}
+			callopts.Context = ctx
+			return erc20.Decimals(callopts)
+		}, 0)
+
+	if err != nil {
+		return 0, err
+	}
+
+	n.ERC20Cache.Add(lookupKey, decimals)
+	return decimals, nil
+}
+
+// Non-cached RPC access to get balances for tuple (holderAddress, tokenAddress)
+func (n *MSPoolEthRPCImpl) GetERC20Balances(requests []util.Tuple2[common.Address, common.Address],
+	callopts *bind.CallOpts) ([]util.Tuple2[common.Address, *big.Int], error) {
+	results := []util.Tuple2[common.Address, *big.Int]{}
+
+	for _, req := range requests {
+		balance, err := Do(n.pool,
+			func(ctx context.Context, c *ethclient.Client) (*big.Int, error) {
+				token, err := ERC20.NewERC20(req.Second, c)
+				if err != nil {
+					return big.NewInt(0), nil
+				}
+				callopts.Context = ctx
+				return token.BalanceOf(callopts, req.First)
+			}, nil)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, util.Tuple2[common.Address, *big.Int]{req.First, balance})
+	}
+	return results, nil
+}
+
+func (n *MSPoolEthRPCImpl) GetTokensUniV3(pairContract common.Address,
+	callopts *bind.CallOpts) (common.Address, common.Address, error) {
+	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
+	if ret, ok := n.contractTokensCache.Get(lookupKey); ok {
+		retI := ret.(util.Tuple2[common.Address, common.Address])
+		return retI.First, retI.Second, nil
+	}
+
+	token0, err := Do(n.upstreams,
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
+			pc, err := univ3pair.NewUniv3pair(pairContract, c)
+			if err != nil {
+				return common.Address{}, err
+			}
+			callopts.Context = ctx
+			return pc.Token0(callopts)
+		}, common.Address{})
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+
+	token1, err := Do(n.upstreams,
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
+			pc, err := univ3pair.NewUniv3pair(pairContract, c)
+			if err != nil {
+				return common.Address{}, err
+			}
+			callopts.Context = ctx
+			return pc.Token1(callopts)
+		}, common.Address{})
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+
+	n.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
+	return token0, token1, nil
+}
+
+func (n *MSPoolEthRPCImpl) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
+	// Cache checkup
+	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{nftContract, *callopts}
+	if ret, ok := n.contractTokensCache.Get(lookupKey); ok {
+		retI := ret.(util.Tuple2[common.Address, common.Address])
+		return retI.First, retI.Second, nil
+	}
+
+	tokens, err := Do(n.pool,
+		func(ctx context.Context, c *ethclient.Client) (util.Tuple2[common.Address, common.Address], error) {
+			pc, err := univ3positionsnft.NewUniv3positionsnft(nftContract, c)
+			if err != nil {
+				return util.Tuple2[common.Address, common.Address]{}, err
+			}
+			callopts.Context = ctx
+			positions, err := pc.Positions(callopts, tokenID)
+			return util.Tuple2[common.Address, common.Address]{positions.Token0, positions.Token1}, err
+		}, util.Tuple2[common.Address, common.Address]{})
+	if err != nil {
+		return common.Address{}, common.Address{}, err
+	}
+
+	n.contractTokensCache.Add(lookupKey, tokens)
+	return tokens.First, tokens.Second, nil
+
 }

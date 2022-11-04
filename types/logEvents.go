@@ -26,7 +26,6 @@ var (
 
 type Transfer struct {
 	Type                string
-	Network             uint
 	LogIdx              uint
 	Transaction         common.Hash
 	Time                uint64
@@ -42,7 +41,6 @@ type Transfer struct {
 
 type Mint struct {
 	Type         string
-	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
 	Time         uint64
@@ -63,7 +61,6 @@ type Mint struct {
 
 type Burn struct {
 	Type         string
-	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
 	Time         uint64
@@ -84,7 +81,6 @@ type Burn struct {
 
 type Swap struct {
 	Type         string
-	Network      uint
 	LogIdx       uint
 	Transaction  common.Hash
 	Time         uint64

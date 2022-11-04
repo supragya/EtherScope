@@ -14,7 +14,9 @@ import (
 	"time"
 
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -225,4 +227,14 @@ func init() {
 
 	ContextDeadlineExceededRegex = regexp.MustCompile("context deadline exceeded")
 	IOTimeoutRegex = regexp.MustCompile("i/o timeout")
+}
+
+func GetBlockCallOpts(blockNumber uint64) *bind.CallOpts {
+	return &bind.CallOpts{BlockNumber: big.NewInt(int64(blockNumber))}
+}
+
+func HasSufficientData(l types.Log,
+	requiredTopicLen int,
+	requiredDataLen int) bool {
+	return len(l.Topics) == requiredTopicLen && len(l.Data) == requiredDataLen
 }
