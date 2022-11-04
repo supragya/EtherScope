@@ -93,6 +93,11 @@ func (r *RealtimeIndexer) ridxLoop() {
 				height, err := r.da.GetCurrentBlockHeight()
 
 				util.ENOK(err)
+				if height < r.indexedHeight {
+					log.Warnf("upstream reported current height(%d) lower than what indexer has already indexed(%d). soft HA failure, indexer slowing down",
+						height, r.indexedHeight)
+					break
+				}
 				r.currentHeight = height
 
 				if r.currentHeight == r.indexedHeight {
