@@ -192,7 +192,11 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 		str, _ := itypes.GetStringForTopic(val)
 		vh := val.Hex()
 		fingerPrint := vh[:7] + ".." + vh[len(vh)-3:]
-		n.log.Info(fmt.Sprintf("enabled %s (%s)", str, fingerPrint), "foruser", ptype == itypes.UserRequested)
+		reason := "pricing"
+		if ptype == itypes.UserRequested {
+			reason = "indexing"
+		}
+		n.log.Info(fmt.Sprintf("enabled %s(%s) for %s", str, fingerPrint, reason), "ptype", ptype)
 
 		// Set val
 		keys[i] = val
@@ -306,19 +310,23 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		}
 
 		var wg sync.WaitGroup
-		var mt sync.Mutex
 		var items []interface{} = make([]interface{}, len(logs))
 
 		for idx, _log := range logs {
-			go n.decodeLog(_log, &mt, items, idx, &blockMeta, &wg)
+			go n.decodeLog(_log, &items, idx, &blockMeta, &wg)
 		}
 		wg.Wait()
+		for idx, _ := range logs {
+			if items[idx] == nil {
+				continue
+			}
+			n.log.Info("logg", idx, items[idx])
+		}
 	}
 }
 
 func (n *NodeImpl) decodeLog(l types.Log,
-	mt *sync.Mutex,
-	items []interface{},
+	items *[]interface{},
 	idx int,
 	bm *itypes.BlockSynopsis,
 	wg *sync.WaitGroup) {
@@ -330,13 +338,13 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	// ---- Uniswap V2 ----
 	case itypes.UniV2MintTopic:
 		// instrumentation.MintV2Found.Inc()
-		n.procUniV2.ProcessUniV2Mint(l, items, idx, bm, mt)
+		n.procUniV2.ProcessUniV2Mint(l, items, idx, bm)
 	case itypes.UniV2BurnTopic:
 		// instrumentation.BurnV2Found.Inc()
-		n.procUniV2.ProcessUniV2Burn(l, items, idx, bm, mt)
-		// case itypes.UniV2SwapTopic:
-		// 	// instrumentation.SwapV2Found.Inc()
-		// 	n.processUniV2Swap(l, items, bm, mt)
+		n.procUniV2.ProcessUniV2Burn(l, items, idx, bm)
+	case itypes.UniV2SwapTopic:
+		// instrumentation.SwapV2Found.Inc()
+		n.procUniV2.ProcessUniV2Swap(l, items, idx, bm)
 
 		// // ---- Uniswap V3 ----
 		// case itypes.UniV3MintTopic:

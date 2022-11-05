@@ -57,7 +57,6 @@ func (r *RealtimeIndexer) processUniV2Mint(
 
 	mint := itypes.Mint{
 		Type:         "uniswapv2mint",
-		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
@@ -125,7 +124,6 @@ func (r *RealtimeIndexer) processUniV2Burn(
 
 	burn := itypes.Burn{
 		Type:         "uniswapv2burn",
-		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
@@ -197,7 +195,6 @@ func (r *RealtimeIndexer) processUniV2Swap(
 
 	swap := itypes.Swap{
 		Type:         "uniswapv2swap",
-		Network:      r.dbconn.ChainID,
 		LogIdx:       l.Index,
 		Transaction:  l.TxHash,
 		Time:         bm.Time,
@@ -218,7 +215,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	}
 
 	AddToSynopsis(mt, bm, swap, items, "swap", true)
-	instrumentation.SwapV2Processed.Inc()
+	// instrumentation.SwapV2Processed.Inc()
 }
 
 func (r *RealtimeIndexer) isUniswapV2Pair(address common.Address,

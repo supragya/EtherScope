@@ -2,11 +2,9 @@ package uniswapv2
 
 import (
 	"math/big"
-	"sync"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/instrumentation"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,10 +18,9 @@ type UniswapV2Processor struct {
 
 func (n *UniswapV2Processor) ProcessUniV2Mint(
 	l types.Log,
-	items []interface{},
+	items *[]interface{},
 	idx int,
 	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
 ) {
 	prcType, ok := n.Topics[itypes.UniV2MintTopic]
 	if !ok {
@@ -107,16 +104,15 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 		mint.Amount1 = util.DivideBy10pow(am1, token1decimals)
 	}
 
-	items[idx] = mint
+	(*items)[idx] = mint
 	// instrumentation.MintV2Processed.Inc()
 }
 
 func (n *UniswapV2Processor) ProcessUniV2Burn(
 	l types.Log,
-	items []interface{},
+	items *[]interface{},
 	idx int,
 	bm *itypes.BlockSynopsis,
-	mt *sync.Mutex,
 ) {
 	prcType, ok := n.Topics[itypes.UniV2MintTopic]
 	if !ok {
@@ -200,83 +196,106 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 		burn.Amount1 = util.DivideBy10pow(am1, token1decimals)
 	}
 
-	items[idx] = burn
-	instrumentation.BurnV2Processed.Inc()
+	(*items)[idx] = burn
+	// instrumentation.BurnV2Processed.Inc()
 }
 
-// func (r *UniswapV2Processor) processUniV2Swap(
-// 	l types.Log,
-// 	items *[]interface{},
-// 	bm *itypes.BlockSynopsis,
-// 	mt *sync.Mutex,
-// ) {
-// 	callopts := GetBlockCallOpts(l.BlockNumber)
+func (n *UniswapV2Processor) ProcessUniV2Swap(
+	l types.Log,
+	items *[]interface{},
+	idx int,
+	bm *itypes.BlockSynopsis,
+) {
+	prcType, ok := n.Topics[itypes.UniV2MintTopic]
+	if !ok {
+		return
+	}
 
-// 	// Test if the contract is a UniswapV2 type contract
-// 	if !r.isUniswapV2Pair(l.Address, callopts) {
-// 		return
-// 	}
+	callopts := util.GetBlockCallOpts(l.BlockNumber)
 
-// 	ok, am0, am1 := InfoUniV2Swap(l)
-// 	if !ok {
-// 		return
-// 	}
+	// Test if the contract is a UniswapV2 type contract
+	if !n.isUniswapV2Pair(l.Address, callopts) {
+		return
+	}
 
-// 	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV2(am0, am1, callopts, l.Address)
-// 	if !ok {
-// 		return
-// 	}
+	swap := itypes.Swap{
+		Type:         "uniswapv2swap",
+		LogIdx:       l.Index,
+		Transaction:  l.TxHash,
+		Time:         bm.Time,
+		Height:       l.BlockNumber,
+		Sender:       common.Address{}, // To be filled if UserRequested processing
+		TxSender:     common.Address{}, // To be filled if UserRequested processing
+		Receiver:     common.Address{}, // To be filled if UserRequested processing
+		PairContract: l.Address,
+		Token0:       common.Address{}, // To be filled if PricingEngineRequest processing
+		Token1:       common.Address{}, // To be filled if PricingEngineRequest processing
+		Amount0:      nil,              // To be filled if UserRequested processing
+		Amount1:      nil,              // To be filled if UserRequested processing
+		Reserve0:     nil,              // To be filled if PricingEngineRequest processing
+		Reserve1:     nil,              // To be filled if PricingEngineRequest processing
+		AmountUSD:    nil,              // To be filled if UserRequested processing
+		Price0:       nil,              // To be filled later by Pricing Engine
+		Price1:       nil,              // To be filled later by Pricing Engine
+	}
 
-// 	// Assumed infallible since if err != nil, this code should not be reachable
-// 	// due to above condition
-// 	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
+	// Fill up the fields needed by pricing engine
+	var err error
+	swap.Token0, swap.Token1, err = n.EthRPC.GetTokensUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
-// 	// if t0 != common.HexToAddress("0x79291a9d692df95334b1a0b3b4ae6bc606782f8c") || t1 != common.HexToAddress("0x79291a9d692df95334b1a0b3b4ae6bc606782f8c") {
-// 	// 	return
-// 	// }
+	token0decimals, err := n.EthRPC.GetERC20Decimals(swap.Token0, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
-// 	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
-// 		{l.Address, t0}, {l.Address, t1},
-// 	}, callopts)
-// 	if util.IsEthErr(err) {
-// 		return
-// 	}
-// 	util.ENOK(err)
+	token1decimals, err := n.EthRPC.GetERC20Decimals(swap.Token1, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
-// 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+	reserves, err := n.EthRPC.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+		{l.Address, swap.Token0}, {l.Address, swap.Token1},
+	}, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
-// 	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-// 	if util.IsEthErr(err) {
-// 		return
-// 	}
-// 	util.ENOK(err)
+	swap.Reserve0 = util.DivideBy10pow(reserves[0], token0decimals)
+	swap.Reserve1 = util.DivideBy10pow(reserves[1], token1decimals)
 
-// 	swap := itypes.Swap{
-// 		Type:         "uniswapv2swap",
-// 		Network:      r.dbconn.ChainID,
-// 		LogIdx:       l.Index,
-// 		Transaction:  l.TxHash,
-// 		Time:         bm.Time,
-// 		Height:       l.BlockNumber,
-// 		Sender:       util.ExtractAddressFromLogTopic(l.Topics[1]),
-// 		TxSender:     txSender,
-// 		Receiver:     util.ExtractAddressFromLogTopic(l.Topics[2]),
-// 		PairContract: l.Address,
-// 		Token0:       t0,
-// 		Token1:       t1,
-// 		Amount0:      f0,
-// 		Amount1:      f1,
-// 		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
-// 		Reserve1:     util.DivideBy10pow(reserves[1].Second, t1d),
-// 		AmountUSD:    amountusd,
-// 		Price0:       token0Price,
-// 		Price1:       token1Price,
-// 	}
+	// Fill up the fields needed by user
+	if prcType == itypes.UserRequested {
+		ok, sender, receiver, am0, am1 := InfoUniV2Swap(l)
+		if !ok {
+			return
+		}
 
-// 	AddToSynopsis(mt, bm, swap, items, "swap", true)
-// 	instrumentation.SwapV2Processed.Inc()
-// }
+		txSender, err := n.EthRPC.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+		if util.IsEthErr(err) {
+			return
+		}
+		util.ENOK(err)
 
+		swap.Sender = sender
+		swap.Receiver = receiver
+		swap.TxSender = txSender
+		swap.Amount0 = util.DivideBy10pow(am0, token0decimals)
+		swap.Amount1 = util.DivideBy10pow(am1, token1decimals)
+	}
+
+	(*items)[idx] = swap
+
+	// AddToSynopsis(mt, bm, swap, items, "swap", true)
+	//		instrumentation.SwapV2Processed.Inc()
+	//	}
+}
 func (n *UniswapV2Processor) isUniswapV2Pair(address common.Address,
 	callopts *bind.CallOpts) bool {
 	_, _, err := n.EthRPC.GetTokensUniV2(address, callopts)
@@ -383,13 +402,19 @@ func InfoUniV2Burn(l types.Log) (hasSufficientData bool,
 }
 
 func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
+	sender common.Address,
+	receiver common.Address,
 	amount0 *big.Int,
 	amount1 *big.Int) {
 	if !util.HasSufficientData(l, 3, 128) {
 		return false,
+			common.Address{},
+			common.Address{},
 			big.NewInt(0),
 			big.NewInt(0)
 	}
+	sender = util.ExtractAddressFromLogTopic(l.Topics[1])
+	receiver = util.ExtractAddressFromLogTopic(l.Topics[2])
 
 	var (
 		am0In  = util.ExtractIntFromBytes(l.Data[0:32])
@@ -398,5 +423,5 @@ func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
 		am1Out = util.ExtractIntFromBytes(l.Data[96:128])
 	)
 
-	return true, big.NewInt(0).Sub(am0Out, am0In), big.NewInt(0).Sub(am1Out, am1In)
+	return true, sender, receiver, big.NewInt(0).Sub(am0Out, am0In), big.NewInt(0).Sub(am1Out, am1In)
 }
