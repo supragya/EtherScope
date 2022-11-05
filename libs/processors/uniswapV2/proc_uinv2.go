@@ -6,6 +6,7 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/services/instrumentation"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -110,73 +111,98 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 	// instrumentation.MintV2Processed.Inc()
 }
 
-// func (r *UniswapV2Processor) processUniV2Burn(
-// 	l types.Log,
-// 	items *[]interface{},
-// 	bm *itypes.BlockSynopsis,
-// 	mt *sync.Mutex,
-// ) {
-// 	callopts := GetBlockCallOpts(l.BlockNumber)
+func (n *UniswapV2Processor) ProcessUniV2Burn(
+	l types.Log,
+	items []interface{},
+	idx int,
+	bm *itypes.BlockSynopsis,
+	mt *sync.Mutex,
+) {
+	prcType, ok := n.Topics[itypes.UniV2MintTopic]
+	if !ok {
+		return
+	}
 
-// 	// Test if the contract is a UniswapV2 type contract
-// 	if !r.isUniswapV2Pair(l.Address, callopts) {
-// 		return
-// 	}
+	callopts := util.GetBlockCallOpts(l.BlockNumber)
 
-// 	ok, sender, _, am0, am1 := InfoUniV2Burn(l)
-// 	if !ok {
-// 		return
-// 	}
+	// Test if the contract is a UniswapV2 type contract
+	if !n.isUniswapV2Pair(l.Address, callopts) {
+		return
+	}
 
-// 	ok, f0, f1, t0d, t1d := r.GetFormattedAmountsUniV2(am0, am1, callopts, l.Address)
-// 	if !ok {
-// 		return
-// 	}
+	burn := itypes.Burn{
+		Type:         "uniswapv2burn",
+		LogIdx:       l.Index,
+		Transaction:  l.TxHash,
+		Time:         bm.Time,
+		Height:       l.BlockNumber,
+		Sender:       common.Address{}, // To be filled if UserRequested processing
+		TxSender:     common.Address{}, // To be filled if UserRequested processing
+		PairContract: l.Address,
+		Token0:       common.Address{}, // To be filled if PricingEngineRequest processing
+		Token1:       common.Address{}, // To be filled if PricingEngineRequest processing
+		Amount0:      nil,              // To be filled if UserRequested processing
+		Amount1:      nil,              // To be filled if UserRequested processing
+		Reserve0:     nil,              // To be filled if PricingEngineRequest processing
+		Reserve1:     nil,              // To be filled if PricingEngineRequest processing
+		AmountUSD:    nil,              // To be filled if UserRequested processing
+		Price0:       nil,              // To be filled later by Pricing Engine
+		Price1:       nil,              // To be filled later by Pricing Engine
+	}
 
-// 	// Assumed infallible since if err != nil, this code should not be reachable
-// 	// due to above condition
-// 	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
+	// Fill up the fields needed by pricing engine
+	var err error
+	burn.Token0, burn.Token1, err = n.EthRPC.GetTokensUniV2(l.Address, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
-// 	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
-// 		{l.Address, t0}, {l.Address, t1},
-// 	}, callopts)
-// 	if util.IsEthErr(err) {
-// 		return
-// 	}
-// 	util.ENOK(err)
+	token0decimals, err := n.EthRPC.GetERC20Decimals(burn.Token0, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
-// 	token0Price, token1Price, amountusd := r.da.GetRates2Tokens(callopts, l, t0, t1, big.NewFloat(1.0).Abs(f0), big.NewFloat(1.0).Abs(f1))
+	token1decimals, err := n.EthRPC.GetERC20Decimals(burn.Token1, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
-// 	txSender, err := r.da.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
-// 	if util.IsEthErr(err) {
-// 		return
-// 	}
-// 	util.ENOK(err)
+	reserves, err := n.EthRPC.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+		{l.Address, burn.Token0}, {l.Address, burn.Token1},
+	}, callopts)
+	if util.IsEthErr(err) {
+		return
+	}
+	util.ENOK(err)
 
-// 	burn := itypes.Burn{
-// 		Type:         "uniswapv2burn",
-// 		Network:      r.dbconn.ChainID,
-// 		LogIdx:       l.Index,
-// 		Transaction:  l.TxHash,
-// 		Time:         bm.Time,
-// 		Height:       l.BlockNumber,
-// 		Sender:       sender,
-// 		TxSender:     txSender,
-// 		PairContract: l.Address,
-// 		Token0:       t0,
-// 		Token1:       t1,
-// 		Amount0:      f0,
-// 		Amount1:      f1,
-// 		Reserve0:     util.DivideBy10pow(reserves[0].Second, t0d),
-// 		Reserve1:     util.DivideBy10pow(reserves[1].Second, t1d),
-// 		AmountUSD:    amountusd,
-// 		Price0:       token0Price,
-// 		Price1:       token1Price,
-// 	}
+	burn.Reserve0 = util.DivideBy10pow(reserves[0], token0decimals)
+	burn.Reserve1 = util.DivideBy10pow(reserves[1], token1decimals)
 
-// 	AddToSynopsis(mt, bm, burn, items, "burn", true)
-// 	instrumentation.BurnV2Processed.Inc()
-// }
+	// Fill up the fields needed by user
+	if prcType == itypes.UserRequested {
+		ok, sender, am0, am1 := InfoUniV2Mint(l)
+		if !ok {
+			return
+		}
+
+		txSender, err := n.EthRPC.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
+		if util.IsEthErr(err) {
+			return
+		}
+		util.ENOK(err)
+
+		burn.Sender = sender
+		burn.TxSender = txSender
+		burn.Amount0 = util.DivideBy10pow(am0, token0decimals)
+		burn.Amount1 = util.DivideBy10pow(am1, token1decimals)
+	}
+
+	items[idx] = burn
+	instrumentation.BurnV2Processed.Inc()
+}
 
 // func (r *UniswapV2Processor) processUniV2Swap(
 // 	l types.Log,

@@ -109,6 +109,7 @@ type BlockSynopsis struct {
 	Network      uint
 	Height       uint64
 	Time         uint64
+	LogsScanned  uint64
 	TotalLogs    uint64
 	MintLogs     uint64
 	BurnLogs     uint64

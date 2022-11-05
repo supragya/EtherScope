@@ -300,7 +300,7 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 
 		logs, _ := kv[block]
 		blockMeta := itypes.BlockSynopsis{
-			Type:   "stats",
+			Type:   "statistics",
 			Height: block,
 			Time:   _time,
 		}
@@ -310,7 +310,6 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		var items []interface{} = make([]interface{}, len(logs))
 
 		for idx, _log := range logs {
-			wg.Add(1)
 			go n.decodeLog(_log, &mt, items, idx, &blockMeta, &wg)
 		}
 		wg.Wait()
@@ -323,6 +322,7 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	idx int,
 	bm *itypes.BlockSynopsis,
 	wg *sync.WaitGroup) {
+	wg.Add(1)
 	defer wg.Done()
 
 	primaryTopic := l.Topics[0]
@@ -331,9 +331,9 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	case itypes.UniV2MintTopic:
 		// instrumentation.MintV2Found.Inc()
 		n.procUniV2.ProcessUniV2Mint(l, items, idx, bm, mt)
-		// case itypes.UniV2BurnTopic:
-		// 	// instrumentation.BurnV2Found.Inc()
-		// 	n.processUniV2Burn(l, items, bm, mt)
+	case itypes.UniV2BurnTopic:
+		// instrumentation.BurnV2Found.Inc()
+		n.procUniV2.ProcessUniV2Burn(l, items, idx, bm, mt)
 		// case itypes.UniV2SwapTopic:
 		// 	// instrumentation.SwapV2Found.Inc()
 		// 	n.processUniV2Swap(l, items, bm, mt)
