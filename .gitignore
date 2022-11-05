@@ -7,3 +7,4 @@ cache/
 vendor/
 profile.cov
 *.badger.db
+*.csv

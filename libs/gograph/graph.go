@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/alecthomas/binary"
 )
 

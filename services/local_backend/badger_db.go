@@ -2,6 +2,7 @@ package localbackend
 
 import (
 	"context"
+	"fmt"
 
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
@@ -40,6 +41,7 @@ type BadgerDBLocalBackendImpl struct {
 
 	log        logger.Logger
 	dbLocation string
+	namespace  string
 	db         *badger.DB
 }
 
@@ -57,6 +59,9 @@ func (n *BadgerDBLocalBackendImpl) OnStart(ctx context.Context) error {
 	}
 	n.db = db
 
+	// periodic runtime GC goroutine
+	// https://dgraph.io/docs/badger/get-started/#garbage-collection
+
 	return nil
 }
 
@@ -65,14 +70,47 @@ func (n *BadgerDBLocalBackendImpl) OnStop() {
 	n.db.Close()
 }
 
+func (n *BadgerDBLocalBackendImpl) Get(key string) ([]byte, bool, error) {
+	value := []byte{}
+	err := n.db.View(func(txn *badger.Txn) error {
+		queryKey := []byte(fmt.Sprintf("%s::%s", n.namespace, key))
+		item, err := txn.Get(queryKey)
+		if err != nil {
+			return err
+		}
+		_, err = item.ValueCopy(value)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err == badger.ErrKeyNotFound {
+		return []byte{}, false, nil
+	}
+	return value, true, err
+}
+
+func (n *BadgerDBLocalBackendImpl) Set(key string, val interface{}) error {
+	return nil
+}
+
 func (n *BadgerDBLocalBackendImpl) Sync() error {
 	return nil
 }
 
 func NewBadgerDBWithViperFields(log logger.Logger) (LocalBackend, error) {
+	// ensure field integrity for viper
+	for _, mf := range BadgerCFGFields {
+		err := cfg.EnsureFieldIntegrity(BadgerCFGSection, mf)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	lb := &BadgerDBLocalBackendImpl{
 		log:        log,
 		dbLocation: viper.GetString(BadgerCFGSection + ".dbLocation"),
+		namespace:  viper.GetString(BadgerCFGSection + ".namespace"),
 		db:         nil,
 	}
 	lb.BaseService = *service.NewBaseService(log, "localbackend", lb)

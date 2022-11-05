@@ -7,5 +7,7 @@ import (
 type LocalBackend interface {
 	service.Service
 
+	Get(key string) ([]byte, bool, error)
+	Set(key string, val interface{}) error
 	Sync() error
 }

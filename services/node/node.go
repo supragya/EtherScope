@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	priceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/pricing"
 	uniswapv2 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV2"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
@@ -25,119 +27,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	NodeCFGSection   = "node"
-	NodeCFGNecessity = "always needed"
-	NodeCFGHeader    = cfg.SArr("node is core indexing service for bgidx",
-		"node is tasked with initiating other services such as",
-		"localbackend (badger-db) and outputsink (rabbitmq)")
-	NodeCFGFields = [...]cfg.Field{
-		{
-			Name:      "moniker",
-			Type:      "string",
-			Necessity: "always needed",
-			Info: cfg.SArr("custom name given to node to differentiate messages",
-				"at the outputSink"),
-			Default: "blockpour-geth-node",
-		},
-		{
-			Name:      "maxCPUParallels",
-			Type:      "uint",
-			Necessity: "always needed",
-			Info:      cfg.SArr("maximum number of CPU threads to give to bgidx"),
-			Default:   4,
-		},
-		{
-			Name:      "network",
-			Type:      "string",
-			Necessity: "always needed",
-			Info:      cfg.SArr("evm compatible network name"),
-			Default:   "ethereum-mainnet",
-		},
-		{
-			Name:      "startBlock",
-			Type:      "uint64",
-			Necessity: "always needed",
-			Info: cfg.SArr("user defined blockheight to start sync from.",
-				"this may be overriden at runtime using resume from localbackend",
-				"and remoteHTTP endpoint"),
-			Default: 15865859,
-		},
-		{
-			Name:      "skipResumeRemote",
-			Type:      "bool",
-			Necessity: "always needed",
-			Info:      cfg.SArr("disables fetch for blockheight from remoteHTTP"),
-			Default:   false,
-		},
-		{
-			Name:      "skipResumeLocal",
-			Type:      "bool",
-			Necessity: "always needed",
-			Info:      cfg.SArr("disables fetch for blockheight from localbackend"),
-			Default:   false,
-		},
-		{
-			Name:      "remoteResumeURL",
-			Type:      "string",
-			Necessity: "always needed",
-			Info:      cfg.SArr("remoteHTTP URL for fetching blockheight to resume from"),
-			Default:   "https://myremote.blockpour.com",
-		},
-		{
-			Name:      "localBackendType",
-			Type:      "string",
-			Necessity: "always needed",
-			Info: cfg.SArr("type of local backend indexer should use.",
-				"only possible type right now is `badgerdb`"),
-			Default: "badgerdb",
-		},
-		{
-			Name:      "outputSinkType",
-			Type:      "string",
-			Necessity: "always needed",
-			Info: cfg.SArr("type of output sink backend indexer should",
-				"offload indexed information to. only possible type",
-				"right now is `rabbitmq`"),
-			Default: "rabbitmq",
-		},
-		{
-			Name:      "ethRPCType",
-			Type:      "string",
-			Necessity: "always needed",
-			Info: cfg.SArr("type of ethrpc handler to route requests",
-				"through. only possible type right now is `mspool`"),
-			Default: "mspool",
-		},
-		{
-			Name:      "eventsToIndex",
-			Type:      "[]string",
-			Necessity: "always needed",
-			Info: cfg.SArr("ethereum events to index. events listed here",
-				"are not guaranteed to be the only calls made",
-				"to underlying rpc for processing, but are guaranteed",
-				"to be the only events presented to the output sink",
-				"could be one or many of the following:",
-				"- UniswapV2Swap",
-				"- UniswapV2Mint",
-				"- UniswapV2Burn",
-				"- UniswapV3Swap",
-				"- UniswapV3Mint",
-				"- UniswapV3Burn",
-				"- ERC20Transfer"),
-			Default: "\n    - ERC20Transfer\n    - UniswapV2Swap",
-		},
-		{
-			Name:      "maxBlockSpanPerCall",
-			Type:      "uint64",
-			Necessity: "always needed",
-			Info: cfg.SArr("number of blocks to fetch logs for at the",
-				"beginning of processing loop"),
-			Default: 5,
-		},
-	}
-)
-
 type NodeImpl struct {
 	service.BaseService
 
@@ -147,13 +36,15 @@ type NodeImpl struct {
 	OutputSink   outs.OutputSink // Consumer for offloading processed data
 
 	// Configs
-	startBlock          uint64   // User defined startBlock
-	skipResumeRemote    bool     // skip checking remote for resume height
-	skipResumeLocal     bool     // skip checking localbackend for resume height
-	remoteResumeURL     string   // URL to use for resume height GET request
-	eventsToIndex       []string // user requested events to index in string form
-	maxCPUParallels     int      // user requested CPU threads to allocate to the process
-	maxBlockSpanPerCall uint64   // max block spans to log per initial filtering call
+	startBlock                      uint64   // User defined startBlock
+	skipResumeRemote                bool     // skip checking remote for resume height
+	skipResumeLocal                 bool     // skip checking localbackend for resume height
+	remoteResumeURL                 string   // URL to use for resume height GET request
+	eventsToIndex                   []string // user requested events to index in string form
+	maxCPUParallels                 int      // user requested CPU threads to allocate to the process
+	maxBlockSpanPerCall             uint64   // max block spans to log per initial filtering call
+	pricingChainlinkOraclesDumpFile string   // user provided chainlink oracles to trust
+	pricingDexDumpFile              string   // user provided dexes for faster catchup
 
 	// Internal Data Structures
 	moniker          string                                // user defined moniker for this node
@@ -165,7 +56,9 @@ type NodeImpl struct {
 	currentHeight    uint64
 	quitCh           chan struct{}
 
+	// Library instances
 	procUniV2 uniswapv2.UniswapV2Processor
+	pricer    *priceresolver.Engine
 }
 
 // OnStart starts the Node. It implements service.Service.
@@ -228,9 +121,13 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	}
 	n.mergedTopicsKeys = keys
 
-	// fmt.Printf("processing %+v\n", n.mergedTopics)
 	// Setup processors
 	n.procUniV2 = uniswapv2.UniswapV2Processor{n.mergedTopics, n.EthRPC}
+	n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
+		n.pricingChainlinkOraclesDumpFile,
+		n.pricingDexDumpFile,
+		n.EthRPC,
+		n.LocalBackend)
 
 	// TODO: Do height syncup using both LocalBackend and remote http
 	// startHeight, err := n.getResumeHeight()
@@ -329,7 +226,7 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		_time, err := n.EthRPC.GetBlockTimestamp(block)
 		util.ENOK(err)
 
-		logs, _ := kv[block]
+		logs := kv[block]
 		blockSynopis := itypes.BlockSynopsis{
 			Height:        block,
 			BlockTime:     _time,
@@ -346,7 +243,7 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		processingTime := time.Now()
 
 		// Run processedItems through pricing engine
-
+		util.ENOK(n.pricer.Resolve(block, &processedItems))
 		pricingTime := time.Now()
 
 		// Package processedItems into payload for output
@@ -468,24 +365,20 @@ func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items *[]interface{}) *P
 		if item == nil {
 			continue
 		}
-		switch item.(type) {
+		switch i := item.(type) {
 		case itypes.Mint:
-			i := item.(itypes.Mint)
 			if i.ProcessingType == itypes.UserRequested {
 				nonNilUserItems = append(nonNilUserItems, i)
 			}
 		case itypes.Burn:
-			i := item.(itypes.Burn)
 			if i.ProcessingType == itypes.UserRequested {
 				nonNilUserItems = append(nonNilUserItems, i)
 			}
 		case itypes.Swap:
-			i := item.(itypes.Swap)
 			if i.ProcessingType == itypes.UserRequested {
 				nonNilUserItems = append(nonNilUserItems, i)
 			}
 		case itypes.Transfer:
-			i := item.(itypes.Transfer)
 			if i.ProcessingType == itypes.UserRequested {
 				nonNilUserItems = append(nonNilUserItems, i)
 			}
@@ -494,7 +387,7 @@ func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items *[]interface{}) *P
 	return &Payload{
 		NodeMoniker:   n.moniker,
 		NodeID:        n.nodeID,
-		NodeVersion:   cfg.SFmt(version.GetVersionStrings()),
+		NodeVersion:   strings.Trim(cfg.SFmt(version.GetVersionStrings()), " "),
 		Network:       n.network,
 		BlockSynopsis: bs,
 		Items:         nonNilUserItems,
@@ -546,20 +439,22 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	}
 
 	node := &NodeImpl{
-		log:                 log.With("service", "node"),
-		EthRPC:              _ethrpc,
-		LocalBackend:        localBackend,
-		OutputSink:          outputSink,
-		startBlock:          viper.GetUint64(NodeCFGSection + ".startBlock"),
-		skipResumeRemote:    viper.GetBool(NodeCFGSection + ".skipResumeRemote"),
-		skipResumeLocal:     viper.GetBool(NodeCFGSection + ".skipResumeLocal"),
-		remoteResumeURL:     viper.GetString(NodeCFGSection + ".remoteResumeURL"),
-		eventsToIndex:       viper.GetStringSlice(NodeCFGSection + ".eventsToIndex"),
-		maxCPUParallels:     viper.GetInt(NodeCFGSection + ".maxCPUParallels"),
-		maxBlockSpanPerCall: viper.GetUint64(NodeCFGSection + ".maxBlockSpanPerCall"),
-		quitCh:              make(chan struct{}, 1),
-		moniker:             viper.GetString(NodeCFGSection + ".moniker"),
-		network:             viper.GetString(NodeCFGSection + ".network"),
+		log:                             log.With("service", "node"),
+		EthRPC:                          _ethrpc,
+		LocalBackend:                    localBackend,
+		OutputSink:                      outputSink,
+		startBlock:                      viper.GetUint64(NodeCFGSection + ".startBlock"),
+		skipResumeRemote:                viper.GetBool(NodeCFGSection + ".skipResumeRemote"),
+		skipResumeLocal:                 viper.GetBool(NodeCFGSection + ".skipResumeLocal"),
+		remoteResumeURL:                 viper.GetString(NodeCFGSection + ".remoteResumeURL"),
+		eventsToIndex:                   viper.GetStringSlice(NodeCFGSection + ".eventsToIndex"),
+		maxCPUParallels:                 viper.GetInt(NodeCFGSection + ".maxCPUParallels"),
+		maxBlockSpanPerCall:             viper.GetUint64(NodeCFGSection + ".maxBlockSpanPerCall"),
+		quitCh:                          make(chan struct{}, 1),
+		moniker:                         viper.GetString(NodeCFGSection + ".moniker"),
+		network:                         viper.GetString(NodeCFGSection + ".network"),
+		pricingChainlinkOraclesDumpFile: viper.GetString(NodeCFGSection + ".pricingChainlinkOraclesDumpFile"),
+		pricingDexDumpFile:              viper.GetString(NodeCFGSection + ".pricingDexDumpFile"),
 	}
 	node.BaseService = *service.NewBaseService(log, "node", node)
 	return node, nil

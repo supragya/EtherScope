@@ -150,11 +150,11 @@ type WrappedPayload struct {
 }
 
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
-	encoded, err := json.MarshalIndent(WrappedPayload{version.PersistenceVersion, payload}, "", " ")
+	_, err := json.MarshalIndent(WrappedPayload{version.PersistenceVersion, payload}, "", " ")
 	if err != nil {
 		return err
 	}
-	n.log.Info(fmt.Sprintf("sending through\n%v\n", string(encoded)))
+	// n.log.Info(fmt.Sprintf("sending through\n%v\n", string(encoded)))
 	return nil
 }
 
