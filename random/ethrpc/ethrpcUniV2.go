@@ -5,7 +5,7 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ2pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -13,9 +13,9 @@ import (
 
 func (d *EthRPC) GetTokensUniV2(pairContract common.Address, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
-	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
+	lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
-		retI := ret.(util.Tuple2[common.Address, common.Address])
+		retI := ret.(itypes.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
 
@@ -45,6 +45,6 @@ func (d *EthRPC) GetTokensUniV2(pairContract common.Address, callopts *bind.Call
 		return common.Address{}, common.Address{}, err
 	}
 
-	d.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
+	d.contractTokensCache.Add(lookupKey, itypes.Tuple2[common.Address, common.Address]{token0, token1})
 	return token0, token1, nil
 }

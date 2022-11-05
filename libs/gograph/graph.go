@@ -5,16 +5,15 @@ import (
 	"math"
 	"os"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/alecthomas/binary"
 )
 
 type Graph[K comparable, V any] struct {
-	IsBidirectional      bool                              `json:"IsBidrectional"`
-	Vertices             map[K]Connections[K, uint64, V]   `json:"Vertices"`
-	VertexCount          int                               `json:"VertexCount"`
-	EdgeCount            int                               `json:"EdgeCount"`
-	AllPairShortestPaths map[util.Tuple2[K, K]]Route[K, V] `json:"AllPairShortestPath"`
+	IsBidirectional      bool                                `json:"IsBidrectional"`
+	Vertices             map[K]Connections[K, uint64, V]     `json:"Vertices"`
+	VertexCount          int                                 `json:"VertexCount"`
+	EdgeCount            int                                 `json:"EdgeCount"`
+	AllPairShortestPaths map[itypes.Tuple2[K, K]]Route[K, V] `json:"AllPairShortestPath"`
 }
 
 var (
@@ -78,21 +77,21 @@ func (g *Graph[K, V]) CalculateAllPairShortestPath() {
 	}
 
 	// Create a map
-	routeMap := make(map[util.Tuple2[K, K]]Route[K, V],
+	routeMap := make(map[itypes.Tuple2[K, K]]Route[K, V],
 		g.GetVertexCount()*g.GetVertexCount())
 
 	for from, connections := range g.Vertices {
 		for to := range g.Vertices {
 			if connections.Exists(to) {
 				weightedEdge := connections[to]
-				routeMap[util.Tuple2[K, K]{from, to}] = Route[K, V]{
+				routeMap[itypes.Tuple2[K, K]{from, to}] = Route[K, V]{
 					Vertices: []K{from, to},
 					Edges:    []WeightedEdge[uint64, V]{weightedEdge},
 					Distance: weightedEdge.Weight,
 				}
 				continue
 			}
-			routeMap[util.Tuple2[K, K]{from, to}] = Route[K, V]{
+			routeMap[itypes.Tuple2[K, K]{from, to}] = Route[K, V]{
 				Vertices: []K{from, to},
 				Edges:    []WeightedEdge[uint64, V]{},
 				Distance: math.MaxUint64,
@@ -104,11 +103,11 @@ func (g *Graph[K, V]) CalculateAllPairShortestPath() {
 		for from := range g.Vertices {
 			for to := range g.Vertices {
 				var (
-					routeFI = routeMap[util.Tuple2[K, K]{from, intermediate}]
+					routeFI = routeMap[itypes.Tuple2[K, K]{from, intermediate}]
 					distFI  = routeFI.Distance
-					routeIT = routeMap[util.Tuple2[K, K]{intermediate, to}]
+					routeIT = routeMap[itypes.Tuple2[K, K]{intermediate, to}]
 					distIT  = routeIT.Distance
-					distFT  = routeMap[util.Tuple2[K, K]{from, to}].Distance
+					distFT  = routeMap[itypes.Tuple2[K, K]{from, to}].Distance
 
 					isValidIntermediate = (distFI != math.MaxUint64) && (distIT != math.MaxUint64)
 					isDetourBetter      = distFT > (distFI + distIT)
@@ -119,7 +118,7 @@ func (g *Graph[K, V]) CalculateAllPairShortestPath() {
 					if err != nil {
 						panic(err)
 					}
-					routeMap[util.Tuple2[K, K]{from, to}] = routeFI // includes appended route to To
+					routeMap[itypes.Tuple2[K, K]{from, to}] = routeFI // includes appended route to To
 				}
 			}
 		}
@@ -130,7 +129,7 @@ func (g *Graph[K, V]) CalculateAllPairShortestPath() {
 
 func (g *Graph[K, V]) GetShortestRoute(from K, to K) Route[K, V] {
 	g.CalculateAllPairShortestPath()
-	route := g.AllPairShortestPaths[util.Tuple2[K, K]{from, to}]
+	route := g.AllPairShortestPaths[itypes.Tuple2[K, K]{from, to}]
 	return route
 }
 

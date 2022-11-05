@@ -6,4 +6,6 @@ import (
 
 type LocalBackend interface {
 	service.Service
+
+	Sync() error
 }

@@ -4,7 +4,7 @@ import (
 	"math/big"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,7 +20,7 @@ type EthRPC interface {
 	GetFilteredLogs(ethereum.FilterQuery) ([]types.Log, error)
 	GetTokensUniV2(common.Address, *bind.CallOpts) (common.Address, common.Address, error)
 	GetERC20Decimals(common.Address, *bind.CallOpts) (uint8, error)
-	GetERC20Balances(requests []util.Tuple2[common.Address, common.Address],
+	GetERC20Balances(requests []itypes.Tuple2[common.Address, common.Address],
 		callopts *bind.CallOpts) ([]*big.Int, error)
 	GetTokensUniV3(pairContract common.Address,
 		callopts *bind.CallOpts) (common.Address, common.Address, error)

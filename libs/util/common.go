@@ -29,17 +29,6 @@ var (
 	FailOnNonEthErrorSet         bool
 )
 
-type Tuple2[A any, B any] struct {
-	First  A
-	Second B
-}
-
-type Tuple3[A any, B any, C any] struct {
-	First  A
-	Second B
-	Third  C
-}
-
 // Checks if error is nil or not. Kills process if not nil
 func ENOK(err error) {
 	ENOKS(2, err)

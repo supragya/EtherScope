@@ -6,7 +6,6 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/ERC20"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -39,9 +38,9 @@ func (d *EthRPC) GetERC20Decimals(erc20Address common.Address, callopts *bind.Ca
 }
 
 // Non-cached RPC access to get balances for tuple (holderAddress, tokenAddress)
-func (d *EthRPC) GetERC20Balances(requests []util.Tuple2[common.Address, common.Address],
-	callopts *bind.CallOpts) ([]util.Tuple2[common.Address, *big.Int], error) {
-	results := []util.Tuple2[common.Address, *big.Int]{}
+func (d *EthRPC) GetERC20Balances(requests []itypes.Tuple2[common.Address, common.Address],
+	callopts *bind.CallOpts) ([]itypes.Tuple2[common.Address, *big.Int], error) {
+	results := []itypes.Tuple2[common.Address, *big.Int]{}
 
 	for _, req := range requests {
 		balance, err := mspool.Do(d.upstreams,
@@ -56,7 +55,7 @@ func (d *EthRPC) GetERC20Balances(requests []util.Tuple2[common.Address, common.
 		if err != nil {
 			return results, err
 		}
-		results = append(results, util.Tuple2[common.Address, *big.Int]{req.First, balance})
+		results = append(results, itypes.Tuple2[common.Address, *big.Int]{req.First, balance})
 	}
 	return results, nil
 }

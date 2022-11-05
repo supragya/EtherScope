@@ -53,7 +53,7 @@ type Pricing struct {
 	cacheFile         string
 	oracleHash        string
 	graph             *gograph.Graph[string, string]
-	stableCoins       map[common.Address]util.Tuple2[string, common.Address]
+	stableCoins       map[common.Address]itypes.Tuple2[string, common.Address]
 	tokenMap          map[common.Address]string
 	oracleMap         OracleMap
 }
@@ -66,7 +66,7 @@ func GetPricingEngine() *Pricing {
 		oracleFile:        viper.GetString("general.oracleMapsRootDir") + "/oraclemaps_" + viper.GetString("general.networkName") + ".json",
 		oracleHash:        "", // Computed below
 		graph:             gograph.NewGraphStringUintString(false),
-		stableCoins:       make(map[common.Address]util.Tuple2[string, common.Address]),
+		stableCoins:       make(map[common.Address]itypes.Tuple2[string, common.Address]),
 		tokenMap:          make(map[common.Address]string),
 		oracleMap:         OracleMap{},
 	}
@@ -106,7 +106,7 @@ func GetPricingEngine() *Pricing {
 
 	// Setup stablecoins
 	for _, sc := range pricing.oracleMap.StableCoinsUSD {
-		pricing.stableCoins[common.HexToAddress(sc.Contract)] = util.Tuple2[string, common.Address]{
+		pricing.stableCoins[common.HexToAddress(sc.Contract)] = itypes.Tuple2[string, common.Address]{
 			sc.ID,
 			common.HexToAddress(sc.OracleContract),
 		}
@@ -129,7 +129,7 @@ func (d *EthRPC) GetRates2Tokens(
 	token1Amount *big.Float) (token0PriceResult *itypes.PriceResult,
 	token1Price *itypes.PriceResult,
 	amountUSD *big.Float) {
-	prs := d.GetPriceResults(callopts, []util.Tuple2[common.Address, *big.Float]{
+	prs := d.GetPriceResults(callopts, []itypes.Tuple2[common.Address, *big.Float]{
 		{token0Address, token0Amount},
 		{token1Address, token1Amount},
 	})
@@ -161,7 +161,7 @@ func (d *EthRPC) GetRates2Tokens(
 		}
 
 		// cache derived rate
-		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
+		lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
 		d.PriceCache.Add(lookupKey, &entry)
 		prs[0] = &entry
 
@@ -188,7 +188,7 @@ func (d *EthRPC) GetRates2Tokens(
 		}
 
 		// cache derived rate
-		lookupKey := util.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
+		lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
 		d.PriceCache.Add(lookupKey, &entry)
 		prs[1] = &entry
 	}
@@ -207,7 +207,7 @@ func (d *EthRPC) GetRates2Tokens(
 
 func (d *EthRPC) GetPriceResults(
 	callopts *bind.CallOpts,
-	requests []util.Tuple2[common.Address, *big.Float]) []*itypes.PriceResult {
+	requests []itypes.Tuple2[common.Address, *big.Float]) []*itypes.PriceResult {
 	response := []*itypes.PriceResult{}
 	for _, req := range requests {
 		response = append(response, d.GetRateForBlock(callopts, req))
@@ -217,10 +217,10 @@ func (d *EthRPC) GetPriceResults(
 
 func (d *EthRPC) GetRateForBlock(
 	callopts *bind.CallOpts,
-	request util.Tuple2[common.Address, *big.Float]) *itypes.PriceResult {
+	request itypes.Tuple2[common.Address, *big.Float]) *itypes.PriceResult {
 
 	// cache lookup
-	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
+	lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{request.First, *callopts}
 
 	if val, ok := d.PriceCache.Get(lookupKey); ok {
 		return val.(*itypes.PriceResult)

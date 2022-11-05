@@ -2,11 +2,13 @@ package outputsink
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
 )
@@ -140,6 +142,20 @@ func (n *RabbitMQOutputSinkImpl) OnStart(ctx context.Context) error {
 func (n *RabbitMQOutputSinkImpl) OnStop() {
 	n.channel.Close()
 	n.connection.Close()
+}
+
+type WrappedPayload struct {
+	PersistenceVersion uint8
+	Data               interface{}
+}
+
+func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
+	encoded, err := json.MarshalIndent(WrappedPayload{version.PersistenceVersion, payload}, "", " ")
+	if err != nil {
+		return err
+	}
+	n.log.Info(fmt.Sprintf("sending through\n%v\n", string(encoded)))
+	return nil
 }
 
 func NewRabbitMQOutputSinkWithViperFields(log logger.Logger) (OutputSink, error) {

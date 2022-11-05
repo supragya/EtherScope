@@ -20,7 +20,7 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 	l types.Log,
 	items *[]interface{},
 	idx int,
-	bm *itypes.BlockSynopsis,
+	blockTime uint64,
 ) {
 	prcType, ok := n.Topics[itypes.UniV2MintTopic]
 	if !ok {
@@ -35,23 +35,24 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 	}
 
 	mint := itypes.Mint{
-		Type:         "uniswapv2mint",
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       common.Address{}, // To be filled if UserRequested processing
-		TxSender:     common.Address{}, // To be filled if UserRequested processing
-		PairContract: l.Address,
-		Token0:       common.Address{}, // To be filled if PricingEngineRequest processing
-		Token1:       common.Address{}, // To be filled if PricingEngineRequest processing
-		Amount0:      nil,              // To be filled if UserRequested processing
-		Amount1:      nil,              // To be filled if UserRequested processing
-		Reserve0:     nil,              // To be filled if PricingEngineRequest processing
-		Reserve1:     nil,              // To be filled if PricingEngineRequest processing
-		AmountUSD:    nil,              // To be filled if UserRequested processing
-		Price0:       nil,              // To be filled later by Pricing Engine
-		Price1:       nil,              // To be filled later by Pricing Engine
+		Type:           "uniswapv2mint",
+		ProcessingType: prcType,
+		LogIdx:         l.Index,
+		Transaction:    l.TxHash,
+		Time:           blockTime,
+		Height:         l.BlockNumber,
+		Sender:         common.Address{}, // To be filled if UserRequested processing
+		TxSender:       common.Address{}, // To be filled if UserRequested processing
+		PairContract:   l.Address,
+		Token0:         common.Address{}, // To be filled if PricingEngineRequest processing
+		Token1:         common.Address{}, // To be filled if PricingEngineRequest processing
+		Amount0:        nil,              // To be filled if UserRequested processing
+		Amount1:        nil,              // To be filled if UserRequested processing
+		Reserve0:       nil,              // To be filled if PricingEngineRequest processing
+		Reserve1:       nil,              // To be filled if PricingEngineRequest processing
+		AmountUSD:      nil,              // To be filled if UserRequested processing
+		Price0:         nil,              // To be filled later by Pricing Engine
+		Price1:         nil,              // To be filled later by Pricing Engine
 	}
 
 	// Fill up the fields needed by pricing engine
@@ -74,7 +75,7 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 	}
 	util.ENOK(err)
 
-	reserves, err := n.EthRPC.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+	reserves, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, mint.Token0}, {l.Address, mint.Token1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -112,9 +113,9 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 	l types.Log,
 	items *[]interface{},
 	idx int,
-	bm *itypes.BlockSynopsis,
+	blockTime uint64,
 ) {
-	prcType, ok := n.Topics[itypes.UniV2MintTopic]
+	prcType, ok := n.Topics[itypes.UniV2BurnTopic]
 	if !ok {
 		return
 	}
@@ -127,23 +128,24 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 	}
 
 	burn := itypes.Burn{
-		Type:         "uniswapv2burn",
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       common.Address{}, // To be filled if UserRequested processing
-		TxSender:     common.Address{}, // To be filled if UserRequested processing
-		PairContract: l.Address,
-		Token0:       common.Address{}, // To be filled if PricingEngineRequest processing
-		Token1:       common.Address{}, // To be filled if PricingEngineRequest processing
-		Amount0:      nil,              // To be filled if UserRequested processing
-		Amount1:      nil,              // To be filled if UserRequested processing
-		Reserve0:     nil,              // To be filled if PricingEngineRequest processing
-		Reserve1:     nil,              // To be filled if PricingEngineRequest processing
-		AmountUSD:    nil,              // To be filled if UserRequested processing
-		Price0:       nil,              // To be filled later by Pricing Engine
-		Price1:       nil,              // To be filled later by Pricing Engine
+		Type:           "uniswapv2burn",
+		ProcessingType: prcType,
+		LogIdx:         l.Index,
+		Transaction:    l.TxHash,
+		Time:           blockTime,
+		Height:         l.BlockNumber,
+		Sender:         common.Address{}, // To be filled if UserRequested processing
+		TxSender:       common.Address{}, // To be filled if UserRequested processing
+		PairContract:   l.Address,
+		Token0:         common.Address{}, // To be filled if PricingEngineRequest processing
+		Token1:         common.Address{}, // To be filled if PricingEngineRequest processing
+		Amount0:        nil,              // To be filled if UserRequested processing
+		Amount1:        nil,              // To be filled if UserRequested processing
+		Reserve0:       nil,              // To be filled if PricingEngineRequest processing
+		Reserve1:       nil,              // To be filled if PricingEngineRequest processing
+		AmountUSD:      nil,              // To be filled if UserRequested processing
+		Price0:         nil,              // To be filled later by Pricing Engine
+		Price1:         nil,              // To be filled later by Pricing Engine
 	}
 
 	// Fill up the fields needed by pricing engine
@@ -166,7 +168,7 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 	}
 	util.ENOK(err)
 
-	reserves, err := n.EthRPC.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+	reserves, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, burn.Token0}, {l.Address, burn.Token1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -204,9 +206,9 @@ func (n *UniswapV2Processor) ProcessUniV2Swap(
 	l types.Log,
 	items *[]interface{},
 	idx int,
-	bm *itypes.BlockSynopsis,
+	blockTime uint64,
 ) {
-	prcType, ok := n.Topics[itypes.UniV2MintTopic]
+	prcType, ok := n.Topics[itypes.UniV2SwapTopic]
 	if !ok {
 		return
 	}
@@ -219,24 +221,25 @@ func (n *UniswapV2Processor) ProcessUniV2Swap(
 	}
 
 	swap := itypes.Swap{
-		Type:         "uniswapv2swap",
-		LogIdx:       l.Index,
-		Transaction:  l.TxHash,
-		Time:         bm.Time,
-		Height:       l.BlockNumber,
-		Sender:       common.Address{}, // To be filled if UserRequested processing
-		TxSender:     common.Address{}, // To be filled if UserRequested processing
-		Receiver:     common.Address{}, // To be filled if UserRequested processing
-		PairContract: l.Address,
-		Token0:       common.Address{}, // To be filled if PricingEngineRequest processing
-		Token1:       common.Address{}, // To be filled if PricingEngineRequest processing
-		Amount0:      nil,              // To be filled if UserRequested processing
-		Amount1:      nil,              // To be filled if UserRequested processing
-		Reserve0:     nil,              // To be filled if PricingEngineRequest processing
-		Reserve1:     nil,              // To be filled if PricingEngineRequest processing
-		AmountUSD:    nil,              // To be filled if UserRequested processing
-		Price0:       nil,              // To be filled later by Pricing Engine
-		Price1:       nil,              // To be filled later by Pricing Engine
+		Type:           "uniswapv2swap",
+		ProcessingType: prcType,
+		LogIdx:         l.Index,
+		Transaction:    l.TxHash,
+		Time:           blockTime,
+		Height:         l.BlockNumber,
+		Sender:         common.Address{}, // To be filled if UserRequested processing
+		TxSender:       common.Address{}, // To be filled if UserRequested processing
+		Receiver:       common.Address{}, // To be filled if UserRequested processing
+		PairContract:   l.Address,
+		Token0:         common.Address{}, // To be filled if PricingEngineRequest processing
+		Token1:         common.Address{}, // To be filled if PricingEngineRequest processing
+		Amount0:        nil,              // To be filled if UserRequested processing
+		Amount1:        nil,              // To be filled if UserRequested processing
+		Reserve0:       nil,              // To be filled if PricingEngineRequest processing
+		Reserve1:       nil,              // To be filled if PricingEngineRequest processing
+		AmountUSD:      nil,              // To be filled if UserRequested processing
+		Price0:         nil,              // To be filled later by Pricing Engine
+		Price1:         nil,              // To be filled later by Pricing Engine
 	}
 
 	// Fill up the fields needed by pricing engine
@@ -259,7 +262,7 @@ func (n *UniswapV2Processor) ProcessUniV2Swap(
 	}
 	util.ENOK(err)
 
-	reserves, err := n.EthRPC.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+	reserves, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, swap.Token0}, {l.Address, swap.Token1},
 	}, callopts)
 	if util.IsEthErr(err) {

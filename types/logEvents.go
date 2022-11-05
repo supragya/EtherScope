@@ -30,6 +30,7 @@ var (
 
 type Transfer struct {
 	Type                string
+	ProcessingType      ProcessingType `json:"-"`
 	LogIdx              uint
 	Transaction         common.Hash
 	Time                uint64
@@ -44,77 +45,78 @@ type Transfer struct {
 }
 
 type Mint struct {
-	Type         string
-	LogIdx       uint
-	Transaction  common.Hash
-	Time         uint64
-	Height       uint64
-	Sender       common.Address
-	TxSender     common.Address
-	PairContract common.Address
-	Token0       common.Address
-	Token1       common.Address
-	Amount0      *big.Float
-	Amount1      *big.Float
-	Reserve0     *big.Float
-	Reserve1     *big.Float
-	AmountUSD    *big.Float
-	Price0       *PriceResult
-	Price1       *PriceResult
+	Type           string
+	ProcessingType ProcessingType `json:"-"`
+	LogIdx         uint
+	Transaction    common.Hash
+	Time           uint64
+	Height         uint64
+	Sender         common.Address
+	TxSender       common.Address
+	PairContract   common.Address
+	Token0         common.Address
+	Token1         common.Address
+	Amount0        *big.Float
+	Amount1        *big.Float
+	Reserve0       *big.Float
+	Reserve1       *big.Float
+	AmountUSD      *big.Float
+	Price0         *PriceResult
+	Price1         *PriceResult
 }
 
 type Burn struct {
-	Type         string
-	LogIdx       uint
-	Transaction  common.Hash
-	Time         uint64
-	Height       uint64
-	Sender       common.Address
-	TxSender     common.Address
-	PairContract common.Address
-	Token0       common.Address
-	Token1       common.Address
-	Amount0      *big.Float
-	Amount1      *big.Float
-	Reserve0     *big.Float
-	Reserve1     *big.Float
-	AmountUSD    *big.Float
-	Price0       *PriceResult
-	Price1       *PriceResult
+	Type           string
+	ProcessingType ProcessingType `json:"-"`
+	LogIdx         uint
+	Transaction    common.Hash
+	Time           uint64
+	Height         uint64
+	Sender         common.Address
+	TxSender       common.Address
+	PairContract   common.Address
+	Token0         common.Address
+	Token1         common.Address
+	Amount0        *big.Float
+	Amount1        *big.Float
+	Reserve0       *big.Float
+	Reserve1       *big.Float
+	AmountUSD      *big.Float
+	Price0         *PriceResult
+	Price1         *PriceResult
 }
 
 type Swap struct {
-	Type         string
-	LogIdx       uint
-	Transaction  common.Hash
-	Time         uint64
-	Height       uint64
-	Sender       common.Address
-	TxSender     common.Address
-	Receiver     common.Address
-	PairContract common.Address
-	Token0       common.Address
-	Token1       common.Address
-	Amount0      *big.Float
-	Amount1      *big.Float
-	Reserve0     *big.Float
-	Reserve1     *big.Float
-	AmountUSD    *big.Float
-	Price0       *PriceResult
-	Price1       *PriceResult
+	Type           string
+	ProcessingType ProcessingType `json:"-"`
+	LogIdx         uint
+	Transaction    common.Hash
+	Time           uint64
+	Height         uint64
+	Sender         common.Address
+	TxSender       common.Address
+	Receiver       common.Address
+	PairContract   common.Address
+	Token0         common.Address
+	Token1         common.Address
+	Amount0        *big.Float
+	Amount1        *big.Float
+	Reserve0       *big.Float
+	Reserve1       *big.Float
+	AmountUSD      *big.Float
+	Price0         *PriceResult
+	Price1         *PriceResult
 }
 
 type BlockSynopsis struct {
-	Type         string
-	Network      uint
-	Height       uint64
-	Time         uint64
-	LogsScanned  uint64
-	TotalLogs    uint64
-	MintLogs     uint64
-	BurnLogs     uint64
-	SwapLogs     uint64
-	TransferLogs uint64
+	Height                  uint64
+	BlockTime               uint64
+	IndexingTimeNanos       uint64
+	ProcessingDurationNanos uint64
+	PricingDurationNanos    uint64
+	EventsScanned           uint64
+	EventsPriced            uint64
+	EventsUserDistribution  map[string]uint64
 }
 
 func toHash(str string) common.Hash {

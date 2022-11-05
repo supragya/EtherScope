@@ -39,7 +39,7 @@ func (r *RealtimeIndexer) processUniV2Mint(
 	// due to above condition
 	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
 
-	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -106,7 +106,7 @@ func (r *RealtimeIndexer) processUniV2Burn(
 	// due to above condition
 	t0, t1, _ := r.da.GetTokensUniV2(l.Address, callopts)
 
-	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {
@@ -177,7 +177,7 @@ func (r *RealtimeIndexer) processUniV2Swap(
 	// 	return
 	// }
 
-	reserves, err := r.da.GetERC20Balances([]util.Tuple2[common.Address, common.Address]{
+	reserves, err := r.da.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, t0}, {l.Address, t1},
 	}, callopts)
 	if util.IsEthErr(err) {

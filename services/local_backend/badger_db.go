@@ -65,6 +65,10 @@ func (n *BadgerDBLocalBackendImpl) OnStop() {
 	n.db.Close()
 }
 
+func (n *BadgerDBLocalBackendImpl) Sync() error {
+	return nil
+}
+
 func NewBadgerDBWithViperFields(log logger.Logger) (LocalBackend, error) {
 	lb := &BadgerDBLocalBackendImpl{
 		log:        log,

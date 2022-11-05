@@ -7,7 +7,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/abi/univ3positionsnft"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/mspool"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
+	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -15,9 +15,9 @@ import (
 
 func (d *EthRPC) GetTokensUniV3(pairContract common.Address,
 	callopts *bind.CallOpts) (common.Address, common.Address, error) {
-	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
+	lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{pairContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
-		retI := ret.(util.Tuple2[common.Address, common.Address])
+		retI := ret.(itypes.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
 
@@ -47,28 +47,28 @@ func (d *EthRPC) GetTokensUniV3(pairContract common.Address,
 		return common.Address{}, common.Address{}, err
 	}
 
-	d.contractTokensCache.Add(lookupKey, util.Tuple2[common.Address, common.Address]{token0, token1})
+	d.contractTokensCache.Add(lookupKey, itypes.Tuple2[common.Address, common.Address]{token0, token1})
 	return token0, token1, nil
 }
 
 func (d *EthRPC) GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error) {
 	// Cache checkup
-	lookupKey := util.Tuple2[common.Address, bind.CallOpts]{nftContract, *callopts}
+	lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{nftContract, *callopts}
 	if ret, ok := d.contractTokensCache.Get(lookupKey); ok {
-		retI := ret.(util.Tuple2[common.Address, common.Address])
+		retI := ret.(itypes.Tuple2[common.Address, common.Address])
 		return retI.First, retI.Second, nil
 	}
 
 	tokens, err := mspool.Do(d.upstreams,
-		func(ctx context.Context, c *ethclient.Client) (util.Tuple2[common.Address, common.Address], error) {
+		func(ctx context.Context, c *ethclient.Client) (itypes.Tuple2[common.Address, common.Address], error) {
 			pc, err := univ3positionsnft.NewUniv3positionsnft(nftContract, c)
 			if err != nil {
-				return util.Tuple2[common.Address, common.Address]{}, err
+				return itypes.Tuple2[common.Address, common.Address]{}, err
 			}
 			callopts.Context = ctx
 			positions, err := pc.Positions(callopts, tokenID)
-			return util.Tuple2[common.Address, common.Address]{positions.Token0, positions.Token1}, err
-		}, util.Tuple2[common.Address, common.Address]{})
+			return itypes.Tuple2[common.Address, common.Address]{positions.Token0, positions.Token1}, err
+		}, itypes.Tuple2[common.Address, common.Address]{})
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
