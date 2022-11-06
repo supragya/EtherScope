@@ -231,3 +231,8 @@ func GobDecode(buf []byte, item interface{}) error {
 	dec := gob.NewDecoder(bytes.NewBuffer(buf))
 	return dec.Decode(item)
 }
+
+func init() {
+	// Very important for gob
+	gob.Register(common.Address{})
+}

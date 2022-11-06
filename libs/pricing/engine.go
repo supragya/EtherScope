@@ -87,10 +87,11 @@ func (n *Engine) syncDump(resHeight uint64) (*gg, error) {
 		return nil, err
 	}
 
-	n.log.Info("read dump file",
+	n.log.Info("read dump file done, loaded chainlink and dexes in memory",
 		"chainlinkrec", len(chainlinkRecords),
 		"dexrec", len(dexRecords))
 
+	n.log.Info("generating step graphs to backfill in DB. This may take a while")
 	startTime := time.Now()
 	graphSteps := genGraphSteps(chainlinkRecords, dexRecords)
 	genTime := time.Since(startTime)
@@ -108,10 +109,13 @@ func (n *Engine) syncDump(resHeight uint64) (*gg, error) {
 		gGraph = graphSteps[idx].Second
 	}
 
+	n.log.Info("syncing step graphs to backfill in DB")
 	err = n.syncGraphStepsToLB(graphSteps)
 	if err != nil {
 		return nil, err
 	}
+
+	n.log.Info("first run syncing complete")
 	return gGraph, nil
 }
 
@@ -128,10 +132,14 @@ func (n *Engine) syncGraphStepsToLB(steps []ggt) error {
 		return err
 	}
 
+	n.log.Info("begin encoding for database storage")
+	stride := 10000
+	strideIdx := 1
 	gIdx := 0
 	for idx := lowestHeight; idx <= highestHeight; idx++ {
 		prev := steps[gIdx].First
 		next := uint64(math.MaxUint64)
+
 		if gIdx != ggtLen-1 {
 			next = steps[gIdx+1].First
 		}
@@ -149,8 +157,18 @@ func (n *Engine) syncGraphStepsToLB(steps []ggt) error {
 			}
 			gIdx++
 		}
+
+		strideIdx++
+		if strideIdx%stride == 0 {
+			n.log.Info("syncing a stride", "low", lowestHeight, "curr", idx, "high", highestHeight)
+			if err := n.LocalBackend.Sync(); err != nil {
+				return err
+			}
+			strideIdx = 1
+		}
 	}
 
+	n.log.Info("final syncing to disk")
 	return n.LocalBackend.Sync()
 }
 
@@ -201,7 +219,7 @@ func genGraphSteps(chainlinkRecords ChainlinkRecords,
 			cidx++
 		}
 		if drec != nil && candidateStartBlock > drec.StartBlock {
-			if candidateStartBlock == -1 {
+			if candidateStartBlock != -1 {
 				cidx--
 			}
 			candidateStartBlock = drec.StartBlock
@@ -236,8 +254,11 @@ func genGraphSteps(chainlinkRecords ChainlinkRecords,
 		}
 
 		if csb > runningHeight {
-			steps = append(steps, ggt{runningHeight, runningGraph})
-			runningGraph = gograph.CopyGraph(runningGraph)
+			if runningHeight != 0 {
+				// fmt.Printf("found new height %d, concretizing %d, crec: %+v drec: %+v \n", csb, runningHeight, crec, drec)
+				steps = append(steps, ggt{runningHeight, runningGraph})
+				runningGraph = gograph.CopyGraph(runningGraph)
+			}
 			runningHeight = csb
 		}
 
