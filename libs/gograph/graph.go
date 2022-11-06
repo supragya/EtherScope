@@ -7,10 +7,10 @@ import (
 // A Graph is connects vertices of type V with edges weighted by
 // W, with metadata hinted by H and provided by M
 type Graph[V comparable, W comparable, H any, M any] struct {
-	isBidirectional bool                          `json:"IsBidrectional"`
-	graph           map[V]Connections[V, W, H, M] `json:"Graph"`
-	vertexCount     int                           `json:"VertexCount"`
-	edgeCount       int                           `json:"EdgeCount"`
+	IsBidirectional bool                          `json:"IsBidrectional"`
+	Graph           map[V]Connections[V, W, H, M] `json:"Graph"`
+	VertexCount     int                           `json:"VertexCount"`
+	EdgeCount       int                           `json:"EdgeCount"`
 }
 
 var (
@@ -21,39 +21,39 @@ var (
 // W, with metadata hinted by H and provided by M
 func NewGraph[V comparable, W comparable, H any, M any](isBidirectional bool) *Graph[V, W, H, M] {
 	return &Graph[V, W, H, M]{
-		isBidirectional: isBidirectional,
-		graph:           make(map[V]Connections[V, W, H, M]),
-		vertexCount:     0,
-		edgeCount:       0,
+		IsBidirectional: isBidirectional,
+		Graph:           make(map[V]Connections[V, W, H, M]),
+		VertexCount:     0,
+		EdgeCount:       0,
 	}
 }
 
 // Creates a new graph with by deep copy
 func CopyGraph[V comparable, W comparable, H any, M any](src *Graph[V, W, H, M]) *Graph[V, W, H, M] {
-	newGraph := make(map[V]Connections[V, W, H, M], len(src.graph))
-	for vertexFrom, connections := range src.graph {
+	newGraph := make(map[V]Connections[V, W, H, M], len(src.Graph))
+	for vertexFrom, connections := range src.Graph {
 		newGraph[vertexFrom] = CopyConnections(connections)
 	}
 	return &Graph[V, W, H, M]{
-		isBidirectional: src.isBidirectional,
-		graph:           newGraph,
-		vertexCount:     src.vertexCount,
-		edgeCount:       src.edgeCount,
+		IsBidirectional: src.IsBidirectional,
+		Graph:           newGraph,
+		VertexCount:     src.VertexCount,
+		EdgeCount:       src.EdgeCount,
 	}
 }
 
 func (g *Graph[V, W, H, M]) ensureVertexAvailable(vertex V) {
-	_, isAvailable := g.graph[vertex]
+	_, isAvailable := g.Graph[vertex]
 	if !isAvailable {
-		g.graph[vertex] = make(Connections[V, W, H, M])
-		g.vertexCount++
+		g.Graph[vertex] = make(Connections[V, W, H, M])
+		g.VertexCount++
 	}
 }
 
 // Get map of connected edges to vertex
 func (g *Graph[V, W, H, M]) GetConnectedVertices(vertex V) Connections[V, W, H, M] {
 	g.ensureVertexAvailable(vertex)
-	connectedVertices := g.graph[vertex]
+	connectedVertices := g.Graph[vertex]
 	return connectedVertices
 }
 
@@ -66,21 +66,21 @@ func (g *Graph[V, W, H, M]) AddWeightedEdge(vertexFrom V, vertexTo V,
 		return ErrEdgeExists
 	}
 
-	g.graph[vertexFrom] = *cFrom.AddWeightedEdge(vertexFrom, vertexTo, edgeWeight, hint, metadata, false)
-	g.edgeCount++
+	g.Graph[vertexFrom] = *cFrom.AddWeightedEdge(vertexFrom, vertexTo, edgeWeight, hint, metadata, false)
+	g.EdgeCount++
 
-	if g.isBidirectional {
-		g.graph[vertexTo] = *cTo.AddWeightedEdge(vertexTo, vertexFrom, edgeWeight, hint, metadata, true)
-		g.edgeCount++
+	if g.IsBidirectional {
+		g.Graph[vertexTo] = *cTo.AddWeightedEdge(vertexTo, vertexFrom, edgeWeight, hint, metadata, true)
+		g.EdgeCount++
 	}
 
 	return nil
 }
 
 func (g *Graph[V, W, H, M]) GetVertexCount() int {
-	return g.vertexCount
+	return g.VertexCount
 }
 
 func (g *Graph[V, W, H, M]) GetEdgeCount() int {
-	return g.edgeCount
+	return g.EdgeCount
 }

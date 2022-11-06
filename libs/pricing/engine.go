@@ -3,9 +3,11 @@ package priceresolver
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/gograph"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
 	lb "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
@@ -75,6 +77,7 @@ func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) error {
 }
 
 func (n *Engine) syncDump(resHeight uint64) (*gg, error) {
+	n.log.Info("undertaking sync dump")
 	chainlinkRecords, err := loadChainlinkCSV(n.chainlinkOraclesDumpFile)
 	if err != nil {
 		return nil, err
@@ -84,7 +87,17 @@ func (n *Engine) syncDump(resHeight uint64) (*gg, error) {
 		return nil, err
 	}
 
+	n.log.Info("read dump file",
+		"chainlinkrec", len(chainlinkRecords),
+		"dexrec", len(dexRecords))
+
+	startTime := time.Now()
 	graphSteps := genGraphSteps(chainlinkRecords, dexRecords)
+	genTime := time.Since(startTime)
+	n.log.Info("graph gen step completed",
+		"steps", len(graphSteps),
+		"_time", genTime)
+
 	gHeight := graphSteps[len(graphSteps)-1].First
 	gGraph := graphSteps[len(graphSteps)-1].Second
 
@@ -111,7 +124,7 @@ func (n *Engine) syncGraphStepsToLB(steps []ggt) error {
 	lowestHeight := steps[0].First
 	highestHeight := steps[ggtLen-1].First
 
-	if err := n.LocalBackend.Set(lb.KeyLowestPricingHeight, lowestHeight); err != nil {
+	if err := n.LocalBackend.Set(lb.KeyLowestPricingHeight, util.GobEncode(lowestHeight)); err != nil {
 		return err
 	}
 
@@ -123,15 +136,15 @@ func (n *Engine) syncGraphStepsToLB(steps []ggt) error {
 			next = steps[gIdx+1].First
 		}
 		if idx == prev {
-			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), steps[gIdx]); err != nil {
+			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), util.GobEncode(steps[gIdx])); err != nil {
 				return err
 			}
 		} else if prev < idx && idx < next {
-			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), prev); err != nil {
+			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), util.GobEncode(prev)); err != nil {
 				return err
 			}
 		} else if idx == next {
-			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), steps[gIdx+1]); err != nil {
+			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), util.GobEncode(steps[gIdx+1])); err != nil {
 				return err
 			}
 			gIdx++

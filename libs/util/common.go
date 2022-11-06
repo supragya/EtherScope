@@ -1,8 +1,10 @@
 package util
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/gob"
 	"fmt"
 	"math"
 	"math/big"
@@ -213,4 +215,19 @@ func HasSufficientData(l types.Log,
 	requiredTopicLen int,
 	requiredDataLen int) bool {
 	return len(l.Topics) == requiredTopicLen && len(l.Data) == requiredDataLen
+}
+
+func GobEncode(item interface{}) []byte {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(item)
+	if err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
+func GobDecode(buf []byte, item interface{}) error {
+	dec := gob.NewDecoder(bytes.NewBuffer(buf))
+	return dec.Decode(item)
 }

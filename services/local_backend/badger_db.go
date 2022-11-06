@@ -42,6 +42,7 @@ type BadgerDBLocalBackendImpl struct {
 	log        logger.Logger
 	dbLocation string
 	namespace  string
+	inMem      map[string][]byte
 	db         *badger.DB
 }
 
@@ -71,10 +72,13 @@ func (n *BadgerDBLocalBackendImpl) OnStop() {
 }
 
 func (n *BadgerDBLocalBackendImpl) Get(key string) ([]byte, bool, error) {
+	queryKey := fmt.Sprintf("%s::%s", n.namespace, key)
+	if val, ok := n.inMem[queryKey]; ok {
+		return val, true, nil
+	}
 	value := []byte{}
 	err := n.db.View(func(txn *badger.Txn) error {
-		queryKey := []byte(fmt.Sprintf("%s::%s", n.namespace, key))
-		item, err := txn.Get(queryKey)
+		item, err := txn.Get([]byte(queryKey))
 		if err != nil {
 			return err
 		}
@@ -90,12 +94,45 @@ func (n *BadgerDBLocalBackendImpl) Get(key string) ([]byte, bool, error) {
 	return value, true, err
 }
 
-func (n *BadgerDBLocalBackendImpl) Set(key string, val interface{}) error {
+func (n *BadgerDBLocalBackendImpl) Set(key string, val []byte) error {
+	queryKey := fmt.Sprintf("%s::%s", n.namespace, key)
+	n.inMem[queryKey] = val
 	return nil
 }
 
 func (n *BadgerDBLocalBackendImpl) Sync() error {
-	return nil
+	// Start a writable transaction.
+	txn := n.db.NewTransaction(true)
+
+	// Use the transaction...
+	var err error
+	for key, val := range n.inMem {
+		err = txn.Set([]byte(key), val)
+		if err == badger.ErrTxnTooBig {
+			err = txn.Commit()
+			if err != nil {
+				n.log.Warn("too big a transaction, splitting into multiple")
+				return err
+			}
+			txn = n.db.NewTransaction(true)
+			err = txn.Set([]byte(key), val)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	err = txn.Commit()
+	if err != nil {
+		n.log.Error("transaction commit failed", "error", err)
+		return err
+	}
+
+	// Very important step apparently
+	txn.Discard()
+
+	n.inMem = make(map[string][]byte, 10000)
+
+	return n.db.Sync()
 }
 
 func NewBadgerDBWithViperFields(log logger.Logger) (LocalBackend, error) {
@@ -111,6 +148,7 @@ func NewBadgerDBWithViperFields(log logger.Logger) (LocalBackend, error) {
 		log:        log,
 		dbLocation: viper.GetString(BadgerCFGSection + ".dbLocation"),
 		namespace:  viper.GetString(BadgerCFGSection + ".namespace"),
+		inMem:      make(map[string][]byte, 10000),
 		db:         nil,
 	}
 	lb.BaseService = *service.NewBaseService(log, "localbackend", lb)

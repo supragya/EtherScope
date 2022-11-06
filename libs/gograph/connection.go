@@ -4,7 +4,7 @@ package gograph
 // weights defined by W with metadata hinted by H
 // and provided by M
 type WeightedEdge[V comparable, W comparable, H any, M any] struct {
-	isReverseEdge bool
+	IsReverseEdge bool
 	VertexFrom    V
 	VertexTo      V
 	Weight        W
@@ -39,7 +39,7 @@ func (s *Connections[V, W, H, M]) Exists(vertex V) bool {
 func (s *Connections[V, W, H, M]) AddWeightedEdge(vertexFrom V, vertexTo V,
 	edgeWeight W, hint H, metadata M, isReverseEdge bool) *Connections[V, W, H, M] {
 	edge := WeightedEdge[V, W, H, M]{
-		isReverseEdge: isReverseEdge,
+		IsReverseEdge: isReverseEdge,
 		VertexFrom:    vertexFrom,
 		VertexTo:      vertexTo,
 		Weight:        edgeWeight,
