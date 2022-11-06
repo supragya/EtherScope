@@ -4,8 +4,8 @@ import (
 	"encoding/csv"
 	"log"
 	"os"
+	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -39,6 +39,15 @@ type DexRecord struct {
 }
 
 func loadDexCSV(filePath string) (DexRecords, error) {
+	recs, err := loadDexCSVi(filePath)
+	if err != nil {
+		return DexRecords{}, err
+	}
+	sort.Sort(recs)
+	return recs, nil
+}
+
+func loadDexCSVi(filePath string) (DexRecords, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		log.Fatal("Unable to read input file "+filePath, err)
@@ -54,16 +63,16 @@ func loadDexCSV(filePath string) (DexRecords, error) {
 	resDexRecords := []DexRecord{}
 
 	for _, rec := range DexRecords[1:] {
-		startBlock, err := strconv.Atoi(strings.Split(rec[4], "-")[0])
+		startBlock, err := strconv.Atoi(rec[4])
 		if err != nil {
 			panic(err)
 		}
 		DexRecord := DexRecord{
-			Pair:       common.HexToAddress(strings.Split(rec[0], "-")[0]),
-			Token0:     common.HexToAddress(strings.Split(rec[1], "-")[0]),
-			Token1:     common.HexToAddress(strings.Split(rec[2], "-")[0]),
+			Pair:       common.HexToAddress(rec[0]),
+			Token0:     common.HexToAddress(rec[1]),
+			Token1:     common.HexToAddress(rec[2]),
 			StartBlock: int64(startBlock),
-			Exchange:   common.HexToAddress(strings.Split(rec[6], "-")[0]),
+			Exchange:   common.HexToAddress(rec[6]),
 		}
 		resDexRecords = append(resDexRecords, DexRecord)
 	}

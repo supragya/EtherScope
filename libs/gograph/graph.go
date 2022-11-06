@@ -2,164 +2,85 @@ package gograph
 
 import (
 	"errors"
-	"math"
-	"os"
-
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
-	"github.com/alecthomas/binary"
 )
 
-type Graph[K comparable, V any] struct {
-	IsBidirectional      bool                                `json:"IsBidrectional"`
-	Vertices             map[K]Connections[K, uint64, V]     `json:"Vertices"`
-	VertexCount          int                                 `json:"VertexCount"`
-	EdgeCount            int                                 `json:"EdgeCount"`
-	AllPairShortestPaths map[itypes.Tuple2[K, K]]Route[K, V] `json:"AllPairShortestPath"`
+// A Graph is connects vertices of type V with edges weighted by
+// W, with metadata hinted by H and provided by M
+type Graph[V comparable, W comparable, H any, M any] struct {
+	isBidirectional bool                          `json:"IsBidrectional"`
+	graph           map[V]Connections[V, W, H, M] `json:"Graph"`
+	vertexCount     int                           `json:"VertexCount"`
+	edgeCount       int                           `json:"EdgeCount"`
 }
 
 var (
 	ErrEdgeExists = errors.New("edge exists between given vertices")
 )
 
-func NewGraphStringUintString(bidirectional bool) *Graph[string, string] {
-	return &Graph[string, string]{
-		IsBidirectional:      bidirectional,
-		Vertices:             make(map[string]Connections[string, uint64, string]),
-		VertexCount:          0,
-		EdgeCount:            0,
-		AllPairShortestPaths: nil,
+// Creates a new graph with vertices of type V with edges weighted by
+// W, with metadata hinted by H and provided by M
+func NewGraph[V comparable, W comparable, H any, M any](isBidirectional bool) *Graph[V, W, H, M] {
+	return &Graph[V, W, H, M]{
+		isBidirectional: isBidirectional,
+		graph:           make(map[V]Connections[V, W, H, M]),
+		vertexCount:     0,
+		edgeCount:       0,
 	}
 }
 
-func (g *Graph[K, V]) ensureVertexAvailable(vertex K) {
-	_, isAvailable := g.Vertices[vertex]
+// Creates a new graph with by deep copy
+func CopyGraph[V comparable, W comparable, H any, M any](src *Graph[V, W, H, M]) *Graph[V, W, H, M] {
+	newGraph := make(map[V]Connections[V, W, H, M], len(src.graph))
+	for vertexFrom, connections := range src.graph {
+		newGraph[vertexFrom] = CopyConnections(connections)
+	}
+	return &Graph[V, W, H, M]{
+		isBidirectional: src.isBidirectional,
+		graph:           newGraph,
+		vertexCount:     src.vertexCount,
+		edgeCount:       src.edgeCount,
+	}
+}
+
+func (g *Graph[V, W, H, M]) ensureVertexAvailable(vertex V) {
+	_, isAvailable := g.graph[vertex]
 	if !isAvailable {
-		g.Vertices[vertex] = make(Connections[K, uint64, V])
-		g.VertexCount++
+		g.graph[vertex] = make(Connections[V, W, H, M])
+		g.vertexCount++
 	}
 }
 
-func (g *Graph[K, V]) GetConnectedVertices(vertex K) Connections[K, uint64, V] {
+// Get map of connected edges to vertex
+func (g *Graph[V, W, H, M]) GetConnectedVertices(vertex V) Connections[V, W, H, M] {
 	g.ensureVertexAvailable(vertex)
-	connectedVertices := g.Vertices[vertex]
+	connectedVertices := g.graph[vertex]
 	return connectedVertices
 }
 
-func (g *Graph[K, V]) AddEdge(from K, to K, weight uint64, edge V) error {
-	cFrom := g.GetConnectedVertices(from)
-	cTo := g.GetConnectedVertices(to)
+func (g *Graph[V, W, H, M]) AddWeightedEdge(vertexFrom V, vertexTo V,
+	edgeWeight W, hint H, metadata M) error {
+	cFrom := g.GetConnectedVertices(vertexFrom)
+	cTo := g.GetConnectedVertices(vertexTo)
 
-	if cFrom.Exists(to) || cTo.Exists(from) {
+	if cFrom.Exists(vertexTo) || cTo.Exists(vertexFrom) {
 		return ErrEdgeExists
 	}
 
-	g.Vertices[from] = *cFrom.Added(to, weight, edge)
-	if g.IsBidirectional {
-		g.Vertices[to] = *cTo.Added(from, weight, edge)
-	}
+	g.graph[vertexFrom] = *cFrom.AddWeightedEdge(vertexFrom, vertexTo, edgeWeight, hint, metadata, false)
+	g.edgeCount++
 
-	g.EdgeCount++
+	if g.isBidirectional {
+		g.graph[vertexTo] = *cTo.AddWeightedEdge(vertexTo, vertexFrom, edgeWeight, hint, metadata, true)
+		g.edgeCount++
+	}
 
 	return nil
 }
 
-func (g *Graph[K, V]) GetVertexCount() int {
-	return g.VertexCount
+func (g *Graph[V, W, H, M]) GetVertexCount() int {
+	return g.vertexCount
 }
 
-func (g *Graph[K, V]) GetEdgeCount() int {
-	return g.EdgeCount
-}
-
-func (g *Graph[K, V]) CalculateAllPairShortestPath() {
-	if g.AllPairShortestPaths != nil {
-		// Already calculated, available in cache
-		return
-	}
-
-	// Create a map
-	routeMap := make(map[itypes.Tuple2[K, K]]Route[K, V],
-		g.GetVertexCount()*g.GetVertexCount())
-
-	for from, connections := range g.Vertices {
-		for to := range g.Vertices {
-			if connections.Exists(to) {
-				weightedEdge := connections[to]
-				routeMap[itypes.Tuple2[K, K]{from, to}] = Route[K, V]{
-					Vertices: []K{from, to},
-					Edges:    []WeightedEdge[uint64, V]{weightedEdge},
-					Distance: weightedEdge.Weight,
-				}
-				continue
-			}
-			routeMap[itypes.Tuple2[K, K]{from, to}] = Route[K, V]{
-				Vertices: []K{from, to},
-				Edges:    []WeightedEdge[uint64, V]{},
-				Distance: math.MaxUint64,
-			}
-		}
-	}
-
-	for intermediate := range g.Vertices {
-		for from := range g.Vertices {
-			for to := range g.Vertices {
-				var (
-					routeFI = routeMap[itypes.Tuple2[K, K]{from, intermediate}]
-					distFI  = routeFI.Distance
-					routeIT = routeMap[itypes.Tuple2[K, K]{intermediate, to}]
-					distIT  = routeIT.Distance
-					distFT  = routeMap[itypes.Tuple2[K, K]{from, to}].Distance
-
-					isValidIntermediate = (distFI != math.MaxUint64) && (distIT != math.MaxUint64)
-					isDetourBetter      = distFT > (distFI + distIT)
-				)
-
-				if isValidIntermediate && isDetourBetter {
-					err := routeFI.AppendRoute(&routeIT)
-					if err != nil {
-						panic(err)
-					}
-					routeMap[itypes.Tuple2[K, K]{from, to}] = routeFI // includes appended route to To
-				}
-			}
-		}
-	}
-
-	g.AllPairShortestPaths = routeMap
-}
-
-func (g *Graph[K, V]) GetShortestRoute(from K, to K) Route[K, V] {
-	g.CalculateAllPairShortestPath()
-	route := g.AllPairShortestPaths[itypes.Tuple2[K, K]{from, to}]
-	return route
-}
-
-func (g *Graph[K, V]) SaveToDisk(fileLocation string) error {
-	g.CalculateAllPairShortestPath()
-
-	fo, err := os.Create(fileLocation)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := fo.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	bin, err := binary.Marshal(g)
-	if err != nil {
-		return err
-	}
-	_, err = fo.Write(bin)
-	return err
-}
-
-func (g *Graph[K, V]) ReadFromDisk(fileLocation string) error {
-	dat, err := os.ReadFile(fileLocation)
-	if err != nil {
-		return err
-	}
-
-	return binary.Unmarshal(dat, g)
+func (g *Graph[V, W, H, M]) GetEdgeCount() int {
+	return g.edgeCount
 }

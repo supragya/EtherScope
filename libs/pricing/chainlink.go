@@ -4,8 +4,8 @@ import (
 	"encoding/csv"
 	"log"
 	"os"
+	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -31,14 +31,26 @@ func (r ChainlinkRecords) Swap(i, j int) {
 }
 
 type ChainlinkRecord struct {
-	Pair       common.Address
-	Token0     common.Address
-	Token1     common.Address
+	From       common.Address
+	To         common.Address
+	Oracle     common.Address
 	StartBlock int64
-	Exchange   common.Address
 }
 
+var (
+	USDTokenID = common.HexToAddress("0xffffffffffffffffffffffffffffffffffffffff")
+)
+
 func loadChainlinkCSV(filePath string) (ChainlinkRecords, error) {
+	recs, err := loadChainlinkCSVi(filePath)
+	if err != nil {
+		return ChainlinkRecords{}, err
+	}
+	sort.Sort(recs)
+	return recs, nil
+}
+
+func loadChainlinkCSVi(filePath string) (ChainlinkRecords, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		log.Fatal("Unable to read input file "+filePath, err)
@@ -54,16 +66,18 @@ func loadChainlinkCSV(filePath string) (ChainlinkRecords, error) {
 	resChainlinkRecords := []ChainlinkRecord{}
 
 	for _, rec := range ChainlinkRecords[1:] {
-		startBlock, err := strconv.Atoi(strings.Split(rec[4], "-")[0])
+		startBlock, err := strconv.Atoi(rec[3])
 		if err != nil {
 			panic(err)
 		}
+		if rec[1] == "USD" {
+			rec[1] = "0xffffffffffffffffffffffffffffffffffffffff"
+		}
 		ChainlinkRecord := ChainlinkRecord{
-			Pair:       common.HexToAddress(strings.Split(rec[0], "-")[0]),
-			Token0:     common.HexToAddress(strings.Split(rec[1], "-")[0]),
-			Token1:     common.HexToAddress(strings.Split(rec[2], "-")[0]),
+			From:       common.HexToAddress(rec[0]),
+			To:         common.HexToAddress(rec[1]),
+			Oracle:     common.HexToAddress(rec[2]),
 			StartBlock: int64(startBlock),
-			Exchange:   common.HexToAddress(strings.Split(rec[6], "-")[0]),
 		}
 		resChainlinkRecords = append(resChainlinkRecords, ChainlinkRecord)
 	}

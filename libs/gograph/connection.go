@@ -1,25 +1,57 @@
 package gograph
 
-type WeightedEdge[W comparable, V any] struct {
-	Weight   W
-	Metadata V
+// A weightedEdge connects vertices of type V with
+// weights defined by W with metadata hinted by H
+// and provided by M
+type WeightedEdge[V comparable, W comparable, H any, M any] struct {
+	isReverseEdge bool
+	VertexFrom    V
+	VertexTo      V
+	Weight        W
+	Hint          H
+	Metadata      M
 }
-type Connections[K comparable, W comparable, V any] map[K]WeightedEdge[W, V]
 
-func (s *Connections[K, W, V]) Exists(item K) bool {
+// Connections is set of weighted edges for any source
+// vertex already contrained. All weighted edges in a
+// particular "Connections" will always have VertexFrom
+// A weightedEdge connects vertices of type V with
+// weights defined by W with metadata hinted by H
+// and provided by M
+type Connections[V, W comparable, H, M any] map[V]WeightedEdge[V, W, H, M]
+
+func CopyConnections[V, W comparable, H, M any](src Connections[V, W, H, M]) Connections[V, W, H, M] {
+	newConnections := make(Connections[V, W, H, M], len(src))
+	for vertexTo, edge := range src {
+		newConnections[vertexTo] = edge
+	}
+	return newConnections
+}
+
+func (s *Connections[V, W, H, M]) Exists(vertex V) bool {
 	if s == nil {
 		return false
 	}
-	_, exists := (*s)[item]
+	_, exists := (*s)[vertex]
 	return exists
 }
 
-func (s *Connections[K, W, V]) Added(item K, weight W, edge V) *Connections[K, W, V] {
+func (s *Connections[V, W, H, M]) AddWeightedEdge(vertexFrom V, vertexTo V,
+	edgeWeight W, hint H, metadata M, isReverseEdge bool) *Connections[V, W, H, M] {
+	edge := WeightedEdge[V, W, H, M]{
+		isReverseEdge: isReverseEdge,
+		VertexFrom:    vertexFrom,
+		VertexTo:      vertexTo,
+		Weight:        edgeWeight,
+		Hint:          hint,
+		Metadata:      metadata,
+	}
+
 	if s == nil {
-		sNew := make(Connections[K, W, V])
-		sNew[item] = WeightedEdge[W, V]{weight, edge}
+		sNew := make(Connections[V, W, H, M])
+		sNew[vertexTo] = edge
 		return &sNew
 	}
-	(*s)[item] = WeightedEdge[W, V]{weight, edge}
+	(*s)[vertexTo] = edge
 	return s
 }
