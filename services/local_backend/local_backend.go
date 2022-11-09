@@ -13,6 +13,9 @@ type LocalBackend interface {
 }
 
 const (
+	// Provides a uint64 of latest height
+	KeyLatestHeight = "lh"
+
 	// Provides a tuple containing latest pricing graph
 	// height and graph definition
 	KeyLatestPricingGraph = "lapg"

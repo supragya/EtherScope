@@ -3,6 +3,8 @@ package priceresolver
 import (
 	"fmt"
 	"math"
+	"math/big"
+	"sync"
 	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/gograph"
@@ -11,6 +13,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
 	lb "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -51,40 +54,58 @@ func NewDefaultEngine(log logger.Logger,
 }
 
 func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) error {
-	// Check if we even have latest graph to update
-	// and price using that
-	if n.lastHeight+1 != resHeight {
-		// Check what height localBackend has stored
-		_, ok, err := n.LocalBackend.Get(lb.KeyLatestPricingGraph)
+	// fetch the graph in question
+PRICING_GRAPH_FETCH:
+	lbLatestHeight, ok, err := n.LocalBackend.Get(lb.KeyLatestHeight)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		// This means localbackend does not know any graph
+		// just yet. Go through dumps
+		n.log.Warn("no pricingGraph found in localbackend. reading dump files and syncing")
+		err := n.syncDump(resHeight)
 		if err != nil {
 			return err
 		}
-		if !ok {
-			// This means localbackend does not know any graph
-			// just yet. Go through dumps
-			n.log.Warn("no pricingGraph found in localbackend. reading dump files")
-			_, err := n.syncDump(resHeight)
-			if err != nil {
-				return err
-			}
-		}
+		goto PRICING_GRAPH_FETCH
 	}
 
-	// We know for certain at this point,
-	// n.lastGraph is not nil and
-	// n.lastHeight + 1 == resHeight
+	// ensure lbLatestHeight is less than resHeight
+	var lbLatestHeightUint64 uint64
+	if err := util.GobDecode(lbLatestHeight, &lbLatestHeightUint64); err != nil {
+		n.log.Fatal(fmt.Sprintf("wrong latest height encoding: %s", err))
+	}
+	if resHeight < lbLatestHeightUint64 {
+		return fmt.Errorf("requested resolution for %d while lb already has %d",
+			resHeight,
+			lbLatestHeightUint64)
+	}
+
+	// Get the graph
+	graph := gograph.NewGraph[common.Address, int64, string, interface{}](true)
+	lbLatestGraph, ok, err := n.LocalBackend.Get(lb.KeyLatestPricingGraph)
+	if err := util.GobDecode(lbLatestGraph, graph); err != nil {
+		return err
+	}
+
+	return n.resolvei(graph, items)
+}
+
+func (n *Engine) resolvei(graph *gg, items *[]interface{}) error {
+	n.log.Info("found resolvei")
 	return nil
 }
 
-func (n *Engine) syncDump(resHeight uint64) (*gg, error) {
+func (n *Engine) syncDump(resHeight uint64) error {
 	n.log.Info("undertaking sync dump")
 	chainlinkRecords, err := loadChainlinkCSV(n.chainlinkOraclesDumpFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	dexRecords, err := loadDexCSV(n.dexDumpFile)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	n.log.Info("read dump file done, loaded chainlink and dexes in memory",
@@ -93,181 +114,115 @@ func (n *Engine) syncDump(resHeight uint64) (*gg, error) {
 
 	n.log.Info("generating step graphs to backfill in DB. This may take a while")
 	startTime := time.Now()
-	graphSteps := genGraphSteps(chainlinkRecords, dexRecords)
+	graph := n.genGraph(chainlinkRecords, dexRecords, resHeight)
 	genTime := time.Since(startTime)
 	n.log.Info("graph gen step completed",
-		"steps", len(graphSteps),
+		"edges", graph.GetEdgeCount(),
+		"vert", graph.GetVertexCount(),
 		"_time", genTime)
 
-	gHeight := graphSteps[len(graphSteps)-1].First
-	gGraph := graphSteps[len(graphSteps)-1].Second
-
-	idx := len(graphSteps) - 1
-	for idx > 0 && gHeight > resHeight {
-		idx--
-		gHeight = graphSteps[idx].First
-		gGraph = graphSteps[idx].Second
-	}
-
-	n.log.Info("syncing step graphs to backfill in DB")
-	err = n.syncGraphStepsToLB(graphSteps)
+	n.log.Info("syncing step to backfill in DB")
+	err = n.syncGraphToLB(graph, resHeight)
 	if err != nil {
-		return nil, err
-	}
-
-	n.log.Info("first run syncing complete")
-	return gGraph, nil
-}
-
-func (n *Engine) syncGraphStepsToLB(steps []ggt) error {
-	ggtLen := len(steps)
-	if ggtLen == 0 {
-		return nil
-	}
-
-	lowestHeight := steps[0].First
-	highestHeight := steps[ggtLen-1].First
-
-	if err := n.LocalBackend.Set(lb.KeyLowestPricingHeight, util.GobEncode(lowestHeight)); err != nil {
 		return err
 	}
 
-	n.log.Info("begin encoding for database storage")
-	stride := 10000
-	strideIdx := 1
-	gIdx := 0
-	for idx := lowestHeight; idx <= highestHeight; idx++ {
-		prev := steps[gIdx].First
-		next := uint64(math.MaxUint64)
+	n.log.Info("first run syncing complete")
+	return nil
+}
 
-		if gIdx != ggtLen-1 {
-			next = steps[gIdx+1].First
-		}
-		if idx == prev {
-			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), util.GobEncode(steps[gIdx])); err != nil {
-				return err
-			}
-		} else if prev < idx && idx < next {
-			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), util.GobEncode(prev)); err != nil {
-				return err
-			}
-		} else if idx == next {
-			if err := n.LocalBackend.Set(lb.KeyGraphPrefix+fmt.Sprint(idx), util.GobEncode(steps[gIdx+1])); err != nil {
-				return err
-			}
-			gIdx++
-		}
-
-		strideIdx++
-		if strideIdx%stride == 0 {
-			n.log.Info("syncing a stride", "low", lowestHeight, "curr", idx, "high", highestHeight)
-			if err := n.LocalBackend.Sync(); err != nil {
-				return err
-			}
-			strideIdx = 1
-		}
+func (n *Engine) syncGraphToLB(graph *gg, height uint64) error {
+	if err := n.LocalBackend.Set(lb.KeyLatestHeight, util.GobEncode(height)); err != nil {
+		return err
+	}
+	if err := n.LocalBackend.Set(lb.KeyLatestPricingGraph, util.GobEncode(graph)); err != nil {
+		return err
 	}
 
 	n.log.Info("final syncing to disk")
 	return n.LocalBackend.Sync()
 }
 
-// generates independent graphs for blocks where
+// generates graphs for blocks where
 // new chainlink oracles came alive or dex pools were
 // made. Ideally the steps should be sparse enough
 // (not every block has dex creation or oracle setup)
 // to justify memory footprint.
-func genGraphSteps(chainlinkRecords ChainlinkRecords,
-	dexRecords DexRecords) []ggt {
-	var (
-		crec          *ChainlinkRecord = nil
-		drec          *DexRecord       = nil
-		cidx, clen    int              = 0, chainlinkRecords.Len()
-		didx, dlen    int              = 0, dexRecords.Len()
-		steps                          = []ggt{}
-		runningHeight uint64           = 0
-		runningGraph                   = gograph.NewGraph[common.Address, int64, string, interface{}](true)
-	)
+func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
+	dexRecords DexRecords, height uint64) *gg {
+	var runningGraph = gograph.NewGraph[common.Address, int64, string, interface{}](true)
+	callopts := bind.CallOpts{BlockNumber: big.NewInt(int64(height))}
 
-	for {
-		crec, drec = nil, nil
+	mut := sync.Mutex{}
 
-		if cidx < clen {
-			crec = &chainlinkRecords[cidx]
-		}
-		if didx < dlen {
-			drec = &dexRecords[didx]
-		}
-
-		// At this point, cidx and crec are index and pointer to
-		// chainlink record candidate and didx and dlen and drec
-		// are dex record candidate
-		var (
-			candidateStartBlock int64 = -1
-			edgeToAdd                 = we{}
-		)
-
-		if crec != nil {
-			candidateStartBlock = crec.StartBlock
-			edgeToAdd = we{
-				VertexFrom: crec.From,
-				VertexTo:   crec.To,
-				Weight:     9223372036854775807, // Max int64
-				Hint:       "chainlink",
-				Metadata:   crec.Oracle,
-			}
-			cidx++
-		}
-		if drec != nil && candidateStartBlock > drec.StartBlock {
-			if candidateStartBlock != -1 {
-				cidx--
-			}
-			candidateStartBlock = drec.StartBlock
-			edgeToAdd = we{
-				VertexFrom: drec.Token0,
-				VertexTo:   drec.Token1,
-				Weight:     1, // to fetch
-				Hint:       "dex",
-				Metadata:   drec.Pair,
-			}
-			didx++
-		}
-
-		// At this point, either candidateStartBlock == -1 which means
-		// there is no candidate to add (both chainlink edges and dex edges
-		// have been exhaused) or candidateBlock != -1 (positive) so, we need to add
-		// an edge to appropriate graph
-		if candidateStartBlock == -1 {
-			// All done
+	n.log.Info("syncing info for chainlink records")
+	for _, rec := range chainlinkRecords {
+		if uint64(rec.StartBlock) > height {
 			break
 		}
-
-		if candidateStartBlock < 0 {
-			panic(fmt.Sprintf("candiateStartBlock(%v) lower than 0", candidateStartBlock))
-		}
-
-		csb := uint64(candidateStartBlock)
-
-		if csb < runningHeight {
-			panic(fmt.Sprintf("candidateStartBlock(%v) lower than runningHeight(%v). Are the stacks not sorted?",
-				candidateStartBlock, runningHeight))
-		}
-
-		if csb > runningHeight {
-			if runningHeight != 0 {
-				// fmt.Printf("found new height %d, concretizing %d, crec: %+v drec: %+v \n", csb, runningHeight, crec, drec)
-				steps = append(steps, ggt{runningHeight, runningGraph})
-				runningGraph = gograph.CopyGraph(runningGraph)
+		go func() {
+			oracleMetadata, err := n.EthRPC.GetChainlinkRoundData(rec.Oracle, &callopts)
+			if err != nil {
+				n.log.Fatal("cannot retrieve metadata for cl oracle, skipping",
+					"oracle", rec.Oracle,
+					"height", height)
 			}
-			runningHeight = csb
-		}
-
-		runningGraph.AddWeightedEdge(edgeToAdd.VertexFrom,
-			edgeToAdd.VertexTo,
-			edgeToAdd.Weight,
-			edgeToAdd.Hint,
-			edgeToAdd.Metadata)
+			mut.Lock()
+			defer mut.Unlock()
+			runningGraph.AddWeightedEdge(rec.From,
+				rec.To,
+				math.MaxInt64,
+				"chainlink",
+				oracleMetadata)
+		}()
 	}
 
-	return steps
+	n.log.Info("syncing info for dex records")
+	for _, rec := range dexRecords {
+		if uint64(rec.StartBlock) > height {
+			break
+		}
+		go func() {
+			t0, t1, err := n.EthRPC.GetTokensUniV2(rec.Pair, &callopts)
+			if err != nil {
+				n.log.Warn("not a univ2 pair, skipping",
+					"pair", rec.Pair)
+				return
+			}
+			if t0 != rec.Token0 {
+				n.log.Warn("token side 0 mismatch, skipping", "pair", rec.Pair, "claimed", rec.Token0, "rpct0", t0, "rpct1", t1)
+				return
+			}
+			if t1 != rec.Token1 {
+				n.log.Warn("token side 1 mismatch, skipping", "pair", rec.Pair, "claimed", rec.Token1, "rpct0", t0, "rpct1", t1)
+				return
+			}
+			res0, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
+				{rec.Pair, t0}, {rec.Pair, t1},
+			}, &callopts)
+			if err != nil {
+				n.log.Warn("cannot retrieve balances for pool", "pair", rec.Pair)
+				return
+			}
+			if len(res0) != 2 {
+				panic(len(res0))
+			}
+
+			mut.Lock()
+			defer mut.Unlock()
+			runningGraph.AddWeightedEdge(rec.Token0,
+				rec.Token1,
+				1, // fetch
+				"dex",
+				UniV2Metadata{res0[0], res0[1]})
+		}()
+
+	}
+
+	return runningGraph
+}
+
+type UniV2Metadata struct {
+	Amt0 *big.Int
+	Amt1 *big.Int
 }

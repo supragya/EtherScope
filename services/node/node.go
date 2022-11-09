@@ -2,8 +2,11 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"net/http"
 	"runtime"
 	"strings"
 	"sync"
@@ -131,7 +134,7 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 
 	// TODO: Do height syncup using both LocalBackend and remote http
 	// startHeight, err := n.getResumeHeight()
-	n.indexedHeight = n.startBlock
+	n.indexedHeight = n.syncStartHeight()
 
 	// Loop for impl
 	go n.loop()
@@ -392,6 +395,72 @@ func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items *[]interface{}) *P
 		BlockSynopsis: bs,
 		Items:         nonNilUserItems,
 	}
+}
+
+func (n *NodeImpl) syncStartHeight() uint64 {
+	// start by assuming cfg height is correct
+	startBlock := n.startBlock
+	var lbLatestHeightUint64 uint64
+
+	// Check localBackend
+	if !n.skipResumeLocal {
+		lbLatestHeight, ok, err := n.LocalBackend.Get(lb.KeyLatestHeight)
+		if err != nil {
+			n.log.Fatal(fmt.Sprintf("error while fetching latest height from localbackend: %v", err))
+		}
+		if !ok {
+			n.log.Warn("local backend does not have record for latest height, assuming new LB")
+		} else {
+			if err := util.GobDecode(lbLatestHeight, &lbLatestHeightUint64); err != nil {
+				n.log.Fatal(fmt.Sprintf("wrong latest height encoding: %s", err))
+			}
+			if lbLatestHeightUint64 > startBlock {
+				n.log.Warn(fmt.Sprintf("local backend reports latest height as %v but config requested %v. overriding config",
+					lbLatestHeightUint64,
+					n.startBlock))
+				startBlock = lbLatestHeightUint64
+			}
+		}
+	}
+
+	// Check resume URL
+	if !n.skipResumeRemote {
+		remoteLatestHeight, err := n.getRemoteLatestheight()
+		if err != nil {
+			n.log.Fatal(fmt.Sprintf("error while fetching latest height from remote: %v", err))
+		}
+		if remoteLatestHeight < startBlock {
+			n.log.Fatal(fmt.Sprintf("remote reports latest height as %v but either cfg start height or localBackend height disallows this", remoteLatestHeight),
+				"cfg start", n.startBlock,
+				"lb latest", lbLatestHeightUint64)
+		}
+		if remoteLatestHeight > startBlock {
+			startBlock = remoteLatestHeight
+		}
+	}
+
+	n.log.Info("start block height set", "start", startBlock)
+	return startBlock
+}
+
+func (n *NodeImpl) getRemoteLatestheight() (uint64, error) {
+	resp, err := http.Get(n.remoteResumeURL)
+	if err != nil {
+		return 0, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	var responseObject itypes.ResumeAPIResponse
+	if err := json.Unmarshal(body, &responseObject); err != nil {
+		return 0, err
+	}
+
+	n.log.Info("resuming from block height (via API response): ", responseObject.Data.Height)
+	return responseObject.Data.Height, nil
 }
 
 // Creates a new node service with spf13/viper fields (yaml)

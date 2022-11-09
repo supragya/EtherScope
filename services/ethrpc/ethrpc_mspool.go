@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/ERC20"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/chainlink"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ2pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ3pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ3positionsnft"
@@ -393,4 +394,18 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV3NFT(nftContract common.Address, tokenID
 	n.cacheContractTokens.Add(lookupKey, tokens)
 	return tokens.First, tokens.Second, nil
 
+}
+
+func (n *MSPoolEthRPCImpl) GetChainlinkRoundData(
+	contractAddress common.Address, callopts *bind.CallOpts) (itypes.ChainlinkLatestRoundData, error) {
+	roundData, err := Do(n.pool,
+		func(ctx context.Context, c *ethclient.Client) (itypes.ChainlinkLatestRoundData, error) {
+			oracle, err := chainlink.NewChainlink(contractAddress, c)
+			if err != nil {
+				return itypes.ChainlinkLatestRoundData{}, err
+			}
+			callopts.Context = ctx
+			return oracle.LatestRoundData(callopts)
+		}, itypes.ChainlinkLatestRoundData{})
+	return roundData, err
 }

@@ -98,7 +98,7 @@ func (n *BadgerDBLocalBackendImpl) Get(key string) ([]byte, bool, error) {
 		if err != nil {
 			return err
 		}
-		_, err = item.ValueCopy(value)
+		value, err = item.ValueCopy(value)
 		if err != nil {
 			return err
 		}
@@ -115,6 +115,9 @@ func (n *BadgerDBLocalBackendImpl) Set(key string, val []byte) error {
 	defer n.lock.Unlock()
 
 	queryKey := fmt.Sprintf("%s::%s", n.namespace, key)
+	// if len(val) < 20 {
+	// 	n.log.Info("set", queryKey, val)
+	// }
 	n.inMem[queryKey] = val
 	return nil
 }
@@ -138,6 +141,7 @@ func (n *BadgerDBLocalBackendImpl) Sync() error {
 
 	// multiple sync call protection
 	if len(n.inMem) == 0 {
+		// n.log.Info("multiple sync call protection")
 		return nil
 	}
 
@@ -150,6 +154,7 @@ func (n *BadgerDBLocalBackendImpl) Sync() error {
 	for key, val := range n.inMem {
 		err = txn.Set([]byte(key), val)
 		if err == badger.ErrTxnTooBig {
+			n.log.Info("too big of a transaction, splitting")
 			err = txn.Commit()
 			if err != nil {
 				n.log.Warn("too big a transaction, splitting into multiple")
@@ -170,7 +175,7 @@ func (n *BadgerDBLocalBackendImpl) Sync() error {
 	}
 
 	// Very important step apparently
-	txn.Discard()
+	// txn.Discard()
 
 	err = n.db.Sync()
 	if err != nil {
