@@ -112,7 +112,6 @@ func (n *Engine) syncDump(resHeight uint64) error {
 		"chainlinkrec", len(chainlinkRecords),
 		"dexrec", len(dexRecords))
 
-	n.log.Info("generating step graphs to backfill in DB. This may take a while")
 	startTime := time.Now()
 	graph := n.genGraph(chainlinkRecords, dexRecords, resHeight)
 	genTime := time.Since(startTime)
@@ -153,14 +152,19 @@ func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
 	var runningGraph = gograph.NewGraph[common.Address, int64, string, interface{}](true)
 	callopts := bind.CallOpts{BlockNumber: big.NewInt(int64(height))}
 
+	maxCnt := 100
 	mut := sync.Mutex{}
 
 	n.log.Info("syncing info for chainlink records")
-	for _, rec := range chainlinkRecords {
-		if uint64(rec.StartBlock) > height {
+	wg := sync.WaitGroup{}
+
+	for _, _rec := range chainlinkRecords {
+		if uint64(_rec.StartBlock) > height {
 			break
 		}
-		go func() {
+		wg.Add(1)
+		go func(rec ChainlinkRecord) {
+			defer wg.Done()
 			oracleMetadata, err := n.EthRPC.GetChainlinkRoundData(rec.Oracle, &callopts)
 			if err != nil {
 				n.log.Fatal("cannot retrieve metadata for cl oracle, skipping",
@@ -174,27 +178,37 @@ func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
 				math.MaxInt64,
 				"chainlink",
 				oracleMetadata)
-		}()
+		}(_rec)
 	}
+	wg.Wait()
+	n.log.Info("syncing info for chainlink records", "edges", runningGraph.GetEdgeCount())
 
 	n.log.Info("syncing info for dex records")
-	for _, rec := range dexRecords {
-		if uint64(rec.StartBlock) > height {
+	for _, _rec := range dexRecords {
+		maxCnt--
+		if maxCnt == 0 {
 			break
 		}
-		go func() {
+		if uint64(_rec.StartBlock) > height {
+			break
+		}
+		wg.Add(1)
+		go func(rec DexRecord) {
+			defer wg.Done()
 			t0, t1, err := n.EthRPC.GetTokensUniV2(rec.Pair, &callopts)
 			if err != nil {
 				n.log.Warn("not a univ2 pair, skipping",
 					"pair", rec.Pair)
 				return
 			}
-			if t0 != rec.Token0 {
-				n.log.Warn("token side 0 mismatch, skipping", "pair", rec.Pair, "claimed", rec.Token0, "rpct0", t0, "rpct1", t1)
-				return
-			}
-			if t1 != rec.Token1 {
-				n.log.Warn("token side 1 mismatch, skipping", "pair", rec.Pair, "claimed", rec.Token1, "rpct0", t0, "rpct1", t1)
+			if t0 != rec.Token0 || t1 != rec.Token1 {
+				n.log.Warn("token mismatch, skipping",
+					"pair", rec.Pair,
+					"expected0", rec.Token0,
+					"expected1", rec.Token1,
+					"rpc0", t0,
+					"rpc1", t1,
+				)
 				return
 			}
 			res0, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
@@ -214,15 +228,11 @@ func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
 				rec.Token1,
 				1, // fetch
 				"dex",
-				UniV2Metadata{res0[0], res0[1]})
-		}()
-
+				itypes.UniV2Metadata{res0[0], res0[1]})
+		}(_rec)
 	}
+	wg.Wait()
+	n.log.Info("syncing info for dex records", "edges", runningGraph.GetEdgeCount())
 
 	return runningGraph
-}
-
-type UniV2Metadata struct {
-	Amt0 *big.Int
-	Amt1 *big.Int
 }

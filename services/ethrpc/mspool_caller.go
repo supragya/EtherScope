@@ -9,16 +9,13 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-var (
-	gSem = semaphore.NewWeighted(10)
-)
-
 func Do[C any, T any](upstreams *MasterSlavePool[C],
+	sem *semaphore.Weighted,
 	foo func(context.Context, *C) (T, error),
 	defaultVal T) (T, error) {
 
-	util.ENOK(gSem.Acquire(context.Background(), 1))
-	defer gSem.Release(1)
+	util.ENOK(sem.Acquire(context.Background(), 1))
+	defer sem.Release(1)
 
 	var gerr error = errors.New("")
 	maxRetries := (len(upstreams.Slaves) + 1) * int(DefaultMSPoolConfig.WindowSize)

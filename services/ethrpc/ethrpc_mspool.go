@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/spf13/viper"
+	"golang.org/x/sync/semaphore"
 )
 
 var (
@@ -45,6 +46,13 @@ var (
 			Necessity: "always needed",
 			Info:      cfg.SArr("slave nodes for mspool. Recommended websockets"),
 			Default:   "\n    - https://rpc.ankr.com/eth\n    - https://rpc.ankr.com/eth",
+		},
+		{
+			Name:      "maxParallels",
+			Type:      "uint",
+			Necessity: "always needed",
+			Info:      cfg.SArr("maximum parallel rpc calls to upstream at a time"),
+			Default:   20,
 		},
 		{
 			Name:      "timeout",
@@ -125,10 +133,12 @@ type MSPoolEthRPCImpl struct {
 	timeout           time.Duration
 	mspoolcfg         MSPoolConfig
 	periodicRecording time.Duration
+	maxParallels      uint
 
 	// Internal Data Structures
 	pool         *MasterSlavePool[ethclient.Client]
 	localBackend lb.LocalBackend
+	sem          *semaphore.Weighted
 
 	// In-memory caches
 	cacheContractTokens *lru.ARCCache
@@ -142,6 +152,7 @@ func (n *MSPoolEthRPCImpl) OnStart(ctx context.Context) error {
 		return err
 	}
 	n.pool = pool
+	n.sem = semaphore.NewWeighted(int64(n.maxParallels))
 
 	if n.periodicRecording.Nanoseconds() == 0 {
 		n.log.Info("mspool ethrpc reporting turned off since periodicRecording is zero")
@@ -185,6 +196,7 @@ func NewMSPoolEthRPCWithViperFields(log logger.Logger, localBackend lb.LocalBack
 			TimeStep:       viper.GetDuration(EthRPCMSPoolCFGSection + ".timeStep"),
 			RetryTimesteps: viper.GetUint32(EthRPCMSPoolCFGSection + ".retryTimesteps"),
 		},
+		maxParallels:        viper.GetUint(EthRPCMSPoolCFGSection + ".maxParallels"),
 		periodicRecording:   viper.GetDuration(EthRPCMSPoolCFGSection + ".periodicRecording"),
 		localBackend:        localBackend,
 		cacheContractTokens: cacheContractTokens,
@@ -199,6 +211,7 @@ func (n *MSPoolEthRPCImpl) GetTxSender(txHash common.Hash,
 	blockHash common.Hash,
 	txIdx uint) (common.Address, error) {
 	tx, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (*types.Transaction, error) {
 			tx, _, err := c.TransactionByHash(ctx, txHash)
 			return tx, err
@@ -208,6 +221,7 @@ func (n *MSPoolEthRPCImpl) GetTxSender(txHash common.Hash,
 	}
 
 	sender, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			return c.TransactionSender(ctx, tx, blockHash, txIdx)
 		}, common.Address{})
@@ -217,6 +231,7 @@ func (n *MSPoolEthRPCImpl) GetTxSender(txHash common.Hash,
 // Non-cached RPC access to get current block height
 func (n *MSPoolEthRPCImpl) GetCurrentBlockHeight() (uint64, error) {
 	return Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (uint64, error) {
 			return c.BlockNumber(ctx)
 		}, 0)
@@ -225,6 +240,7 @@ func (n *MSPoolEthRPCImpl) GetCurrentBlockHeight() (uint64, error) {
 // Non-cached RPC access to get block timestamp
 func (n *MSPoolEthRPCImpl) GetBlockTimestamp(height uint64) (uint64, error) {
 	header, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (*types.Header, error) {
 			return c.HeaderByNumber(ctx, big.NewInt(int64(height)))
 		}, nil)
@@ -238,6 +254,7 @@ func (n *MSPoolEthRPCImpl) GetBlockTimestamp(height uint64) (uint64, error) {
 // Non-cached RPC access to get filtered logs
 func (n *MSPoolEthRPCImpl) GetFilteredLogs(fq ethereum.FilterQuery) ([]types.Log, error) {
 	return Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) ([]types.Log, error) {
 			return c.FilterLogs(ctx, fq)
 		}, []types.Log{})
@@ -253,6 +270,7 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV2(pairContract common.Address, callopts 
 	}
 
 	token0, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ2pair.NewUniv2pair(pairContract, c)
 			if err != nil {
@@ -266,6 +284,7 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV2(pairContract common.Address, callopts 
 	}
 
 	token1, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ2pair.NewUniv2pair(pairContract, c)
 			if err != nil {
@@ -291,6 +310,7 @@ func (n *MSPoolEthRPCImpl) GetERC20Decimals(erc20Address common.Address, callopt
 	}
 
 	decimals, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (uint8, error) {
 			erc20, err := ERC20.NewERC20(erc20Address, c)
 			if err != nil {
@@ -315,6 +335,7 @@ func (n *MSPoolEthRPCImpl) GetERC20Balances(requests []itypes.Tuple2[common.Addr
 
 	for _, req := range requests {
 		balance, err := Do(n.pool,
+			n.sem,
 			func(ctx context.Context, c *ethclient.Client) (*big.Int, error) {
 				token, err := ERC20.NewERC20(req.Second, c)
 				if err != nil {
@@ -340,6 +361,7 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV3(pairContract common.Address,
 	}
 
 	token0, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ3pair.NewUniv3pair(pairContract, c)
 			if err != nil {
@@ -353,6 +375,7 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV3(pairContract common.Address,
 	}
 
 	token1, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
 			pc, err := univ3pair.NewUniv3pair(pairContract, c)
 			if err != nil {
@@ -378,6 +401,7 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV3NFT(nftContract common.Address, tokenID
 	}
 
 	tokens, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (itypes.Tuple2[common.Address, common.Address], error) {
 			pc, err := univ3positionsnft.NewUniv3positionsnft(nftContract, c)
 			if err != nil {
@@ -399,6 +423,7 @@ func (n *MSPoolEthRPCImpl) GetTokensUniV3NFT(nftContract common.Address, tokenID
 func (n *MSPoolEthRPCImpl) GetChainlinkRoundData(
 	contractAddress common.Address, callopts *bind.CallOpts) (itypes.ChainlinkLatestRoundData, error) {
 	roundData, err := Do(n.pool,
+		n.sem,
 		func(ctx context.Context, c *ethclient.Client) (itypes.ChainlinkLatestRoundData, error) {
 			oracle, err := chainlink.NewChainlink(contractAddress, c)
 			if err != nil {
