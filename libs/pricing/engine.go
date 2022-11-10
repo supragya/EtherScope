@@ -1,6 +1,7 @@
 package priceresolver
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -20,6 +21,8 @@ import (
 type we = gograph.WeightedEdge[common.Address, int64, string, interface{}]
 type gg = gograph.Graph[common.Address, int64, string, interface{}]
 type ggt = itypes.Tuple2[uint64, *gg]
+type addrTuple = itypes.Tuple2[common.Address, common.Address]
+type resTuple = itypes.Tuple2[*big.Float, *big.Float]
 
 // Enhanced cached, multistep, graph based batch pricing resolver system
 type Engine struct {
@@ -53,12 +56,12 @@ func NewDefaultEngine(log logger.Logger,
 	}
 }
 
-func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) error {
+func (n *Engine) FetchLatestBlockHeightOrConstructTill(resHeight uint64) uint64 {
 	// fetch the graph in question
 PRICING_GRAPH_FETCH:
 	lbLatestHeight, ok, err := n.LocalBackend.Get(lb.KeyLatestHeight)
 	if err != nil {
-		return err
+		n.log.Fatal(err.Error())
 	}
 	if !ok {
 		// This means localbackend does not know any graph
@@ -66,7 +69,7 @@ PRICING_GRAPH_FETCH:
 		n.log.Warn("no pricingGraph found in localbackend. reading dump files and syncing")
 		err := n.syncDump(resHeight)
 		if err != nil {
-			return err
+			n.log.Fatal(err.Error())
 		}
 		goto PRICING_GRAPH_FETCH
 	}
@@ -76,25 +79,189 @@ PRICING_GRAPH_FETCH:
 	if err := util.GobDecode(lbLatestHeight, &lbLatestHeightUint64); err != nil {
 		n.log.Fatal(fmt.Sprintf("wrong latest height encoding: %s", err))
 	}
-	if resHeight < lbLatestHeightUint64 {
-		return fmt.Errorf("requested resolution for %d while lb already has %d",
-			resHeight,
-			lbLatestHeightUint64)
-	}
+	return lbLatestHeightUint64
+}
 
-	// Get the graph
+func (n *Engine) GetLatestGraph() (*gg, error) {
 	graph := gograph.NewGraph[common.Address, int64, string, interface{}](true)
 	lbLatestGraph, ok, err := n.LocalBackend.Get(lb.KeyLatestPricingGraph)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("cannot get latest pricing graph")
+	}
 	if err := util.GobDecode(lbLatestGraph, graph); err != nil {
+		return nil, err
+	}
+	return graph, nil
+}
+
+func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) error {
+	// Ensure entries exist and we are resolving
+	// for heights >= height in localbackend
+	fetchedHeight := n.FetchLatestBlockHeightOrConstructTill(resHeight)
+	if resHeight < fetchedHeight {
+		return fmt.Errorf("requested resolution for %d while lb already has %d",
+			resHeight,
+			fetchedHeight)
+	}
+
+	// Get the graph from localbackend
+	graph, err := n.GetLatestGraph()
+	if err != nil {
 		return err
 	}
 
-	return n.resolvei(graph, items)
+	// Get updates to be applied to graph
+	resUpdates := n.getReserveUpdates(items)
+
+	// update graph
+	n.updateGraph(graph, resUpdates, resHeight)
+
+	// Resolve items
+	n.resolveItems(graph, items)
+
+	// Update localbackend
+	n.saveUpdatedGraph(graph, resHeight)
+
+	return nil
 }
 
-func (n *Engine) resolvei(graph *gg, items *[]interface{}) error {
-	n.log.Info("found resolvei")
+func (n *Engine) resolveItems(graph *gg, items *[]interface{}) {
+
+}
+
+func (n *Engine) getReserveUpdates(items *[]interface{}) map[addrTuple]resTuple {
+	reserveUpdates := make(map[addrTuple]resTuple, len(*items))
+
+	for _, item := range *items {
+		switch i := item.(type) {
+		case itypes.Mint:
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = resTuple{i.Reserve0, i.Reserve1}
+		case itypes.Burn:
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = resTuple{i.Reserve0, i.Reserve1}
+		case itypes.Swap:
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = resTuple{i.Reserve0, i.Reserve1}
+		}
+	}
+
+	return reserveUpdates
+}
+
+func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]resTuple, resHeight uint64) {
+	wg := sync.WaitGroup{}
+	callopts := bind.CallOpts{BlockNumber: big.NewInt(int64(resHeight))}
+
+	for from, connections := range graph.Graph {
+		for to, edge := range connections {
+			switch i := edge.Metadata.(type) {
+
+			case itypes.WrappedCLMetadata:
+				wg.Add(1)
+				go func(from common.Address, to common.Address, i itypes.WrappedCLMetadata, edge we) {
+					defer wg.Done()
+					oracleMetadata, err := n.EthRPC.GetChainlinkRoundData(i.Oracle, &callopts)
+					if err != nil {
+						n.log.Fatal("cannot retrieve metadata for cl oracle, skipping",
+							"oracle", i.Oracle,
+							"height", resHeight)
+					}
+					i.Data = oracleMetadata
+					edge.Metadata = i
+					graph.Graph[from][to] = edge
+				}(from, to, i, edge)
+
+			case itypes.UniV2Metadata:
+				if update, ok := updates[addrTuple{from, to}]; ok {
+					i.Res0 = update.First
+					i.Res1 = update.Second
+					edge.Metadata = i
+					graph.Graph[from][to] = edge
+				}
+
+			default:
+				panic(fmt.Sprintf("unknown type detected: %v", i))
+			}
+		}
+	}
+	wg.Wait()
+}
+
+func (n *Engine) resolvei(graph *gg, items *[]interface{}, resHeight uint64) error {
+	// hasher := sha256.New()
+	// hasher.Write(util.GobEncode(graph))
+	// prevHash := hex.EncodeToString(hasher.Sum([]byte{}))
+
+	// Do graph updates
+	wg := sync.WaitGroup{}
+	callopts := bind.CallOpts{BlockNumber: big.NewInt(int64(resHeight))}
+	for from, connections := range graph.Graph {
+		for to, edge := range connections {
+			switch i := edge.Metadata.(type) {
+			case itypes.WrappedCLMetadata:
+				wg.Add(1)
+				go func(from common.Address, to common.Address, i itypes.WrappedCLMetadata, edge we) {
+					defer wg.Done()
+					oracleMetadata, err := n.EthRPC.GetChainlinkRoundData(i.Oracle, &callopts)
+					if err != nil {
+						n.log.Fatal("cannot retrieve metadata for cl oracle, skipping",
+							"oracle", i.Oracle,
+							"height", resHeight)
+					}
+					i.Data = oracleMetadata
+					edge.Metadata = i
+					graph.Graph[from][to] = edge
+				}(from, to, i, edge)
+			case itypes.UniV2Metadata:
+				if update, ok := reserveUpdates[addrTuple{from, to}]; ok {
+					i.Res0 = update.First
+					i.Res1 = update.Second
+					edge.Metadata = i
+					graph.Graph[from][to] = edge
+				}
+			default:
+				panic(fmt.Sprintf("unknown type detected: %v", i))
+			}
+		}
+	}
+	wg.Wait()
+	// hasher = sha256.New()
+	// hasher.Write(util.GobEncode(graph))
+	// newHash := hex.EncodeToString(hasher.Sum([]byte{}))
+
+	// For each item that is UserRequested
+	// Do bfs to find the best 3 candidates
+	for _, item := range *items {
+		switch i := item.(type) {
+		case itypes.Mint:
+			if i.ProcessingType != itypes.UserRequested {
+				continue
+			}
+			n.tryPricingUSD(i.Token0, i.Price0)
+			n.tryPricingUSD(i.Token1, i.Price1)
+		case itypes.Burn:
+			if i.ProcessingType != itypes.UserRequested {
+				continue
+			}
+			n.tryPricingUSD(i.Token0, i.Price0)
+			n.tryPricingUSD(i.Token1, i.Price1)
+		case itypes.Swap:
+			if i.ProcessingType != itypes.UserRequested {
+				continue
+			}
+			n.tryPricingUSD(i.Token0, i.Price0)
+			n.tryPricingUSD(i.Token1, i.Price1)
+		}
+	}
+
+	// Return through candiates
 	return nil
+}
+
+// best effort
+func (n *Engine) tryPricingUSD(from common.Address, result *itypes.PriceResult) {
+	return
 }
 
 func (n *Engine) syncDump(resHeight uint64) error {
@@ -177,7 +344,10 @@ func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
 				rec.To,
 				math.MaxInt64,
 				"chainlink",
-				oracleMetadata)
+				itypes.WrappedCLMetadata{
+					Data:   oracleMetadata,
+					Oracle: rec.Oracle,
+				})
 		}(_rec)
 	}
 	wg.Wait()
@@ -211,15 +381,24 @@ func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
 				)
 				return
 			}
-			res0, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
+			res, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 				{rec.Pair, t0}, {rec.Pair, t1},
 			}, &callopts)
 			if err != nil {
 				n.log.Warn("cannot retrieve balances for pool", "pair", rec.Pair)
 				return
 			}
-			if len(res0) != 2 {
-				panic(len(res0))
+			if len(res) != 2 {
+				panic(len(res))
+			}
+
+			t0d, err := n.EthRPC.GetERC20Decimals(t0, &callopts)
+			if err != nil {
+				return
+			}
+			t1d, err := n.EthRPC.GetERC20Decimals(t1, &callopts)
+			if err != nil {
+				return
 			}
 
 			mut.Lock()
@@ -228,7 +407,10 @@ func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
 				rec.Token1,
 				1, // fetch
 				"dex",
-				itypes.UniV2Metadata{res0[0], res0[1]})
+				itypes.UniV2Metadata{
+					Res0: util.DivideBy10pow(res[0], t0d),
+					Res1: util.DivideBy10pow(res[1], t1d),
+				})
 		}(_rec)
 	}
 	wg.Wait()

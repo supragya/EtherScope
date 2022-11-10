@@ -7,6 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+type WrappedCLMetadata struct {
+	Data   ChainlinkLatestRoundData
+	Oracle common.Address
+}
+
 type ChainlinkLatestRoundData struct {
 	RoundId         *big.Int
 	Answer          *big.Int
@@ -39,11 +44,12 @@ type PriceResult struct {
 }
 
 type UniV2Metadata struct {
-	Amt0 *big.Int
-	Amt1 *big.Int
+	Res0 *big.Float
+	Res1 *big.Float
 }
 
 func init() {
 	gob.Register(UniV2Metadata{})
 	gob.Register(ChainlinkLatestRoundData{})
+	gob.Register(WrappedCLMetadata{})
 }
