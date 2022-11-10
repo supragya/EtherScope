@@ -246,12 +246,13 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		processingTime := time.Now()
 
 		// Run processedItems through pricing engine
-		util.ENOK(n.pricer.Resolve(block, &processedItems))
+		newDexes, err := n.pricer.Resolve(block, &processedItems)
+		util.ENOK(err)
 		pricingTime := time.Now()
 
 		// Package processedItems into payload for output
 		populateBlockSynopsis(&blockSynopis, &processedItems, startTime, processingTime, pricingTime)
-		payload := n.genPayload(&blockSynopis, &processedItems)
+		payload := n.genPayload(&blockSynopis, &processedItems, newDexes)
 
 		// Send payload through output sink
 		util.ENOK(n.OutputSink.Send(payload))
@@ -359,10 +360,11 @@ type Payload struct {
 	NodeVersion   string
 	Network       string
 	BlockSynopsis *itypes.BlockSynopsis
+	NewDexes      []itypes.UniV2Metadata
 	Items         []interface{}
 }
 
-func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items *[]interface{}) *Payload {
+func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items *[]interface{}, newDexes []itypes.UniV2Metadata) *Payload {
 	nonNilUserItems := []interface{}{}
 	for _, item := range *items {
 		if item == nil {
@@ -394,6 +396,7 @@ func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items *[]interface{}) *P
 		Network:       n.network,
 		BlockSynopsis: bs,
 		Items:         nonNilUserItems,
+		NewDexes:      newDexes,
 	}
 }
 

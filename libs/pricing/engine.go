@@ -97,12 +97,12 @@ func (n *Engine) GetLatestGraph() (*gg, error) {
 	return graph, nil
 }
 
-func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) error {
+func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) ([]itypes.UniV2Metadata, error) {
 	// Ensure entries exist and we are resolving
 	// for heights >= height in localbackend
 	fetchedHeight := n.FetchLatestBlockHeightOrConstructTill(resHeight)
 	if resHeight < fetchedHeight {
-		return fmt.Errorf("requested resolution for %d while lb already has %d",
+		return []itypes.UniV2Metadata{}, fmt.Errorf("requested resolution for %d while lb already has %d",
 			resHeight,
 			fetchedHeight)
 	}
@@ -110,49 +110,118 @@ func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) error {
 	// Get the graph from localbackend
 	graph, err := n.GetLatestGraph()
 	if err != nil {
-		return err
+		return []itypes.UniV2Metadata{}, err
 	}
 
 	// Get updates to be applied to graph
 	resUpdates := n.getReserveUpdates(items)
 
 	// update graph
-	n.updateGraph(graph, resUpdates, resHeight)
+	newDexes := n.updateGraph(graph, resUpdates, resHeight)
 
-	// Resolve items
-	n.resolveItems(graph, items)
+	// Resolve items: best attempt
+	n.resolveItems(graph, items, resHeight)
 
 	// Update localbackend
-	n.saveUpdatedGraph(graph, resHeight)
+	n.syncGraphToLB(graph, resHeight)
 
-	return nil
+	return newDexes, nil
 }
 
-func (n *Engine) resolveItems(graph *gg, items *[]interface{}) {
-
-}
-
-func (n *Engine) getReserveUpdates(items *[]interface{}) map[addrTuple]resTuple {
-	reserveUpdates := make(map[addrTuple]resTuple, len(*items))
+func (n *Engine) resolveItems(graph *gg, items *[]interface{}, resHeight uint64) {
+	// For each item that is UserRequested
+	// Do bfs to find the best 3 candidates
+	requested, priced := 0, 0
+	tc := make(map[common.Address]*itypes.PriceResult, len(*items))
 
 	for _, item := range *items {
 		switch i := item.(type) {
 		case itypes.Mint:
-			reserveUpdates[addrTuple{i.Token0, i.Token1}] = resTuple{i.Reserve0, i.Reserve1}
+			if i.ProcessingType != itypes.UserRequested {
+				continue
+			}
+			requested++
+			if n.tryPricingUSD(i.Token0, i.Price0, graph, tc, resHeight) {
+				priced++
+			}
+			requested++
+			if n.tryPricingUSD(i.Token1, i.Price1, graph, tc, resHeight) {
+				priced++
+			}
 		case itypes.Burn:
-			reserveUpdates[addrTuple{i.Token0, i.Token1}] = resTuple{i.Reserve0, i.Reserve1}
+			if i.ProcessingType != itypes.UserRequested {
+				continue
+			}
+			requested++
+			if n.tryPricingUSD(i.Token0, i.Price0, graph, tc, resHeight) {
+				priced++
+			}
+			requested++
+			if n.tryPricingUSD(i.Token1, i.Price1, graph, tc, resHeight) {
+				priced++
+			}
 		case itypes.Swap:
-			reserveUpdates[addrTuple{i.Token0, i.Token1}] = resTuple{i.Reserve0, i.Reserve1}
+			if i.ProcessingType != itypes.UserRequested {
+				continue
+			}
+			requested++
+			if n.tryPricingUSD(i.Token0, i.Price0, graph, tc, resHeight) {
+				priced++
+			}
+			requested++
+			if n.tryPricingUSD(i.Token1, i.Price1, graph, tc, resHeight) {
+				priced++
+			}
+		}
+	}
+	n.log.Info("pricing engine resolution statistics", "height", resHeight, "requested", requested, "priced", priced)
+}
+
+func (n *Engine) getReserveUpdates(items *[]interface{}) map[addrTuple]itypes.UniV2Metadata {
+	reserveUpdates := make(map[addrTuple]itypes.UniV2Metadata, len(*items))
+
+	for _, item := range *items {
+		switch i := item.(type) {
+		case itypes.Mint:
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
+		case itypes.Burn:
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
+		case itypes.Swap:
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
 		}
 	}
 
 	return reserveUpdates
 }
 
-func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]resTuple, resHeight uint64) {
+func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]itypes.UniV2Metadata, resHeight uint64) []itypes.UniV2Metadata {
 	wg := sync.WaitGroup{}
 	callopts := bind.CallOpts{BlockNumber: big.NewInt(int64(resHeight))}
+	newDexes := []itypes.UniV2Metadata{}
 
+	// Ensure swaps exist
+	for addrs, val := range updates {
+		// expecting bidirectional graph
+		if _, ok := graph.Graph[addrs.First]; !ok {
+			t0, t1, err := n.EthRPC.GetTokensUniV2(val.Pair, &callopts)
+			if err != nil {
+				n.log.Warn("not a univ2 pair, skipping",
+					"pair", val.Pair)
+				break
+			}
+
+			n.log.Info("adding previously unseen dex to pricing graph", "dex", val.Pair)
+			newDexes = append(newDexes, val)
+
+			graph.AddWeightedEdge(t0,
+				t1,
+				1, // fetch
+				"dex",
+				val)
+		}
+	}
+
+	mut := sync.Mutex{}
 	for from, connections := range graph.Graph {
 		for to, edge := range connections {
 			switch i := edge.Metadata.(type) {
@@ -169,15 +238,20 @@ func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]resTuple, resHeigh
 					}
 					i.Data = oracleMetadata
 					edge.Metadata = i
+					mut.Lock()
 					graph.Graph[from][to] = edge
+					mut.Unlock()
 				}(from, to, i, edge)
 
 			case itypes.UniV2Metadata:
 				if update, ok := updates[addrTuple{from, to}]; ok {
-					i.Res0 = update.First
-					i.Res1 = update.Second
+					i.Pair = update.Pair
+					i.Res0 = update.Res0
+					i.Res1 = update.Res1
 					edge.Metadata = i
+					mut.Lock()
 					graph.Graph[from][to] = edge
+					mut.Unlock()
 				}
 
 			default:
@@ -186,82 +260,79 @@ func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]resTuple, resHeigh
 		}
 	}
 	wg.Wait()
-}
 
-func (n *Engine) resolvei(graph *gg, items *[]interface{}, resHeight uint64) error {
-	// hasher := sha256.New()
-	// hasher.Write(util.GobEncode(graph))
-	// prevHash := hex.EncodeToString(hasher.Sum([]byte{}))
-
-	// Do graph updates
-	wg := sync.WaitGroup{}
-	callopts := bind.CallOpts{BlockNumber: big.NewInt(int64(resHeight))}
-	for from, connections := range graph.Graph {
-		for to, edge := range connections {
-			switch i := edge.Metadata.(type) {
-			case itypes.WrappedCLMetadata:
-				wg.Add(1)
-				go func(from common.Address, to common.Address, i itypes.WrappedCLMetadata, edge we) {
-					defer wg.Done()
-					oracleMetadata, err := n.EthRPC.GetChainlinkRoundData(i.Oracle, &callopts)
-					if err != nil {
-						n.log.Fatal("cannot retrieve metadata for cl oracle, skipping",
-							"oracle", i.Oracle,
-							"height", resHeight)
-					}
-					i.Data = oracleMetadata
-					edge.Metadata = i
-					graph.Graph[from][to] = edge
-				}(from, to, i, edge)
-			case itypes.UniV2Metadata:
-				if update, ok := reserveUpdates[addrTuple{from, to}]; ok {
-					i.Res0 = update.First
-					i.Res1 = update.Second
-					edge.Metadata = i
-					graph.Graph[from][to] = edge
-				}
-			default:
-				panic(fmt.Sprintf("unknown type detected: %v", i))
-			}
-		}
-	}
-	wg.Wait()
-	// hasher = sha256.New()
-	// hasher.Write(util.GobEncode(graph))
-	// newHash := hex.EncodeToString(hasher.Sum([]byte{}))
-
-	// For each item that is UserRequested
-	// Do bfs to find the best 3 candidates
-	for _, item := range *items {
-		switch i := item.(type) {
-		case itypes.Mint:
-			if i.ProcessingType != itypes.UserRequested {
-				continue
-			}
-			n.tryPricingUSD(i.Token0, i.Price0)
-			n.tryPricingUSD(i.Token1, i.Price1)
-		case itypes.Burn:
-			if i.ProcessingType != itypes.UserRequested {
-				continue
-			}
-			n.tryPricingUSD(i.Token0, i.Price0)
-			n.tryPricingUSD(i.Token1, i.Price1)
-		case itypes.Swap:
-			if i.ProcessingType != itypes.UserRequested {
-				continue
-			}
-			n.tryPricingUSD(i.Token0, i.Price0)
-			n.tryPricingUSD(i.Token1, i.Price1)
-		}
-	}
-
-	// Return through candiates
-	return nil
+	return newDexes
 }
 
 // best effort
-func (n *Engine) tryPricingUSD(from common.Address, result *itypes.PriceResult) {
-	return
+func (n *Engine) tryPricingUSD(from common.Address,
+	result *itypes.PriceResult,
+	graph *gg,
+	tc map[common.Address]*itypes.PriceResult,
+	resHeight uint64) bool {
+	// check cache
+	if v, ok := tc[from]; ok {
+		result = v
+		return true
+	}
+
+	// find cadidates
+	maxRoutes := 5
+	routes := graph.GetBFSCandidates(maxRoutes,
+		from, common.HexToAddress("0xffffffffffffffffffffffffffffffffffffffff"))
+
+	callopts := &bind.CallOpts{BlockNumber: big.NewInt(int64(resHeight))}
+
+	maxScore := big.NewFloat(0.0)
+	var calcResult *itypes.PriceResult = nil
+
+	for _, route := range routes {
+		multiplier := big.NewFloat(1.0)
+		pr := itypes.PriceResult{}
+		minScore := big.NewFloat(math.MaxInt64)
+
+		for _, edge := range route {
+			switch i := edge.Metadata.(type) {
+			case itypes.WrappedCLMetadata:
+				pr.Path = append(pr.Path, i)
+				// TODO: error checks here
+				decimals, _ := n.EthRPC.GetERC20Decimals(i.Oracle, callopts)
+				if !edge.IsReverseEdge {
+					multiplier = multiplier.Mul(multiplier, util.DivideBy10pow(i.Data.Answer, decimals))
+				} else {
+					multiplier = multiplier.Quo(multiplier, util.DivideBy10pow(i.Data.Answer, decimals))
+				}
+			case itypes.UniV2Metadata:
+				pr.Path = append(pr.Path, i)
+				ratio := big.NewFloat(1.0).Quo(i.Res0, i.Res1)
+				if !edge.IsReverseEdge {
+					multiplier = multiplier.Mul(multiplier, ratio)
+					if multiplier.Cmp(minScore) == -1 {
+						minScore.Set(multiplier)
+					}
+				} else {
+					multiplier = multiplier.Quo(multiplier, ratio)
+					if multiplier.Cmp(minScore) == -1 {
+						minScore.Set(multiplier)
+					}
+				}
+			}
+		}
+		pr.Price = multiplier
+
+		if maxScore.Cmp(minScore) == -1 {
+			maxScore.Set(minScore)
+			calcResult = &pr
+		}
+	}
+
+	// Cache result
+	if calcResult != nil {
+		// n.log.Info("caching result", "token", from, "price", calcResult)
+		tc[from] = calcResult
+		return true
+	}
+	return false
 }
 
 func (n *Engine) syncDump(resHeight uint64) error {
@@ -305,7 +376,6 @@ func (n *Engine) syncGraphToLB(graph *gg, height uint64) error {
 		return err
 	}
 
-	n.log.Info("final syncing to disk")
 	return n.LocalBackend.Sync()
 }
 

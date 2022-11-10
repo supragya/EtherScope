@@ -175,15 +175,15 @@ func (n *BadgerDBLocalBackendImpl) Sync() error {
 	}
 
 	// Very important step apparently
-	// txn.Discard()
+	txn.Discard()
 
 	err = n.db.Sync()
 	if err != nil {
-		n.log.Error("on-disk sync failed", "error", err)
+		n.log.Error("localbackend on-disk sync failed", "error", err)
 		return err
 	}
 
-	n.log.Info("on-disk sync completed", "records", count)
+	n.log.Info("localbackend on-disk sync completed", "records", count)
 
 	// Flush inMem db
 	n.inMem = make(map[string][]byte, 10000)

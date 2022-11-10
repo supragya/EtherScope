@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
@@ -150,11 +151,29 @@ type WrappedPayload struct {
 }
 
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
-	_, err := json.MarshalIndent(WrappedPayload{version.PersistenceVersion, payload}, "", " ")
+	item, err := json.MarshalIndent(WrappedPayload{version.PersistenceVersion, payload}, "", " ")
 	if err != nil {
 		return err
 	}
-	// n.log.Info(fmt.Sprintf("sending through\n%v\n", string(encoded)))
+
+	err = n.channel.Publish(
+		"",          // exchange
+		n.queueName, // queue name
+		true,        // mandatory
+		false,       // immediate
+		amqp.Publishing{
+			ContentType:     "application/json",
+			ContentEncoding: "application/json",
+			Timestamp:       time.Now(),
+			Body:            item,
+		}, // message to publish
+	)
+	if err != nil {
+		return err
+	}
+	n.log.Info("sent message onto outputsink rmq",
+		"msglen", len(item),
+		"queue", n.queueName)
 	return nil
 }
 

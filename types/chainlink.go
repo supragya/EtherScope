@@ -36,16 +36,16 @@ type CounterpartyPriceDerivationInfo struct {
 }
 
 type PriceResult struct {
-	Price                     *big.Float
-	IsStablecoin              bool
-	IsDerivedFromCounterparty bool
-	CounterpartyInfo          *CounterpartyPriceDerivationInfo
-	DerivationInfo            map[string]DirectPriceDerivationInfo
+	Price *big.Float
+	Path  []interface{}
 }
 
 type UniV2Metadata struct {
-	Res0 *big.Float
-	Res1 *big.Float
+	Pair   common.Address
+	Token0 common.Address
+	Token1 common.Address
+	Res0   *big.Float
+	Res1   *big.Float
 }
 
 func init() {

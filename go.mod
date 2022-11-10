@@ -17,6 +17,7 @@ require (
 )
 
 require (
+	github.com/Workiva/go-datastructures v1.0.53 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.0 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect

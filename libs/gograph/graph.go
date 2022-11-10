@@ -84,3 +84,64 @@ func (g *Graph[V, W, H, M]) GetVertexCount() int {
 func (g *Graph[V, W, H, M]) GetEdgeCount() int {
 	return g.EdgeCount
 }
+
+type Route[V, W comparable, H, M any] struct {
+	NextVertex V
+	Path       []WeightedEdge[V, W, H, M]
+}
+
+func (g *Graph[V, W, H, M]) GetBFSCandidates(maxRoutes int,
+	from, to V) [][]WeightedEdge[V, W, H, M] {
+	// If we do not know the edge
+	if _, ok := g.Graph[from]; !ok {
+		return [][]WeightedEdge[V, W, H, M]{}
+	}
+	// Initialize DS
+	visited := make(map[V]bool, g.VertexCount)
+	paths := [][]WeightedEdge[V, W, H, M]{}
+	queue := make([]Route[V, W, H, M], g.EdgeCount)
+
+	// Initialize queue
+	visited[from] = true
+	for _, edge := range g.Graph[from] {
+		queue = append(queue, Route[V, W, H, M]{edge.VertexTo, []WeightedEdge[V, W, H, M]{edge}})
+	}
+
+	// Run through
+	for {
+		if len(queue) == 0 {
+			break
+		}
+		item := queue[0]
+		queue = queue[1:]
+
+		if item.NextVertex == to {
+			paths = append(paths, item.Path)
+			for _, edge := range item.Path {
+				delete(visited, edge.VertexTo)
+			}
+			maxRoutes--
+			if maxRoutes == 0 {
+				break
+			}
+		}
+
+		// We cannot have too long of a derivation
+		// TODO: make this a config
+		if len(item.Path) >= 3 {
+			continue
+		}
+
+		for _, edge := range g.Graph[item.NextVertex] {
+			visited[item.NextVertex] = true
+			if _, alreadyVisited := visited[edge.VertexTo]; !alreadyVisited {
+				queue = append(queue,
+					Route[V, W, H, M]{
+						edge.VertexTo,
+						append(item.Path, edge),
+					})
+			}
+		}
+	}
+	return paths
+}

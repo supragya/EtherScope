@@ -9,7 +9,6 @@ import (
 
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/ethereum/go-ethereum/ethclient"
-	log "github.com/sirupsen/logrus"
 )
 
 type PoolNodeMeta struct {
@@ -44,6 +43,7 @@ var DefaultMSPoolConfig MSPoolConfig = MSPoolConfig{
 type MasterSlavePool[I any] struct {
 	config               MSPoolConfig
 	rwlock               sync.RWMutex
+	log                  logger.Logger
 	allFailureLogTime    time.Time
 	allFailureCachedItem *I
 	itemMap              map[*I]*PoolNode[*I]
@@ -81,7 +81,8 @@ func NewNode[I any](item *I, identity string) PoolNode[*I] {
 func NewEthClientMasterSlavePool(masterURL string,
 	slaveURLs []string,
 	config MSPoolConfig,
-	timeout time.Duration) (*MasterSlavePool[ethclient.Client], error) {
+	timeout time.Duration,
+	log logger.Logger) (*MasterSlavePool[ethclient.Client], error) {
 	itemMap := make(map[*ethclient.Client]*PoolNode[*ethclient.Client], len(slaveURLs)+1)
 
 	// Setup master
@@ -106,6 +107,7 @@ func NewEthClientMasterSlavePool(masterURL string,
 
 	return &MasterSlavePool[ethclient.Client]{
 		config:               config,
+		log:                  log,
 		rwlock:               sync.RWMutex{},
 		allFailureLogTime:    time.Time{},
 		allFailureCachedItem: nil,
@@ -155,7 +157,7 @@ func (m *MasterSlavePool[I]) Report(item *I, timedOut bool) error {
 
 	// If more than enough of timeSteps have resulted in failure, go to cooldown
 	if pn.Meta.Reports > m.config.ToleranceCount && now.Sub(pn.Meta.FirstReport) < m.config.TimeStep*time.Duration(m.config.WindowSize) {
-		log.Warn("mspool reports upstream failure for: ", pn.Meta.Identity)
+		m.log.Warn("mspool reports upstream failure", "upstream", pn.Meta.Identity)
 		pn.Meta.IsAlive = false
 		pn.Meta.BringAlive = now.Add(m.config.TimeStep * time.Duration(m.config.RetryTimesteps))
 	}
@@ -222,7 +224,7 @@ func (m *MasterSlavePool[I]) allFailureRecovery() (*I, *PoolNodeMeta) {
 
 	if m.allFailureLogTime.Sub(currentTime) <= time.Duration(0) {
 		// First thread doing hefty work
-		log.Warn("critical rpc failure. all upstreams in cooldown state. blocking application")
+		m.log.Warn("critical rpc failure. all upstreams in cooldown state. blocking application")
 	} else {
 		// If allFailureLogTime is in future, it can only be done by
 		// another thread which set this up recently. We can use the cached response hence.
@@ -274,21 +276,22 @@ func MakeAlive(m *PoolNodeMeta) {
 
 // No Read lock based approach, may be wrong but avoids
 // locking / unlocking saving mutex access for other goroutines
-func (m *MasterSlavePool[I]) PeriodicRecording(dur time.Duration, log logger.Logger) {
+func (m *MasterSlavePool[I]) PeriodicRecording(dur time.Duration) {
 	for {
 		time.Sleep(dur)
-		var report string = "mspool health: "
-		report = report + fmt.Sprintf("{%s(%s):%d/%d} ", m.Master.Meta.Identity, alStr(m.Master.Meta.IsAlive), m.Master.Meta.Reports, m.config.ToleranceCount)
+		updates := make([]interface{}, len(m.Slaves)*2)
+
+		updates = append(updates, m.Master.Meta.Identity, alStr(m.Master.Meta.IsAlive))
 		for _, slv := range m.Slaves {
-			report = report + fmt.Sprintf("{%s(%s):%d/%d} ", slv.Meta.Identity, alStr(slv.Meta.IsAlive), slv.Meta.Reports, m.config.ToleranceCount)
+			updates = append(updates, slv.Meta.Identity, alStr(slv.Meta.IsAlive))
 		}
-		log.Info(report)
+		m.log.Info("master slave pool upstream report", updates...)
 	}
 }
 
 func alStr(isAlive bool) string {
 	if isAlive {
-		return "AL"
+		return "alive"
 	}
-	return "NA"
+	return "down"
 }

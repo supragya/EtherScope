@@ -147,7 +147,7 @@ type MSPoolEthRPCImpl struct {
 
 // OnStart starts the badgerdb LocalBackend. It implements service.Service.
 func (n *MSPoolEthRPCImpl) OnStart(ctx context.Context) error {
-	pool, err := NewEthClientMasterSlavePool(n.master, n.slaves, n.mspoolcfg, n.timeout)
+	pool, err := NewEthClientMasterSlavePool(n.master, n.slaves, n.mspoolcfg, n.timeout, n.log)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func (n *MSPoolEthRPCImpl) OnStart(ctx context.Context) error {
 		return nil
 	}
 
-	go n.pool.PeriodicRecording(n.periodicRecording, n.log)
+	go n.pool.PeriodicRecording(n.periodicRecording)
 
 	return nil
 }
