@@ -22,6 +22,7 @@ type EthRPC interface {
 	GetERC20Decimals(common.Address, *bind.CallOpts) (uint8, error)
 	GetERC20Balances(requests []itypes.Tuple2[common.Address, common.Address],
 		callopts *bind.CallOpts) ([]*big.Int, error)
+	GetERC20Name(common.Address, *bind.CallOpts) (string, error)
 	GetTokensUniV3(pairContract common.Address,
 		callopts *bind.CallOpts) (common.Address, common.Address, error)
 	GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error)

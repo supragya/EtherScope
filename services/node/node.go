@@ -240,19 +240,19 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		var wg sync.WaitGroup
 		var processedItems []interface{} = make([]interface{}, len(logs))
 		for idx, _log := range logs {
-			go n.decodeLog(_log, &processedItems, idx, blockSynopis.BlockTime, &wg)
+			go n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime, &wg)
 		}
 		wg.Wait()
 		processingTime := time.Now()
 
 		// Run processedItems through pricing engine
-		newDexes, err := n.pricer.Resolve(block, &processedItems)
+		newDexes, err := n.pricer.Resolve(block, processedItems)
 		util.ENOK(err)
 		pricingTime := time.Now()
 
 		// Package processedItems into payload for output
-		populateBlockSynopsis(&blockSynopis, &processedItems, startTime, processingTime, pricingTime)
-		payload := n.genPayload(&blockSynopis, &processedItems, newDexes)
+		populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
+		payload := n.genPayload(&blockSynopis, processedItems, newDexes)
 
 		// Send payload through output sink
 		util.ENOK(n.OutputSink.Send(payload))
@@ -263,7 +263,7 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 }
 
 func (n *NodeImpl) decodeLog(l types.Log,
-	items *[]interface{},
+	items []interface{},
 	idx int,
 	blockTime uint64,
 	wg *sync.WaitGroup) {
@@ -302,13 +302,13 @@ func (n *NodeImpl) decodeLog(l types.Log,
 }
 
 func populateBlockSynopsis(bs *itypes.BlockSynopsis,
-	items *[]interface{},
+	items []interface{},
 	startTime time.Time,
 	processingTime time.Time,
 	pricingTime time.Time) {
-	distribution := make(map[string]uint64, len(*items))
+	distribution := make(map[string]uint64, len(items))
 	defaultKey := ""
-	for _, item := range *items {
+	for _, item := range items {
 		if item == nil {
 			continue
 		}
@@ -316,21 +316,17 @@ func populateBlockSynopsis(bs *itypes.BlockSynopsis,
 		itemKey := defaultKey
 		isPricedCorrectly := false
 
-		switch item.(type) {
-		case itypes.Mint:
-			i := item.(itypes.Mint)
+		switch i := item.(type) {
+		case *itypes.Mint:
 			itemKey = fmt.Sprintf("(%v, %v)", i.Type, i.ProcessingType.ToString())
 			isPricedCorrectly = i.Price0 != nil && i.Price1 != nil && i.Amount0 != nil && i.Amount1 != nil && i.AmountUSD != nil
-		case itypes.Burn:
-			i := item.(itypes.Burn)
+		case *itypes.Burn:
 			itemKey = fmt.Sprintf("(%v, %v)", i.Type, i.ProcessingType.ToString())
 			isPricedCorrectly = i.Price0 != nil && i.Price1 != nil && i.Amount0 != nil && i.Amount1 != nil && i.AmountUSD != nil
-		case itypes.Swap:
-			i := item.(itypes.Swap)
+		case *itypes.Swap:
 			itemKey = fmt.Sprintf("(%v, %v)", i.Type, i.ProcessingType.ToString())
 			isPricedCorrectly = i.Price0 != nil && i.Price1 != nil && i.Amount0 != nil && i.Amount1 != nil && i.AmountUSD != nil
-		case itypes.Transfer:
-			i := item.(itypes.Transfer)
+		case *itypes.Transfer:
 			itemKey = fmt.Sprintf("(%v, %v)", i.Type, i.ProcessingType.ToString())
 			isPricedCorrectly = i.AmountUSD != nil
 		}
@@ -364,26 +360,26 @@ type Payload struct {
 	Items         []interface{}
 }
 
-func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items *[]interface{}, newDexes []itypes.UniV2Metadata) *Payload {
+func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items []interface{}, newDexes []itypes.UniV2Metadata) *Payload {
 	nonNilUserItems := []interface{}{}
-	for _, item := range *items {
+	for _, item := range items {
 		if item == nil {
 			continue
 		}
 		switch i := item.(type) {
-		case itypes.Mint:
+		case *itypes.Mint:
 			if i.ProcessingType == itypes.UserRequested {
 				nonNilUserItems = append(nonNilUserItems, i)
 			}
-		case itypes.Burn:
+		case *itypes.Burn:
 			if i.ProcessingType == itypes.UserRequested {
 				nonNilUserItems = append(nonNilUserItems, i)
 			}
-		case itypes.Swap:
+		case *itypes.Swap:
 			if i.ProcessingType == itypes.UserRequested {
 				nonNilUserItems = append(nonNilUserItems, i)
 			}
-		case itypes.Transfer:
+		case *itypes.Transfer:
 			if i.ProcessingType == itypes.UserRequested {
 				nonNilUserItems = append(nonNilUserItems, i)
 			}

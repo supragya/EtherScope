@@ -97,7 +97,7 @@ func (n *Engine) GetLatestGraph() (*gg, error) {
 	return graph, nil
 }
 
-func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) ([]itypes.UniV2Metadata, error) {
+func (n *Engine) Resolve(resHeight uint64, items []interface{}) ([]itypes.UniV2Metadata, error) {
 	// Ensure entries exist and we are resolving
 	// for heights >= height in localbackend
 	fetchedHeight := n.FetchLatestBlockHeightOrConstructTill(resHeight)
@@ -128,66 +128,69 @@ func (n *Engine) Resolve(resHeight uint64, items *[]interface{}) ([]itypes.UniV2
 	return newDexes, nil
 }
 
-func (n *Engine) resolveItems(graph *gg, items *[]interface{}, resHeight uint64) {
+func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) {
 	// For each item that is UserRequested
 	// Do bfs to find the best 3 candidates
 	requested, priced := 0, 0
-	tc := make(map[common.Address]*itypes.PriceResult, len(*items))
+	tc := make(map[common.Address]*itypes.PriceResult, len(items))
 
-	for _, item := range *items {
+	for idx, item := range items {
 		switch i := item.(type) {
-		case itypes.Mint:
+		case *itypes.Mint:
 			if i.ProcessingType != itypes.UserRequested {
 				continue
 			}
 			requested++
-			if n.tryPricingUSD(i.Token0, i.Price0, graph, tc, resHeight) {
+			if n.tryPricingUSD(i.Token0, &i.Price0, graph, tc, resHeight) {
 				priced++
 			}
 			requested++
-			if n.tryPricingUSD(i.Token1, i.Price1, graph, tc, resHeight) {
+			if n.tryPricingUSD(i.Token1, &i.Price1, graph, tc, resHeight) {
 				priced++
 			}
-		case itypes.Burn:
+			items[idx] = i
+		case *itypes.Burn:
 			if i.ProcessingType != itypes.UserRequested {
 				continue
 			}
 			requested++
-			if n.tryPricingUSD(i.Token0, i.Price0, graph, tc, resHeight) {
+			if n.tryPricingUSD(i.Token0, &i.Price0, graph, tc, resHeight) {
 				priced++
 			}
 			requested++
-			if n.tryPricingUSD(i.Token1, i.Price1, graph, tc, resHeight) {
+			if n.tryPricingUSD(i.Token1, &i.Price1, graph, tc, resHeight) {
 				priced++
 			}
-		case itypes.Swap:
+			items[idx] = i
+		case *itypes.Swap:
 			if i.ProcessingType != itypes.UserRequested {
 				continue
 			}
 			requested++
-			if n.tryPricingUSD(i.Token0, i.Price0, graph, tc, resHeight) {
+			if n.tryPricingUSD(i.Token0, &i.Price0, graph, tc, resHeight) {
 				priced++
 			}
 			requested++
-			if n.tryPricingUSD(i.Token1, i.Price1, graph, tc, resHeight) {
+			if n.tryPricingUSD(i.Token1, &i.Price1, graph, tc, resHeight) {
 				priced++
 			}
+			items[idx] = i
 		}
 	}
 	n.log.Info("pricing engine resolution statistics", "height", resHeight, "requested", requested, "priced", priced)
 }
 
-func (n *Engine) getReserveUpdates(items *[]interface{}) map[addrTuple]itypes.UniV2Metadata {
-	reserveUpdates := make(map[addrTuple]itypes.UniV2Metadata, len(*items))
+func (n *Engine) getReserveUpdates(items []interface{}) map[addrTuple]itypes.UniV2Metadata {
+	reserveUpdates := make(map[addrTuple]itypes.UniV2Metadata, len(items))
 
-	for _, item := range *items {
+	for _, item := range items {
 		switch i := item.(type) {
 		case itypes.Mint:
-			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{"", i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
 		case itypes.Burn:
-			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{"", i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
 		case itypes.Swap:
-			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
+			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{"", i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
 		}
 	}
 
@@ -198,6 +201,7 @@ func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]itypes.UniV2Metada
 	wg := sync.WaitGroup{}
 	callopts := bind.CallOpts{BlockNumber: big.NewInt(int64(resHeight))}
 	newDexes := []itypes.UniV2Metadata{}
+	// nullAddr := common.Address{}
 
 	// Ensure swaps exist
 	for addrs, val := range updates {
@@ -266,13 +270,13 @@ func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]itypes.UniV2Metada
 
 // best effort
 func (n *Engine) tryPricingUSD(from common.Address,
-	result *itypes.PriceResult,
+	result **itypes.PriceResult,
 	graph *gg,
 	tc map[common.Address]*itypes.PriceResult,
 	resHeight uint64) bool {
 	// check cache
 	if v, ok := tc[from]; ok {
-		result = v
+		*result = v
 		return true
 	}
 
@@ -287,6 +291,8 @@ func (n *Engine) tryPricingUSD(from common.Address,
 	var calcResult *itypes.PriceResult = nil
 
 	for _, route := range routes {
+		// n.log.Info("route for", "from", from, "route", route)
+
 		multiplier := big.NewFloat(1.0)
 		pr := itypes.PriceResult{}
 		minScore := big.NewFloat(math.MaxInt64)
@@ -294,6 +300,9 @@ func (n *Engine) tryPricingUSD(from common.Address,
 		for _, edge := range route {
 			switch i := edge.Metadata.(type) {
 			case itypes.WrappedCLMetadata:
+				name0, _ := n.EthRPC.GetERC20Name(i.From, callopts)
+				name1, _ := n.EthRPC.GetERC20Name(i.To, callopts)
+				i.Description = fmt.Sprintf("Chainlink (%v, %v), rev:%v", name0, name1, edge.IsReverseEdge)
 				pr.Path = append(pr.Path, i)
 				// TODO: error checks here
 				decimals, _ := n.EthRPC.GetERC20Decimals(i.Oracle, callopts)
@@ -303,8 +312,13 @@ func (n *Engine) tryPricingUSD(from common.Address,
 					multiplier = multiplier.Quo(multiplier, util.DivideBy10pow(i.Data.Answer, decimals))
 				}
 			case itypes.UniV2Metadata:
+				// TODO error checks here
+				name0, _ := n.EthRPC.GetERC20Name(i.Token0, callopts)
+				name1, _ := n.EthRPC.GetERC20Name(i.Token1, callopts)
+				i.Description = fmt.Sprintf("UniswapV2Dex (%v, %v), rev:%v", name0, name1, edge.IsReverseEdge)
+
 				pr.Path = append(pr.Path, i)
-				ratio := big.NewFloat(1.0).Quo(i.Res0, i.Res1)
+				ratio := big.NewFloat(1.0).Quo(i.Res1, i.Res0)
 				if !edge.IsReverseEdge {
 					multiplier = multiplier.Mul(multiplier, ratio)
 					if multiplier.Cmp(minScore) == -1 {
@@ -330,6 +344,7 @@ func (n *Engine) tryPricingUSD(from common.Address,
 	if calcResult != nil {
 		// n.log.Info("caching result", "token", from, "price", calcResult)
 		tc[from] = calcResult
+		*result = calcResult
 		return true
 	}
 	return false
@@ -417,6 +432,8 @@ func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
 				itypes.WrappedCLMetadata{
 					Data:   oracleMetadata,
 					Oracle: rec.Oracle,
+					From:   rec.From,
+					To:     rec.To,
 				})
 		}(_rec)
 	}
@@ -478,8 +495,11 @@ func (n *Engine) genGraph(chainlinkRecords ChainlinkRecords,
 				1, // fetch
 				"dex",
 				itypes.UniV2Metadata{
-					Res0: util.DivideBy10pow(res[0], t0d),
-					Res1: util.DivideBy10pow(res[1], t1d),
+					Pair:   rec.Pair,
+					Token0: rec.Token0,
+					Token1: rec.Token1,
+					Res0:   util.DivideBy10pow(res[0], t0d),
+					Res1:   util.DivideBy10pow(res[1], t1d),
 				})
 		}(_rec)
 	}

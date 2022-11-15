@@ -143,6 +143,7 @@ type MSPoolEthRPCImpl struct {
 	// In-memory caches
 	cacheContractTokens *lru.ARCCache
 	cacheERC20          *lru.ARCCache
+	cacheERC20Name      *lru.ARCCache
 }
 
 // OnStart starts the badgerdb LocalBackend. It implements service.Service.
@@ -185,6 +186,10 @@ func NewMSPoolEthRPCWithViperFields(log logger.Logger, localBackend lb.LocalBack
 	if err != nil {
 		return nil, err
 	}
+	cacheERC20Name, err := lru.NewARC(viper.GetInt(EthRPCMSPoolCFGSection + ".cacheSizeERC20"))
+	if err != nil {
+		return nil, err
+	}
 	lb := &MSPoolEthRPCImpl{
 		log:     log,
 		master:  viper.GetString(EthRPCMSPoolCFGSection + ".master"),
@@ -201,6 +206,7 @@ func NewMSPoolEthRPCWithViperFields(log logger.Logger, localBackend lb.LocalBack
 		localBackend:        localBackend,
 		cacheContractTokens: cacheContractTokens,
 		cacheERC20:          cacheERC20,
+		cacheERC20Name:      cacheERC20Name,
 	}
 	lb.BaseService = *service.NewBaseService(log, "ethrpc", lb)
 	return lb, nil
@@ -350,6 +356,35 @@ func (n *MSPoolEthRPCImpl) GetERC20Balances(requests []itypes.Tuple2[common.Addr
 		results = append(results, balance)
 	}
 	return results, nil
+}
+
+// Cached RPC access to get name for erc20 name
+func (n *MSPoolEthRPCImpl) GetERC20Name(erc20Address common.Address, callopts *bind.CallOpts) (string, error) {
+	if erc20Address == common.HexToAddress("0xffffffffffffffffffffffffffffffffffffffff") {
+		return "USD", nil
+	}
+	lookupKey := erc20Address
+	if ret, ok := n.cacheERC20Name.Get(lookupKey); ok {
+		retI := ret.(string)
+		return retI, nil
+	}
+
+	name, err := Do(n.pool,
+		n.sem,
+		func(ctx context.Context, c *ethclient.Client) (string, error) {
+			token, err := ERC20.NewERC20(erc20Address, c)
+			if err != nil {
+				return "unknown", err
+			}
+			callopts.Context = ctx
+			return token.Name(callopts)
+		}, "unknown")
+	if err != nil {
+		return "unknown", err
+	}
+
+	n.cacheERC20Name.Add(lookupKey, name)
+	return name, nil
 }
 
 func (n *MSPoolEthRPCImpl) GetTokensUniV3(pairContract common.Address,

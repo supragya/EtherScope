@@ -18,7 +18,7 @@ type UniswapV2Processor struct {
 
 func (n *UniswapV2Processor) ProcessUniV2Mint(
 	l types.Log,
-	items *[]interface{},
+	items []interface{},
 	idx int,
 	blockTime uint64,
 ) {
@@ -105,13 +105,13 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 		mint.Amount1 = util.DivideBy10pow(am1, token1decimals)
 	}
 
-	(*items)[idx] = mint
+	items[idx] = &mint
 	// instrumentation.MintV2Processed.Inc()
 }
 
 func (n *UniswapV2Processor) ProcessUniV2Burn(
 	l types.Log,
-	items *[]interface{},
+	items []interface{},
 	idx int,
 	blockTime uint64,
 ) {
@@ -198,13 +198,13 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 		burn.Amount1 = util.DivideBy10pow(am1, token1decimals)
 	}
 
-	(*items)[idx] = burn
+	items[idx] = &burn
 	// instrumentation.BurnV2Processed.Inc()
 }
 
 func (n *UniswapV2Processor) ProcessUniV2Swap(
 	l types.Log,
-	items *[]interface{},
+	items []interface{},
 	idx int,
 	blockTime uint64,
 ) {
@@ -293,7 +293,7 @@ func (n *UniswapV2Processor) ProcessUniV2Swap(
 		swap.Amount1 = util.DivideBy10pow(am1, token1decimals)
 	}
 
-	(*items)[idx] = swap
+	items[idx] = &swap
 
 	// AddToSynopsis(mt, bm, swap, items, "swap", true)
 	//		instrumentation.SwapV2Processed.Inc()

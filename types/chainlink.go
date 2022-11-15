@@ -8,8 +8,11 @@ import (
 )
 
 type WrappedCLMetadata struct {
-	Data   ChainlinkLatestRoundData
-	Oracle common.Address
+	Description string
+	Data        ChainlinkLatestRoundData
+	Oracle      common.Address
+	From        common.Address
+	To          common.Address
 }
 
 type ChainlinkLatestRoundData struct {
@@ -41,11 +44,12 @@ type PriceResult struct {
 }
 
 type UniV2Metadata struct {
-	Pair   common.Address
-	Token0 common.Address
-	Token1 common.Address
-	Res0   *big.Float
-	Res1   *big.Float
+	Description string
+	Pair        common.Address
+	Token0      common.Address
+	Token1      common.Address
+	Res0        *big.Float
+	Res1        *big.Float
 }
 
 func init() {
