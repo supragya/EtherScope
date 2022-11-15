@@ -2,7 +2,6 @@ package gograph
 
 import (
 	"errors"
-	"fmt"
 )
 
 // A Graph is connects vertices of type V with edges weighted by
@@ -66,8 +65,6 @@ func (g *Graph[V, W, H, M]) AddWeightedEdge(vertexFrom V, vertexTo V,
 	if cFrom.Exists(vertexTo) || cTo.Exists(vertexFrom) {
 		return ErrEdgeExists
 	}
-
-	fmt.Printf("vertex from %v to %v; %v; %v,\n %+v\n", vertexFrom, vertexTo, edgeWeight, hint, metadata)
 
 	g.Graph[vertexFrom] = *cFrom.AddWeightedEdge(vertexFrom, vertexTo, edgeWeight, hint, metadata, false)
 	g.EdgeCount++

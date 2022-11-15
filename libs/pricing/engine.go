@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -148,6 +149,30 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 			if n.tryPricingUSD(i.Token1, &i.Price1, graph, tc, resHeight) {
 				priced++
 			}
+			if i.Price0 != nil || i.Price1 != nil {
+				if i.Price0 == nil {
+					p := big.NewFloat(1.0).Set(i.Price1.Price)
+					p = p.Mul(p, i.Amount1)
+					p = p.Abs(p)
+					p = p.Mul(p, big.NewFloat(2.0))
+					i.AmountUSD = p
+				} else if i.Price1 == nil {
+					p := big.NewFloat(1.0).Set(i.Price0.Price)
+					p = p.Mul(p, i.Amount0)
+					p = p.Abs(p)
+					p = p.Mul(p, big.NewFloat(2.0))
+					i.AmountUSD = p
+				} else {
+					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
+					p1 = p1.Mul(p1, i.Amount0)
+					p1 = p1.Abs(p1)
+					p2 := big.NewFloat(1.0).Set(i.Price1.Price)
+					p2 = p2.Mul(p2, i.Amount1)
+					p2 = p2.Abs(p2)
+					p1 = p1.Add(p1, p2)
+					i.AmountUSD = p1
+				}
+			}
 			items[idx] = i
 		case *itypes.Burn:
 			if i.ProcessingType != itypes.UserRequested {
@@ -160,6 +185,30 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 			requested++
 			if n.tryPricingUSD(i.Token1, &i.Price1, graph, tc, resHeight) {
 				priced++
+			}
+			if i.Price0 != nil || i.Price1 != nil {
+				if i.Price0 == nil {
+					p := big.NewFloat(1.0).Set(i.Price1.Price)
+					p = p.Mul(p, i.Amount1)
+					p = p.Abs(p)
+					p = p.Mul(p, big.NewFloat(2.0))
+					i.AmountUSD = p
+				} else if i.Price1 == nil {
+					p := big.NewFloat(1.0).Set(i.Price0.Price)
+					p = p.Mul(p, i.Amount0)
+					p = p.Abs(p)
+					p = p.Mul(p, big.NewFloat(2.0))
+					i.AmountUSD = p
+				} else {
+					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
+					p1 = p1.Mul(p1, i.Amount0)
+					p1 = p1.Abs(p1)
+					p2 := big.NewFloat(1.0).Set(i.Price1.Price)
+					p2 = p2.Mul(p2, i.Amount1)
+					p2 = p2.Abs(p2)
+					p1 = p1.Add(p1, p2)
+					i.AmountUSD = p1
+				}
 			}
 			items[idx] = i
 		case *itypes.Swap:
@@ -174,6 +223,30 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 			if n.tryPricingUSD(i.Token1, &i.Price1, graph, tc, resHeight) {
 				priced++
 			}
+			if i.Price0 != nil || i.Price1 != nil {
+				if i.Price0 == nil {
+					p := big.NewFloat(1.0).Set(i.Price1.Price)
+					p = p.Mul(p, i.Amount1)
+					p = p.Abs(p)
+					p = p.Mul(p, big.NewFloat(2.0))
+					i.AmountUSD = p
+				} else if i.Price1 == nil {
+					p := big.NewFloat(1.0).Set(i.Price0.Price)
+					p = p.Mul(p, i.Amount0)
+					p = p.Abs(p)
+					p = p.Mul(p, big.NewFloat(2.0))
+					i.AmountUSD = p
+				} else {
+					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
+					p1 = p1.Mul(p1, i.Amount0)
+					p1 = p1.Abs(p1)
+					p2 := big.NewFloat(1.0).Set(i.Price1.Price)
+					p2 = p2.Mul(p2, i.Amount1)
+					p2 = p2.Abs(p2)
+					p1 = p1.Add(p1, p2)
+					i.AmountUSD = p1
+				}
+			}
 			items[idx] = i
 		}
 	}
@@ -185,11 +258,11 @@ func (n *Engine) getReserveUpdates(items []interface{}) map[addrTuple]itypes.Uni
 
 	for _, item := range items {
 		switch i := item.(type) {
-		case itypes.Mint:
+		case *itypes.Mint:
 			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{"", i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
-		case itypes.Burn:
+		case *itypes.Burn:
 			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{"", i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
-		case itypes.Swap:
+		case *itypes.Swap:
 			reserveUpdates[addrTuple{i.Token0, i.Token1}] = itypes.UniV2Metadata{"", i.PairContract, i.Token0, i.Token1, i.Reserve0, i.Reserve1}
 		}
 	}
@@ -214,7 +287,10 @@ func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]itypes.UniV2Metada
 				break
 			}
 
-			n.log.Info("adding previously unseen dex to pricing graph", "dex", val.Pair)
+			name0, _ := n.EthRPC.GetERC20Name(val.Token0, &callopts)
+			name1, _ := n.EthRPC.GetERC20Name(val.Token1, &callopts)
+			dex := fmt.Sprintf("(%v, %v) %v", name0, name1, strings.ToLower(val.Pair.Hex()))
+			n.log.Info("adding previously unseen dex to pricing graph", "dex", dex)
 			newDexes = append(newDexes, val)
 
 			graph.AddWeightedEdge(t0,
@@ -320,14 +396,17 @@ func (n *Engine) tryPricingUSD(from common.Address,
 				pr.Path = append(pr.Path, i)
 				ratio := big.NewFloat(1.0).Quo(i.Res1, i.Res0)
 				if !edge.IsReverseEdge {
+					edgeImpact := big.NewFloat(1.0).Mul(i.Res0, multiplier)
+					// edgeImpact = edgeImpact * 2.0 // Implicit
 					multiplier = multiplier.Mul(multiplier, ratio)
-					if multiplier.Cmp(minScore) == -1 {
-						minScore.Set(multiplier)
+					if edgeImpact.Cmp(minScore) == -1 {
+						minScore.Set(edgeImpact)
 					}
 				} else {
+					edgeImpact := big.NewFloat(1.0).Mul(i.Res1, multiplier)
 					multiplier = multiplier.Quo(multiplier, ratio)
-					if multiplier.Cmp(minScore) == -1 {
-						minScore.Set(multiplier)
+					if edgeImpact.Cmp(minScore) == -1 {
+						minScore.Set(edgeImpact)
 					}
 				}
 			}
@@ -338,6 +417,10 @@ func (n *Engine) tryPricingUSD(from common.Address,
 			maxScore.Set(minScore)
 			calcResult = &pr
 		}
+
+		// if from == common.HexToAddress("0x6b175474e89094c44da98b954eedeac495271d0f") {
+		// 	n.log.Info("price found", "price", pr.Price, "path", pr.Path, "maxScore", maxScore, "minScore", minScore)
+		// }
 	}
 
 	// Cache result
