@@ -11,6 +11,10 @@ var ApplicationCodename string = "enterprise"
 // Build commit -- supplied compile time
 var buildCommit string = "unknowncommit"
 
+const UNTAGGED_GITTAG = "untagged"
+
+var gittag string = UNTAGGED_GITTAG
+
 // Build time -- supplied compile time
 var buildTime string = "unknowntime"
 
@@ -28,7 +32,7 @@ var RootCmdVersion string = prepareVersionString()
 
 func GetVersionStrings() []string {
 	return []string{
-		fmt.Sprintf("%s persistence v%d (%s)", buildCommit, PersistenceVersion, ApplicationCodename),
+		fmt.Sprintf("%s persistence v%d (%s) tagged %s", buildCommit, PersistenceVersion, ApplicationCodename, gittag),
 		fmt.Sprintf("compiled at %s by %s using %s", buildTime, builder, gover),
 	}
 }
@@ -46,4 +50,8 @@ func prepareVersionString() string {
 	}
 
 	return buffer.String()
+}
+
+func GetGitTag() string {
+	return gittag
 }

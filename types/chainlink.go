@@ -52,6 +52,11 @@ type UniV2Metadata struct {
 	Res1        *big.Float
 }
 
+type CounterPartyResolutionMetadata struct {
+	Description string
+	Price       *big.Float
+}
+
 func init() {
 	gob.Register(UniV2Metadata{})
 	gob.Register(ChainlinkLatestRoundData{})

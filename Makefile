@@ -8,11 +8,13 @@ RELEASE=$(shell git describe --tags --abbrev=0)
 BUILDCOMMIT=$(shell git rev-parse HEAD | cut -c 1-7)
 BUILDLINE=$(shell git rev-parse --abbrev-ref HEAD)
 CURRENTTIME=$(shell date -u '+%d-%m-%Y %H:%M:%S')
+CURRENTTAG=$(shell git tag -l --contains HEAD)
 BUILDER=$(shell uname -n)
 
 build:
 	$(GOBUILD) -ldflags="\
 	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildCommit=$(BUILDLINE)@$(BUILDCOMMIT)' \
+	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.gittag=$(CURRENTTAG)' \
 	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildTime=$(CURRENTTIME)' \
 	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.builder=$(BUILDER)' \
 	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.gover=$(GOVER)' \

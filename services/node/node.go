@@ -43,6 +43,7 @@ type NodeImpl struct {
 	skipResumeRemote                bool     // skip checking remote for resume height
 	skipResumeLocal                 bool     // skip checking localbackend for resume height
 	remoteResumeURL                 string   // URL to use for resume height GET request
+	prodcheck                       bool     // checks for prod grade settings
 	eventsToIndex                   []string // user requested events to index in string form
 	maxCPUParallels                 int      // user requested CPU threads to allocate to the process
 	maxBlockSpanPerCall             uint64   // max block spans to log per initial filtering call
@@ -61,7 +62,8 @@ type NodeImpl struct {
 
 	// Library instances
 	procUniV2 uniswapv2.UniswapV2Processor
-	pricer    *priceresolver.Engine
+	// procUniV3 uniswapv3.UniswapV3Processor
+	pricer *priceresolver.Engine
 }
 
 // OnStart starts the Node. It implements service.Service.
@@ -126,6 +128,7 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 
 	// Setup processors
 	n.procUniV2 = uniswapv2.UniswapV2Processor{n.mergedTopics, n.EthRPC}
+	// n.procUniV3 = uniswapv3.UniswapV3Processor{n.mergedTopics, n.EthRPC}
 	n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
 		n.pricingChainlinkOraclesDumpFile,
 		n.pricingDexDumpFile,
@@ -240,6 +243,7 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		var wg sync.WaitGroup
 		var processedItems []interface{} = make([]interface{}, len(logs))
 		for idx, _log := range logs {
+			wg.Add(1)
 			go n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime, &wg)
 		}
 		wg.Wait()
@@ -267,7 +271,6 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	idx int,
 	blockTime uint64,
 	wg *sync.WaitGroup) {
-	wg.Add(1)
 	defer wg.Done()
 
 	primaryTopic := l.Topics[0]
@@ -286,13 +289,13 @@ func (n *NodeImpl) decodeLog(l types.Log,
 		// // ---- Uniswap V3 ----
 		// case itypes.UniV3MintTopic:
 		// 	// instrumentation.MintV3Found.Inc()
-		// 	n.processUniV3Mint(l, items, bm, mt)
+		// 	n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
 		// case itypes.UniV3BurnTopic:
 		// 	// instrumentation.BurnV3Found.Inc()
-		// 	n.processUniV3Burn(l, items, bm, mt)
+		// 	n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
 		// case itypes.UniV3SwapTopic:
 		// 	// instrumentation.SwapV3Found.Inc()
-		// 	n.processUniV3Swap(l, items, bm, mt)
+		// 	n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
 
 		// // ---- ERC 20 ----
 		// case itypes.ERC20TransferTopic:
@@ -354,13 +357,16 @@ type Payload struct {
 	NodeMoniker   string
 	NodeID        uuid.UUID
 	NodeVersion   string
+	Environment   string
 	Network       string
 	BlockSynopsis *itypes.BlockSynopsis
 	NewDexes      []itypes.UniV2Metadata
 	Items         []interface{}
 }
 
-func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items []interface{}, newDexes []itypes.UniV2Metadata) *Payload {
+func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis,
+	items []interface{},
+	newDexes []itypes.UniV2Metadata) *Payload {
 	nonNilUserItems := []interface{}{}
 	for _, item := range items {
 		if item == nil {
@@ -385,9 +391,14 @@ func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis, items []interface{}, new
 			}
 		}
 	}
+	env := "staging"
+	if n.prodcheck {
+		env = "production tagged " + version.GetGitTag()
+	}
 	return &Payload{
 		NodeMoniker:   n.moniker,
 		NodeID:        n.nodeID,
+		Environment:   env,
 		NodeVersion:   strings.Trim(cfg.SFmt(version.GetVersionStrings()), " "),
 		Network:       n.network,
 		BlockSynopsis: bs,
@@ -473,6 +484,14 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		}
 	}
 
+	if viper.GetBool(NodeCFGSection + ".prodcheck") {
+		if version.GetGitTag() == version.UNTAGGED_GITTAG {
+			log.Fatal("cannot run a untagged indexer on production. exiting")
+		}
+	} else {
+		log.Warn("prodcheck is unset, make sure this indexer does not run in production")
+	}
+
 	var (
 		lbType     = viper.GetString(NodeCFGSection + ".localBackendType")
 		outsType   = viper.GetString(NodeCFGSection + ".outputSinkType")
@@ -523,6 +542,7 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		network:                         viper.GetString(NodeCFGSection + ".network"),
 		pricingChainlinkOraclesDumpFile: viper.GetString(NodeCFGSection + ".pricingChainlinkOraclesDumpFile"),
 		pricingDexDumpFile:              viper.GetString(NodeCFGSection + ".pricingDexDumpFile"),
+		prodcheck:                       viper.GetBool(NodeCFGSection + ".prodcheck"),
 	}
 	node.BaseService = *service.NewBaseService(log, "node", node)
 	return node, nil

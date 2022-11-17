@@ -20,6 +20,14 @@ var (
 			Default: "blockpour-geth-node",
 		},
 		{
+			Name:      "prodcheck",
+			Type:      "bool",
+			Necessity: "always needed",
+			Info: cfg.SArr("ensures only tagged and released version of bgidx is",
+				"allowed to run."),
+			Default: true,
+		},
+		{
 			Name:      "maxCPUParallels",
 			Type:      "uint",
 			Necessity: "always needed",

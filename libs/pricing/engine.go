@@ -132,7 +132,7 @@ func (n *Engine) Resolve(resHeight uint64, items []interface{}) ([]itypes.UniV2M
 func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) {
 	// For each item that is UserRequested
 	// Do bfs to find the best 3 candidates
-	requested, priced := 0, 0
+	requested, priced, cpriced := 0, 0, 0
 	tc := make(map[common.Address]*itypes.PriceResult, len(items))
 
 	for idx, item := range items {
@@ -154,12 +154,38 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					p := big.NewFloat(1.0).Set(i.Price1.Price)
 					p = p.Mul(p, i.Amount1)
 					p = p.Abs(p)
+					counterparty := big.NewFloat(1.0).Set(p)
+					counterparty = counterparty.Quo(counterparty, i.Amount0)
+					counterparty = counterparty.Abs(counterparty)
+					i.Price0 = &itypes.PriceResult{Price: counterparty,
+						Path: []interface{}{
+							itypes.CounterPartyResolutionMetadata{
+								Description: "Counterparty resolution",
+								Price:       counterparty,
+							},
+						},
+					}
+					cpriced++
+					priced++
 					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else if i.Price1 == nil {
 					p := big.NewFloat(1.0).Set(i.Price0.Price)
 					p = p.Mul(p, i.Amount0)
 					p = p.Abs(p)
+					counterparty := big.NewFloat(1.0).Set(p)
+					counterparty = counterparty.Quo(counterparty, i.Amount1)
+					counterparty = counterparty.Abs(counterparty)
+					i.Price1 = &itypes.PriceResult{Price: counterparty,
+						Path: []interface{}{
+							itypes.CounterPartyResolutionMetadata{
+								Description: "Counterparty resolution",
+								Price:       counterparty,
+							},
+						},
+					}
+					cpriced++
+					priced++
 					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else {
@@ -191,12 +217,38 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					p := big.NewFloat(1.0).Set(i.Price1.Price)
 					p = p.Mul(p, i.Amount1)
 					p = p.Abs(p)
+					counterparty := big.NewFloat(1.0).Set(p)
+					counterparty = counterparty.Quo(counterparty, i.Amount0)
+					counterparty = counterparty.Abs(counterparty)
+					i.Price0 = &itypes.PriceResult{Price: counterparty,
+						Path: []interface{}{
+							itypes.CounterPartyResolutionMetadata{
+								Description: "Counterparty resolution",
+								Price:       counterparty,
+							},
+						},
+					}
+					cpriced++
+					priced++
 					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else if i.Price1 == nil {
 					p := big.NewFloat(1.0).Set(i.Price0.Price)
 					p = p.Mul(p, i.Amount0)
 					p = p.Abs(p)
+					counterparty := big.NewFloat(1.0).Set(p)
+					counterparty = counterparty.Quo(counterparty, i.Amount1)
+					counterparty = counterparty.Abs(counterparty)
+					i.Price1 = &itypes.PriceResult{Price: counterparty,
+						Path: []interface{}{
+							itypes.CounterPartyResolutionMetadata{
+								Description: "Counterparty resolution",
+								Price:       counterparty,
+							},
+						},
+					}
+					cpriced++
+					priced++
 					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else {
@@ -228,12 +280,38 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					p := big.NewFloat(1.0).Set(i.Price1.Price)
 					p = p.Mul(p, i.Amount1)
 					p = p.Abs(p)
+					counterparty := big.NewFloat(1.0).Set(p)
+					counterparty = counterparty.Quo(counterparty, i.Amount0)
+					counterparty = counterparty.Abs(counterparty)
+					i.Price0 = &itypes.PriceResult{Price: counterparty,
+						Path: []interface{}{
+							itypes.CounterPartyResolutionMetadata{
+								Description: "Counterparty resolution",
+								Price:       counterparty,
+							},
+						},
+					}
+					cpriced++
+					priced++
 					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else if i.Price1 == nil {
 					p := big.NewFloat(1.0).Set(i.Price0.Price)
 					p = p.Mul(p, i.Amount0)
 					p = p.Abs(p)
+					counterparty := big.NewFloat(1.0).Set(p)
+					counterparty = counterparty.Quo(counterparty, i.Amount1)
+					counterparty = counterparty.Abs(counterparty)
+					i.Price1 = &itypes.PriceResult{Price: counterparty,
+						Path: []interface{}{
+							itypes.CounterPartyResolutionMetadata{
+								Description: "Counterparty resolution",
+								Price:       counterparty,
+							},
+						},
+					}
+					cpriced++
+					priced++
 					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else {
@@ -250,7 +328,11 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 			items[idx] = i
 		}
 	}
-	n.log.Info("pricing engine resolution statistics", "height", resHeight, "requested", requested, "priced", priced)
+	n.log.Info("pricing engine resolution statistics",
+		"height", resHeight,
+		"requested", requested,
+		"priced", priced,
+		"counterpartypriced", cpriced)
 }
 
 func (n *Engine) getReserveUpdates(items []interface{}) map[addrTuple]itypes.UniV2Metadata {
