@@ -15,6 +15,8 @@ type Graph[V comparable, W comparable, H any, M any] struct {
 
 var (
 	ErrEdgeExists = errors.New("edge exists between given vertices")
+	ErrSameEdge   = errors.New("cannot have self loops")
+	ErrSentinel   = errors.New("cannot accept sentinel 0x0 as a vertex")
 )
 
 // Creates a new graph with vertices of type V with edges weighted by
@@ -59,6 +61,10 @@ func (g *Graph[V, W, H, M]) GetConnectedVertices(vertex V) Connections[V, W, H, 
 
 func (g *Graph[V, W, H, M]) AddWeightedEdge(vertexFrom V, vertexTo V,
 	edgeWeight W, hint H, metadata M) error {
+	if vertexFrom == vertexTo {
+		return ErrSameEdge
+	}
+
 	cFrom := g.GetConnectedVertices(vertexFrom)
 	cTo := g.GetConnectedVertices(vertexTo)
 

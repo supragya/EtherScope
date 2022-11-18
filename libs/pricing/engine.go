@@ -362,21 +362,27 @@ func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]itypes.UniV2Metada
 	for addrs, val := range updates {
 		// expecting bidirectional graph
 		if _, ok := graph.Graph[addrs.First]; !ok {
-			t0, t1, err := n.EthRPC.GetTokensUniV2(val.Pair, &callopts)
+			_, _, err := n.EthRPC.GetTokensUniV2(val.Pair, &callopts)
 			if err != nil {
 				n.log.Warn("not a univ2 pair, skipping",
 					"pair", val.Pair)
 				break
 			}
 
-			name0, _ := n.EthRPC.GetERC20Name(val.Token0, &callopts)
-			name1, _ := n.EthRPC.GetERC20Name(val.Token1, &callopts)
+			name0, err := n.EthRPC.GetERC20Name(val.Token0, &callopts)
+			if err != nil {
+				n.log.Warn("unable to get name for token", "error", err, "token", val.Token0)
+			}
+			name1, err := n.EthRPC.GetERC20Name(val.Token1, &callopts)
+			if err != nil {
+				n.log.Warn("unable to get name for token", "error", err, "token", val.Token1)
+			}
 			dex := fmt.Sprintf("(%v, %v) %v", name0, name1, strings.ToLower(val.Pair.Hex()))
 			n.log.Info("adding previously unseen dex to pricing graph", "dex", dex)
 			newDexes = append(newDexes, val)
 
-			graph.AddWeightedEdge(t0,
-				t1,
+			graph.AddWeightedEdge(val.Token0,
+				val.Token1,
 				1, // fetch
 				"dex",
 				val)
@@ -458,8 +464,14 @@ func (n *Engine) tryPricingUSD(from common.Address,
 		for _, edge := range route {
 			switch i := edge.Metadata.(type) {
 			case itypes.WrappedCLMetadata:
-				name0, _ := n.EthRPC.GetERC20Name(i.From, callopts)
-				name1, _ := n.EthRPC.GetERC20Name(i.To, callopts)
+				name0, err := n.EthRPC.GetERC20Name(i.From, callopts)
+				if err != nil {
+					n.log.Warn("unable to get name for token", "error", err, "token", i.From)
+				}
+				name1, err := n.EthRPC.GetERC20Name(i.To, callopts)
+				if err != nil {
+					n.log.Warn("unable to get name for token", "error", err, "token", i.To)
+				}
 				i.Description = fmt.Sprintf("Chainlink (%v, %v), rev:%v", name0, name1, edge.IsReverseEdge)
 				pr.Path = append(pr.Path, i)
 				// TODO: error checks here
@@ -470,9 +482,14 @@ func (n *Engine) tryPricingUSD(from common.Address,
 					multiplier = multiplier.Quo(multiplier, util.DivideBy10pow(i.Data.Answer, decimals))
 				}
 			case itypes.UniV2Metadata:
-				// TODO error checks here
-				name0, _ := n.EthRPC.GetERC20Name(i.Token0, callopts)
-				name1, _ := n.EthRPC.GetERC20Name(i.Token1, callopts)
+				name0, err := n.EthRPC.GetERC20Name(i.Token0, callopts)
+				if err != nil {
+					n.log.Warn("unable to get name for token", "error", err, "token", i.Token0)
+				}
+				name1, err := n.EthRPC.GetERC20Name(i.Token1, callopts)
+				if err != nil {
+					n.log.Warn("unable to get name for token", "error", err, "token", i.Token1)
+				}
 				i.Description = fmt.Sprintf("UniswapV2Dex (%v, %v), rev:%v", name0, name1, edge.IsReverseEdge)
 
 				pr.Path = append(pr.Path, i)
