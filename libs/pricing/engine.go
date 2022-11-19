@@ -167,7 +167,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					}
 					cpriced++
 					priced++
-					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else if i.Price1 == nil {
 					p := big.NewFloat(1.0).Set(i.Price0.Price)
@@ -186,7 +185,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					}
 					cpriced++
 					priced++
-					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else {
 					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
@@ -226,7 +224,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					}
 					cpriced++
 					priced++
-					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else if i.Price1 == nil {
 					p := big.NewFloat(1.0).Set(i.Price0.Price)
@@ -245,7 +242,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					}
 					cpriced++
 					priced++
-					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else {
 					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
@@ -285,7 +281,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					}
 					cpriced++
 					priced++
-					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else if i.Price1 == nil {
 					p := big.NewFloat(1.0).Set(i.Price0.Price)
@@ -304,7 +299,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					}
 					cpriced++
 					priced++
-					p = p.Mul(p, big.NewFloat(2.0))
 					i.AmountUSD = p
 				} else {
 					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
