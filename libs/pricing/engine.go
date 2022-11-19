@@ -192,10 +192,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
 					p1 = p1.Mul(p1, i.Amount0)
 					p1 = p1.Abs(p1)
-					p2 := big.NewFloat(1.0).Set(i.Price1.Price)
-					p2 = p2.Mul(p2, i.Amount1)
-					p2 = p2.Abs(p2)
-					p1 = p1.Add(p1, p2)
 					i.AmountUSD = p1
 				}
 			}
@@ -255,10 +251,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
 					p1 = p1.Mul(p1, i.Amount0)
 					p1 = p1.Abs(p1)
-					p2 := big.NewFloat(1.0).Set(i.Price1.Price)
-					p2 = p2.Mul(p2, i.Amount1)
-					p2 = p2.Abs(p2)
-					p1 = p1.Add(p1, p2)
 					i.AmountUSD = p1
 				}
 			}
@@ -318,10 +310,6 @@ func (n *Engine) resolveItems(graph *gg, items []interface{}, resHeight uint64) 
 					p1 := big.NewFloat(1.0).Set(i.Price0.Price)
 					p1 = p1.Mul(p1, i.Amount0)
 					p1 = p1.Abs(p1)
-					p2 := big.NewFloat(1.0).Set(i.Price1.Price)
-					p2 = p2.Mul(p2, i.Amount1)
-					p2 = p2.Abs(p2)
-					p1 = p1.Add(p1, p2)
 					i.AmountUSD = p1
 				}
 			}
