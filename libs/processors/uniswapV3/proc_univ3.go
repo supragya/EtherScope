@@ -11,18 +11,18 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-type UniswapV2Processor struct {
+type UniswapV3Processor struct {
 	Topics map[common.Hash]itypes.ProcessingType
 	EthRPC ethrpc.EthRPC
 }
 
-func (n *UniswapV2Processor) ProcessUniV2Mint(
+func (n *UniswapV3Processor) ProcessUniV3Mint(
 	l types.Log,
 	items []interface{},
 	idx int,
 	blockTime uint64,
 ) {
-	prcType, ok := n.Topics[itypes.UniV2MintTopic]
+	prcType, ok := n.Topics[itypes.UniV3MintTopic]
 	if !ok {
 		return
 	}
@@ -30,12 +30,12 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 	callopts := util.GetBlockCallOpts(l.BlockNumber)
 
 	// Test if the contract is a UniswapV2 type contract
-	if !n.isUniswapV2Pair(l.Address, callopts) {
+	if !n.isUniswapV3Pair(l.Address, callopts) {
 		return
 	}
 
 	mint := itypes.Mint{
-		Type:           "uniswapv2mint",
+		Type:           "uniswapv3mint",
 		ProcessingType: prcType,
 		LogIdx:         l.Index,
 		Transaction:    l.TxHash,
@@ -57,7 +57,7 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 
 	// Fill up the fields needed by pricing engine
 	var err error
-	mint.Token0, mint.Token1, err = n.EthRPC.GetTokensUniV2(l.Address, callopts)
+	mint.Token0, mint.Token1, err = n.EthRPC.GetTokensUniV3(l.Address, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -88,7 +88,7 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 
 	// Fill up the fields needed by user
 	if prcType == itypes.UserRequested {
-		ok, sender, am0, am1 := InfoUniV2Mint(l)
+		ok, sender, _, am0, am1 := InfoUniV3Mint(l)
 		if !ok {
 			return
 		}
@@ -109,13 +109,13 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 	// instrumentation.MintV2Processed.Inc()
 }
 
-func (n *UniswapV2Processor) ProcessUniV2Burn(
+func (n *UniswapV3Processor) ProcessUniV3Burn(
 	l types.Log,
 	items []interface{},
 	idx int,
 	blockTime uint64,
 ) {
-	prcType, ok := n.Topics[itypes.UniV2BurnTopic]
+	prcType, ok := n.Topics[itypes.UniV3BurnTopic]
 	if !ok {
 		return
 	}
@@ -123,12 +123,12 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 	callopts := util.GetBlockCallOpts(l.BlockNumber)
 
 	// Test if the contract is a UniswapV2 type contract
-	if !n.isUniswapV2Pair(l.Address, callopts) {
+	if !n.isUniswapV3Pair(l.Address, callopts) {
 		return
 	}
 
 	burn := itypes.Burn{
-		Type:           "uniswapv2burn",
+		Type:           "uniswapv3burn",
 		ProcessingType: prcType,
 		LogIdx:         l.Index,
 		Transaction:    l.TxHash,
@@ -150,7 +150,7 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 
 	// Fill up the fields needed by pricing engine
 	var err error
-	burn.Token0, burn.Token1, err = n.EthRPC.GetTokensUniV2(l.Address, callopts)
+	burn.Token0, burn.Token1, err = n.EthRPC.GetTokensUniV3(l.Address, callopts)
 	if util.IsEthErr(err) {
 		return
 	}
@@ -181,7 +181,7 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 
 	// Fill up the fields needed by user
 	if prcType == itypes.UserRequested {
-		ok, sender, _, am0, am1 := InfoUniV2Burn(l)
+		ok, sender, _, am0, am1 := InfoUniV3Burn(l)
 		if !ok {
 			return
 		}
@@ -202,7 +202,7 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 	// instrumentation.BurnV2Processed.Inc()
 }
 
-func (n *UniswapV2Processor) ProcessUniV2Swap(
+func (n *UniswapV3Processor) ProcessUniV3Swap(
 	l types.Log,
 	items []interface{},
 	idx int,
@@ -216,12 +216,12 @@ func (n *UniswapV2Processor) ProcessUniV2Swap(
 	callopts := util.GetBlockCallOpts(l.BlockNumber)
 
 	// Test if the contract is a UniswapV2 type contract
-	if !n.isUniswapV2Pair(l.Address, callopts) {
+	if !n.isUniswapV3Pair(l.Address, callopts) {
 		return
 	}
 
 	swap := itypes.Swap{
-		Type:           "uniswapv2swap",
+		Type:           "uniswapv3swap",
 		ProcessingType: prcType,
 		LogIdx:         l.Index,
 		Transaction:    l.TxHash,
@@ -275,7 +275,7 @@ func (n *UniswapV2Processor) ProcessUniV2Swap(
 
 	// Fill up the fields needed by user
 	if prcType == itypes.UserRequested {
-		ok, sender, receiver, am0, am1 := InfoUniV2Swap(l)
+		ok, sender, receiver, am0, am1 := InfoUniV3Swap(l)
 		if !ok {
 			return
 		}
@@ -299,9 +299,10 @@ func (n *UniswapV2Processor) ProcessUniV2Swap(
 	//		instrumentation.SwapV2Processed.Inc()
 	//	}
 }
-func (n *UniswapV2Processor) isUniswapV2Pair(address common.Address,
+
+func (n *UniswapV3Processor) isUniswapV3Pair(address common.Address,
 	callopts *bind.CallOpts) bool {
-	_, _, err := n.EthRPC.GetTokensUniV2(address, callopts)
+	_, _, err := n.EthRPC.GetTokensUniV3(address, callopts)
 	if err == nil {
 		return true
 	}
@@ -315,82 +316,50 @@ func (n *UniswapV2Processor) isUniswapV2Pair(address common.Address,
 	return false
 }
 
-func (n *UniswapV2Processor) GetFormattedAmountsUniV2(amount0 *big.Int,
-	amount1 *big.Int,
-	callopts *bind.CallOpts,
-	address common.Address) (ok bool,
-	formattedAmount0 *big.Float,
-	formattedAmount1 *big.Float,
-	token0Decimals uint8,
-	token1Decimals uint8) {
-	t0, t1, err := n.EthRPC.GetTokensUniV2(address, callopts)
-	if err != nil {
-		return false,
-			big.NewFloat(0.0),
-			big.NewFloat(0.0),
-			0,
-			0
-	}
-
-	token0Decimals, err = n.EthRPC.GetERC20Decimals(t0, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token0Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return false,
-				big.NewFloat(0.0),
-				big.NewFloat(0.0),
-				0,
-				0
-		}
-		util.ENOKS(2, err)
-	}
-
-	token1Decimals, err = n.EthRPC.GetERC20Decimals(t1, callopts)
-	if util.IsExecutionReverted(err) {
-		// Non ERC-20 contract
-		token1Decimals = 0
-	} else {
-		if util.IsEthErr(err) {
-			return false,
-				big.NewFloat(0.0),
-				big.NewFloat(0.0),
-				0,
-				0
-		}
-		util.ENOKS(2, err)
-	}
-
-	return true,
-		util.DivideBy10pow(amount0, token0Decimals),
-		util.DivideBy10pow(amount1, token1Decimals),
-		token0Decimals,
-		token1Decimals
-}
-
-func InfoUniV2Mint(l types.Log) (hasSufficientData bool,
+func InfoUniV3Mint(l types.Log) (hasSufficientData bool,
 	sender common.Address,
+	amount *big.Int,
 	amount0 *big.Int,
 	amount1 *big.Int) {
-	if !util.HasSufficientData(l, 2, 64) {
+	if !util.HasSufficientData(l, 4, 128) {
 		return false,
 			common.Address{},
+			big.NewInt(0),
+			big.NewInt(0),
+			big.NewInt(0)
+	}
+	return true,
+		util.ExtractAddressFromLogTopic(l.Topics[1]),
+		util.ExtractIntFromBytes(l.Data[32:64]),
+		util.ExtractIntFromBytes(l.Data[64:96]),
+		util.ExtractIntFromBytes(l.Data[96:128])
+}
+
+func InfoUniV3Burn(l types.Log) (hasSufficientData bool,
+	sender common.Address,
+	amount *big.Int,
+	amount0 *big.Int,
+	amount1 *big.Int) {
+	if !util.HasSufficientData(l, 4, 96) {
+		return false,
+			common.Address{},
+			big.NewInt(0),
 			big.NewInt(0),
 			big.NewInt(0)
 	}
 	return true,
 		util.ExtractAddressFromLogTopic(l.Topics[1]),
 		util.ExtractIntFromBytes(l.Data[:32]),
-		util.ExtractIntFromBytes(l.Data[32:64])
+		util.ExtractIntFromBytes(l.Data[32:64]),
+		util.ExtractIntFromBytes(l.Data[64:96])
 }
 
-func InfoUniV2Burn(l types.Log) (hasSufficientData bool,
+func InfoUniV3Swap(l types.Log) (hasSufficientData bool,
 	sender common.Address,
 	recipient common.Address,
 	amount0 *big.Int,
 	amount1 *big.Int) {
-	if !util.HasSufficientData(l, 3, 64) {
+	if !util.HasSufficientData(l, 3, 160) {
 		return false,
 			common.Address{},
 			common.Address{},
@@ -402,29 +371,4 @@ func InfoUniV2Burn(l types.Log) (hasSufficientData bool,
 		util.ExtractAddressFromLogTopic(l.Topics[2]),
 		util.ExtractIntFromBytes(l.Data[:32]),
 		util.ExtractIntFromBytes(l.Data[32:64])
-}
-
-func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
-	sender common.Address,
-	receiver common.Address,
-	amount0 *big.Int,
-	amount1 *big.Int) {
-	if !util.HasSufficientData(l, 3, 128) {
-		return false,
-			common.Address{},
-			common.Address{},
-			big.NewInt(0),
-			big.NewInt(0)
-	}
-	sender = util.ExtractAddressFromLogTopic(l.Topics[1])
-	receiver = util.ExtractAddressFromLogTopic(l.Topics[2])
-
-	var (
-		am0In  = util.ExtractIntFromBytes(l.Data[0:32])
-		am1In  = util.ExtractIntFromBytes(l.Data[32:64])
-		am0Out = util.ExtractIntFromBytes(l.Data[64:96])
-		am1Out = util.ExtractIntFromBytes(l.Data[96:128])
-	)
-
-	return true, sender, receiver, big.NewInt(0).Sub(am0Out, am0In), big.NewInt(0).Sub(am1Out, am1In)
 }

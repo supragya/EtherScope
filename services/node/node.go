@@ -16,6 +16,7 @@ import (
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	priceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/pricing"
 	uniswapv2 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV2"
+	uniswapv3 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV3"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
@@ -62,8 +63,8 @@ type NodeImpl struct {
 
 	// Library instances
 	procUniV2 uniswapv2.UniswapV2Processor
-	// procUniV3 uniswapv3.UniswapV3Processor
-	pricer *priceresolver.Engine
+	procUniV3 uniswapv3.UniswapV3Processor
+	pricer    *priceresolver.Engine
 }
 
 // OnStart starts the Node. It implements service.Service.
@@ -128,7 +129,7 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 
 	// Setup processors
 	n.procUniV2 = uniswapv2.UniswapV2Processor{n.mergedTopics, n.EthRPC}
-	// n.procUniV3 = uniswapv3.UniswapV3Processor{n.mergedTopics, n.EthRPC}
+	n.procUniV3 = uniswapv3.UniswapV3Processor{n.mergedTopics, n.EthRPC}
 	n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
 		n.pricingChainlinkOraclesDumpFile,
 		n.pricingDexDumpFile,
@@ -286,16 +287,16 @@ func (n *NodeImpl) decodeLog(l types.Log,
 		// instrumentation.SwapV2Found.Inc()
 		n.procUniV2.ProcessUniV2Swap(l, items, idx, blockTime)
 
-		// // ---- Uniswap V3 ----
-		// case itypes.UniV3MintTopic:
-		// 	// instrumentation.MintV3Found.Inc()
-		// 	n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
-		// case itypes.UniV3BurnTopic:
-		// 	// instrumentation.BurnV3Found.Inc()
-		// 	n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
-		// case itypes.UniV3SwapTopic:
-		// 	// instrumentation.SwapV3Found.Inc()
-		// 	n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
+	// // ---- Uniswap V3 ----
+	case itypes.UniV3MintTopic:
+		// instrumentation.MintV3Found.Inc()
+		n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
+	case itypes.UniV3BurnTopic:
+		// instrumentation.BurnV3Found.Inc()
+		n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
+	case itypes.UniV3SwapTopic:
+		// instrumentation.SwapV3Found.Inc()
+		n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
 
 		// // ---- ERC 20 ----
 		// case itypes.ERC20TransferTopic:
