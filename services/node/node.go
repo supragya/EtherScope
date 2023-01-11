@@ -93,7 +93,7 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	}
 
 	if err := n.OutputSink.Start(ctx); err != nil {
-		return err
+		n.log.Info("Error initializing output sink, will reattempt connection until ready")
 	}
 
 	// Setup what to index
@@ -176,6 +176,12 @@ func (n *NodeImpl) loop() {
 		case <-time.After(time.Second * 2):
 			// Loop in case we are lagging, so we dont wait 3 secs between epochs
 			for {
+				if !n.OutputSink.IsReady() {
+					n.log.Info("Output Sink not ready to accept input")
+					n.OutputSink.Reconnect()
+					break
+				}
+
 				height, err := n.EthRPC.GetCurrentBlockHeight()
 
 				util.ENOK(err)
@@ -260,7 +266,10 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		payload := n.genPayload(&blockSynopis, processedItems, newDexes)
 
 		// Send payload through output sink
-		util.ENOK(n.OutputSink.Send(payload))
+		err = n.OutputSink.Send(payload)
+		if err != nil {
+			n.log.Debug("Error sending payload to output sink: " + fmt.Sprint(err))
+		}
 
 		// Sync localBackend states
 		util.ENOK(n.LocalBackend.Sync())

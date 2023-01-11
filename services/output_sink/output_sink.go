@@ -8,4 +8,6 @@ type OutputSink interface {
 	service.Service
 
 	Send(payload interface{}) error
+	IsReady() bool
+	Reconnect() error
 }
