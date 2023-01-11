@@ -121,7 +121,6 @@ type RabbitMQOutputSinkImpl struct {
 func (n *RabbitMQOutputSinkImpl) IsReady() bool {
 	ready := len(n.cachedMessages) == 0 && n.connection != nil && !n.connection.IsClosed() && n.channel != nil
 	if !ready && n.disconnectTime.IsZero() {
-		n.log.Warn("Setting disconnect time")
 		n.disconnectTime = time.Now()
 	}
 
