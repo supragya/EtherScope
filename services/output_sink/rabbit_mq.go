@@ -134,7 +134,7 @@ func (n *RabbitMQOutputSinkImpl) OnStart(ctx context.Context) error {
 	defer func() {
 		n.connecting = false
 	}()
-	if err := n.Connect(); err != nil {
+	if err := n.connect(); err != nil {
 		n.disconnectTime = time.Now()
 		n.log.Info(fmt.Sprintf("Unable to connect to RabbitMQ: %s", fmt.Sprint(err)))
 		return err
@@ -162,7 +162,7 @@ func (n *RabbitMQOutputSinkImpl) getConnectionString() string {
 	return fmt.Sprintf("%s://%s:%s@%s:%d/", connPrefix, n.user, n.pass, n.host, n.port)
 }
 
-func (n *RabbitMQOutputSinkImpl) Connect() error {
+func (n *RabbitMQOutputSinkImpl) connect() error {
 	mqConnStr := n.getConnectionString()
 
 	connectRabbitMQ, err := amqp.Dial(mqConnStr)
@@ -180,13 +180,16 @@ func (n *RabbitMQOutputSinkImpl) Connect() error {
 	return nil
 }
 
+/*
+Callable function which will trigger the service to reconnect to the MQ.
+*/
 func (n *RabbitMQOutputSinkImpl) Reconnect() error {
 	if n.connecting {
 		return nil
 	}
 	n.connecting = true
 
-	err := n.Connect()
+	err := n.connect()
 	if err != nil {
 		n.connecting = false
 		return err
@@ -201,7 +204,23 @@ func (n *RabbitMQOutputSinkImpl) Reconnect() error {
 	return err
 }
 
+/*
+Behavior triggered following MQ reconnection
+*/
 func (n *RabbitMQOutputSinkImpl) onReconnect() error {
+	// Handle cached messages
+	if len(n.cachedMessages) > 0 {
+		if err := n.pushCachedMessages(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+/*
+Pushes cached messages to RabbitMQ
+*/
+func (n *RabbitMQOutputSinkImpl) pushCachedMessages() error {
 	n.log.Info(fmt.Sprintf("Attempting to push %d cached messages to RabbitMQ", len(n.cachedMessages)))
 	messageCount := 0
 	for !n.connection.IsClosed() && len(n.cachedMessages) > 0 {
@@ -217,6 +236,10 @@ func (n *RabbitMQOutputSinkImpl) onReconnect() error {
 	return nil
 }
 
+/*
+Places a message in the cache. Messages in the cache are pushed to RabbitMQ
+upon reconnection
+*/
 func (n *RabbitMQOutputSinkImpl) cacheMessage(payload interface{}) {
 	n.log.Info("Caching message")
 	n.cachedMessages = append(n.cachedMessages, payload)
