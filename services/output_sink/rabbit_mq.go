@@ -110,21 +110,11 @@ type RabbitMQOutputSinkImpl struct {
 	exclusive        bool
 	noWait           bool
 	disconnectTime   time.Time
-	cachedMessages   []interface{}
 	connecting       bool
 
 	// Connections
 	connection *amqp.Connection
 	channel    *amqp.Channel
-}
-
-func (n *RabbitMQOutputSinkImpl) IsReady() bool {
-	ready := len(n.cachedMessages) == 0 && n.connection != nil && !n.connection.IsClosed() && n.channel != nil
-	if !ready && n.disconnectTime.IsZero() {
-		n.disconnectTime = time.Now()
-	}
-
-	return ready
 }
 
 // OnStart starts the rabbitmq OutputSink. It implements service.Service.
@@ -198,53 +188,17 @@ func (n *RabbitMQOutputSinkImpl) Reconnect() error {
 		time.Since(n.disconnectTime).Milliseconds()))
 
 	n.disconnectTime = time.Time{}
-	err = n.onReconnect()
 	n.connecting = false
 	return err
 }
 
-/*
-Behavior triggered following MQ reconnection
-*/
-func (n *RabbitMQOutputSinkImpl) onReconnect() error {
-	// Handle cached messages
-	if len(n.cachedMessages) > 0 {
-		if err := n.pushCachedMessages(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-/*
-Pushes cached messages to RabbitMQ
-*/
-func (n *RabbitMQOutputSinkImpl) pushCachedMessages() error {
-	n.log.Info(fmt.Sprintf("Attempting to push %d cached messages to RabbitMQ", len(n.cachedMessages)))
-	messageCount := 0
-	for !n.connection.IsClosed() && len(n.cachedMessages) > 0 {
-		messageCount += 1
-		n.log.Debug(fmt.Sprintf("Pushing cached message #%d", messageCount))
-		message := n.cachedMessages[0]
-		err := n.Send(message)
-		if err != nil {
-			return err
-		}
-		n.cachedMessages = n.cachedMessages[1:]
-	}
-	return nil
-}
-
-/*
-Places a message in the cache. Messages in the cache are pushed to RabbitMQ
-upon reconnection
-*/
-func (n *RabbitMQOutputSinkImpl) cacheMessage(payload interface{}) {
-	n.log.Info("Caching message")
-	n.cachedMessages = append(n.cachedMessages, payload)
-}
-
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
+	if n.connection == nil || n.connection.IsClosed() {
+		if err := n.Reconnect(); err != nil {
+			return err
+		}
+	}
+
 	item, err := json.MarshalIndent(WrappedPayload{version.PersistenceVersion, payload}, "", " ")
 	if err != nil {
 		return err
@@ -268,7 +222,6 @@ func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		n.cacheMessage(payload)
 		return err
 	}
 
