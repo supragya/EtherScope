@@ -28,3 +28,12 @@ install:
 
 uninstall:
 	rm $(INSTALLLOC)
+
+docker:
+	docker build \
+	-t geth-indexer \
+	--build-arg buildCommit=$(BUILDLINE)@$(BUILDCOMMIT) \
+	--build-arg gittag=$(CURRENTTAG) \
+	--build-arg 'buildTime=$(CURRENTTIME)' \
+	--build-arg 'builder=$(BUILDER)' \
+	--build-arg 'gover=$(GOVER)' .
