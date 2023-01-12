@@ -194,7 +194,7 @@ func (n *RabbitMQOutputSinkImpl) reconnect() error {
 
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 	if n.connection == nil || n.connection.IsClosed() {
-		if err := n.Reconnect(); err != nil {
+		if err := n.reconnect(); err != nil {
 			return err
 		}
 	}
