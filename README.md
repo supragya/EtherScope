@@ -42,3 +42,11 @@ You should now have two users:
 - Setup a rabbit MQ container using `./scripts/start_rmq.sh`. This will create a fresh cluster each time it is invoked.
 
 Single user for all access to rmq in dev mode. Acess management console in browser using: `http://devuser:devpass@localhost:15672/#/queues`
+
+## Docker - Multiarchitecture Builds
+
+### Buildx
+Building for multiple architectures currently requires the docker buildx CLI plugin.  See [Docker docs: Install Docker Buildx](https://docs.docker.com/build/install-buildx/) for details on setup.
+
+### Limitations
+Building for multiple architectures requires that the created artifacts be immediatly pushed to a docker remote. This means that the multiarchitecture builds cannot be used for local testing. Instead, for testing using your local docker server you should do the default single architecture build. See this [Github issue](https://github.com/docker/buildx/issues/59) for discussion on this topic and multiarchitecture builds should be run in a pipeline where the resulting images can be automatically pushed.
