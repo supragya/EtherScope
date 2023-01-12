@@ -170,7 +170,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 }
 
 /*
-Callable function which will trigger the service to reconnect to the MQ.
+internal function which will trigger the service to reconnect to the MQ.
 */
 func (n *RabbitMQOutputSinkImpl) reconnect() error {
 	if n.connecting {
