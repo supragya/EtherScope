@@ -29,7 +29,7 @@ RUN go build -ldflags="\
   -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.gover=$gover'" \
   -o build/bgidx
 
-FROM golang
+FROM golang:1.19.3
 
 WORKDIR /geth-indexer
 
