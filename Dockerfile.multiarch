@@ -1,3 +1,5 @@
+# This dockerfile should be run via docker buildx
+# Target, build platforms arguments are automatically provided via buildx
 FROM --platform=$BUILDPLATFORM golang:1.19.3 as build
 
 ARG TARGETOS
@@ -36,12 +38,4 @@ WORKDIR /geth-indexer
 
 COPY --from=build /geth-indexer/build/bgidx /geth-indexer/bgidx
 
-# Files requiring mounting (?):
-# 1. config.yaml
-# 2. chainlink_oracle_dumpfile.csv
-# 3. dex_dumpfile.csv
-
-# Default to realtime and expect --entrypoint for backfill? 
-# Can configuration be supplied by env rather than a file that would need to be
-# mounted at runtime?
 CMD ["./bgidx", "realtime", "-c", "config.yaml"]

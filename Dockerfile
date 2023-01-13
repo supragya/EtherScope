@@ -28,18 +28,11 @@ RUN go build -ldflags="\
   -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.gover=$gover'" \
   -o build/bgidx
 
+# App did not start correctly in Alpine, but perhaps a solution for this could be found
 FROM golang:1.19.3
 
 WORKDIR /geth-indexer
 
 COPY --from=build /geth-indexer/build/bgidx /geth-indexer/bgidx
 
-# Files requiring mounting (?):
-# 1. config.yaml
-# 2. chainlink_oracle_dumpfile.csv
-# 3. dex_dumpfile.csv
-
-# Default to realtime and expect --entrypoint for backfill? 
-# Can configuration be supplied by env rather than a file that would need to be
-# mounted at runtime?
 CMD ["./bgidx", "realtime", "-c", "config.yaml"]
