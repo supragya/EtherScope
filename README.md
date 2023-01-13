@@ -49,14 +49,15 @@ Single user for all access to rmq in dev mode. Acess management console in brows
 To provide parity with existing build steps, scripts have been added to the `Makefile` for building the docker image. Use `make docker` to build the project or `make dockerbuildx` to execute a multiarch build (see [Multiarchitecture Builds](#multiarchitecture-builds) for details).
 
 ### Running the image
-Currently the image expects that the runner will mount files it needs for operation. These files are `config.yaml`, `chainlink_oracle_dumpefile.csv`, and `dex_dumpfile.csv`. For instance, if your current working directory is the project root and these files are also located at the project root, then you could run the container like this:
+Currently the image expects that the runner will mount files it needs for operation. These files are `config.yaml`, `chainlink_oracle_dumpefile.csv`, and `dex_dumpfile.csv`. Additionally, the application stores stateful data in the folder `lb.badger.db` which is managed by the local backend. Currently this is also being mounted in order for the state to be maintained between application runs. A more architecturally stable solution for this should be explored in the future. For instance, if your current working directory is the project root and these files are also located at the project root, then you could run the container like this:
 
 ```
 docker run \
 --name=geth-indexer \
---mount type=bind,source="$(pwd)"/config.yaml,target=/geth-indexer/config.yaml  \
+--mount type=bind,source="$(pwd)"/config.yaml,target=/geth-indexer/config.yaml \
 --mount type=bind,source="$(pwd)"/chainlink_oracle_dumpfile.csv,target=/geth-indexer/chainlink_oracle_dumpfile.csv \
 --mount type=bind,source="$(pwd)"/dex_dumpfile.csv,target=/geth-indexer/dex_dumpfile.csv \
+--mount type=bind,source="$(pwd)"/lb.badger.db,target=/geth-indexer/lb.badger.db \
 geth-indexer
 ```
 
