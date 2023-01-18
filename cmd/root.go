@@ -3,10 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/config"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/instrumentation"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/logger"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	"github.com/spf13/cobra"
 )
@@ -23,20 +19,11 @@ var RootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Incorrect invocation. See bgidx --help for subcommands.")
 	},
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		util.ENOK(logger.SetLogLevel(logLevel))
-
-		if cfgFile == "" {
-			cfgFile = util.GetUserHomedir() + "/.blockpour/bgidx/config.yaml"
-		}
-		util.ENOK(config.LoadViperConfig(cfgFile))
-		util.ENOK(config.CheckViperMandatoryFields())
-		go instrumentation.StartPromServer()
-	},
 }
 
 func init() {
 	RootCmd.AddCommand(RealtimeCmd)
+	RootCmd.AddCommand(ConfigGen)
 
 	RootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "loglevel (default is INFO)")
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.blockpour/bgidx/config.yaml)")

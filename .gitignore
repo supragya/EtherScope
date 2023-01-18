@@ -1,7 +1,10 @@
 build/
 truecfg.yaml
+tempcfg.yaml
 pgdata/
 _pgdata/
 cache/
 vendor/
 profile.cov
+*.badger.db
+*.csv
