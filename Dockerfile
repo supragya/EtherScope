@@ -14,7 +14,6 @@ COPY ./go.mod .
 COPY ./go.sum .
 COPY ./libs libs
 COPY ./main.go .
-COPY ./_pgdata _pgdata
 COPY ./scripts scripts
 COPY ./services services
 COPY ./types types
