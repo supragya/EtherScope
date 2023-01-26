@@ -174,29 +174,22 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 		return err
 	}
 
-	n.connection = connectRabbitMQ
-	n.channel = channelRabbitMQ
-	n.disconnectTime = time.Time{}
-	return nil
-}
-
-/*
-internal function which will trigger the service to reconnect to the MQ.
-*/
-func (n *RabbitMQOutputSinkImpl) reconnect() error {
-	err := n.connect()
-
-	if err != nil {
+	if n.disconnectTime.IsZero() {
+		n.log.Info("RabbitMQ connected")
+	} else {
 		n.log.Info(fmt.Sprintf("RabbitMQ reconnected. Downtime: %dms",
 			time.Since(n.disconnectTime).Milliseconds()))
+		n.disconnectTime = time.Time{}
 	}
 
-	return err
+	n.connection = connectRabbitMQ
+	n.channel = channelRabbitMQ
+	return nil
 }
 
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 	if n.connection == nil || n.connection.IsClosed() {
-		if err := n.reconnect(); err != nil {
+		if err := n.connect(); err != nil {
 			return err
 		}
 	}
