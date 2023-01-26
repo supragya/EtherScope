@@ -109,6 +109,8 @@ type RabbitMQOutputSinkImpl struct {
 	autoDelete       bool
 	exclusive        bool
 	noWait           bool
+	disconnectTime   time.Time
+	connecting       bool
 
 	// Connections
 	connection *amqp.Connection
@@ -117,25 +119,11 @@ type RabbitMQOutputSinkImpl struct {
 
 // OnStart starts the rabbitmq OutputSink. It implements service.Service.
 func (n *RabbitMQOutputSinkImpl) OnStart(ctx context.Context) error {
-	connPrefix := "amqp"
-	if viper.GetBool("mq.secureConnection") {
-		connPrefix = "amqps"
-	}
-
-	mqConnStr := fmt.Sprintf("%s://%s:%s@%s:%d/", connPrefix, n.user, n.pass, n.host, n.port)
-
-	connectRabbitMQ, err := amqp.Dial(mqConnStr)
-	if err != nil {
+	if err := n.connect(); err != nil {
+		n.disconnectTime = time.Now()
+		n.log.Info(fmt.Sprintf("Unable to connect to RabbitMQ: %s", fmt.Sprint(err)))
 		return err
 	}
-
-	channelRabbitMQ, err := connectRabbitMQ.Channel()
-	if err != nil {
-		return err
-	}
-
-	n.connection = connectRabbitMQ
-	n.channel = channelRabbitMQ
 	return nil
 }
 
@@ -150,7 +138,62 @@ type WrappedPayload struct {
 	Data               interface{}
 }
 
+func (n *RabbitMQOutputSinkImpl) getConnectionString() string {
+	connPrefix := "amqp"
+	if viper.GetBool("mq.secureConnection") {
+		connPrefix = "amqps"
+	}
+
+	return fmt.Sprintf("%s://%s:%s@%s:%d/", connPrefix, n.user, n.pass, n.host, n.port)
+}
+
+func (n *RabbitMQOutputSinkImpl) connect() error {
+	if n.connecting {
+		return nil
+	}
+	n.connecting = true
+	defer func() {
+		n.connecting = false
+	}()
+
+	mqConnStr := n.getConnectionString()
+
+	connectRabbitMQ, err := amqp.Dial(mqConnStr)
+	if err != nil {
+		if n.disconnectTime.IsZero() {
+			n.disconnectTime = time.Now()
+		}
+		return err
+	}
+
+	channelRabbitMQ, err := connectRabbitMQ.Channel()
+	if err != nil {
+		if n.disconnectTime.IsZero() {
+			n.disconnectTime = time.Now()
+		}
+		return err
+	}
+
+	if n.disconnectTime.IsZero() {
+		n.log.Info("RabbitMQ connected")
+	} else {
+		n.log.Info(fmt.Sprintf("RabbitMQ reconnected. Downtime: %dms",
+			time.Since(n.disconnectTime).Milliseconds()))
+		n.disconnectTime = time.Time{}
+	}
+
+	n.connection = connectRabbitMQ
+	n.channel = channelRabbitMQ
+	return nil
+}
+
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
+	if n.connection == nil || n.connection.IsClosed() {
+		if err := n.connect(); err != nil {
+			return err
+		}
+	}
+
 	item, err := json.MarshalIndent(WrappedPayload{version.PersistenceVersion, payload}, "", " ")
 	if err != nil {
 		return err
@@ -168,12 +211,19 @@ func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 			Body:            item,
 		}, // message to publish
 	)
+
 	if err != nil {
+		n.log.Warn("Error publishing message to RabbitMQ: " + fmt.Sprint(err) + ", caching message")
+		if n.disconnectTime.IsZero() {
+			n.disconnectTime = time.Now()
+		}
 		return err
 	}
+
 	n.log.Info("sent message onto outputsink rmq",
 		"msglen", len(item),
 		"queue", n.queueName)
+
 	return nil
 }
 

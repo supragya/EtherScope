@@ -93,7 +93,7 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	}
 
 	if err := n.OutputSink.Start(ctx); err != nil {
-		return err
+		n.log.Info("Error initializing output sink, will reattempt connection until ready")
 	}
 
 	// Setup what to index
@@ -259,8 +259,14 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 		populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
 		payload := n.genPayload(&blockSynopis, processedItems, newDexes)
 
-		// Send payload through output sink
-		util.ENOK(n.OutputSink.Send(payload))
+		for {
+			err = n.OutputSink.Send(payload)
+			if err == nil {
+				break
+			}
+			n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
+			time.Sleep(2 * time.Second)
+		}
 
 		// Sync localBackend states
 		util.ENOK(n.LocalBackend.Sync())
