@@ -119,10 +119,6 @@ type RabbitMQOutputSinkImpl struct {
 
 // OnStart starts the rabbitmq OutputSink. It implements service.Service.
 func (n *RabbitMQOutputSinkImpl) OnStart(ctx context.Context) error {
-	n.connecting = true
-	defer func() {
-		n.connecting = false
-	}()
 	if err := n.connect(); err != nil {
 		n.disconnectTime = time.Now()
 		n.log.Info(fmt.Sprintf("Unable to connect to RabbitMQ: %s", fmt.Sprint(err)))
@@ -152,20 +148,35 @@ func (n *RabbitMQOutputSinkImpl) getConnectionString() string {
 }
 
 func (n *RabbitMQOutputSinkImpl) connect() error {
+	if n.connecting {
+		return nil
+	}
+	n.connecting = true
+	defer func() {
+		n.connecting = false
+	}()
+
 	mqConnStr := n.getConnectionString()
 
 	connectRabbitMQ, err := amqp.Dial(mqConnStr)
 	if err != nil {
+		if n.disconnectTime.IsZero() {
+			n.disconnectTime = time.Now()
+		}
 		return err
 	}
 
 	channelRabbitMQ, err := connectRabbitMQ.Channel()
 	if err != nil {
+		if n.disconnectTime.IsZero() {
+			n.disconnectTime = time.Now()
+		}
 		return err
 	}
 
 	n.connection = connectRabbitMQ
 	n.channel = channelRabbitMQ
+	n.disconnectTime = time.Time{}
 	return nil
 }
 
@@ -173,22 +184,13 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 internal function which will trigger the service to reconnect to the MQ.
 */
 func (n *RabbitMQOutputSinkImpl) reconnect() error {
-	if n.connecting {
-		return nil
-	}
-	n.connecting = true
-
 	err := n.connect()
+
 	if err != nil {
-		n.connecting = false
-		return err
+		n.log.Info(fmt.Sprintf("RabbitMQ reconnected. Downtime: %dms",
+			time.Since(n.disconnectTime).Milliseconds()))
 	}
 
-	n.log.Info(fmt.Sprintf("RabbitMQ reconnected. Downtime: %dms",
-		time.Since(n.disconnectTime).Milliseconds()))
-
-	n.disconnectTime = time.Time{}
-	n.connecting = false
 	return err
 }
 
