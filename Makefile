@@ -28,3 +28,24 @@ install:
 
 uninstall:
 	rm $(INSTALLLOC)
+
+docker:
+	docker build \
+	-t geth-indexer \
+	--build-arg buildCommit=$(BUILDLINE)@$(BUILDCOMMIT) \
+	--build-arg gittag=$(CURRENTTAG) \
+	--build-arg 'buildTime=$(CURRENTTIME)' \
+	--build-arg 'builder=$(BUILDER)' \
+	--build-arg 'gover=$(GOVER)' .
+
+dockerbuildx:
+	docker buildx create --use && \
+	docker buildx build --platform=linux/amd64,linux/arm64 \
+	--push \
+	-t geth-indexer \
+	--build-arg buildCommit=$(BUILDLINE)@$(BUILDCOMMIT) \
+	--build-arg gittag=$(CURRENTTAG) \
+	--build-arg 'buildTime=$(CURRENTTIME)' \
+	--build-arg 'builder=$(BUILDER)' \
+	--build-arg 'gover=$(GOVER)' \
+	-f ./Dockerfile.multiarch .

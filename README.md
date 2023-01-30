@@ -42,3 +42,29 @@ You should now have two users:
 - Setup a rabbit MQ container using `./scripts/start_rmq.sh`. This will create a fresh cluster each time it is invoked.
 
 Single user for all access to rmq in dev mode. Acess management console in browser using: `http://devuser:devpass@localhost:15672/#/queues`
+
+## Docker 
+
+### Building
+To provide parity with existing build steps, scripts have been added to the `Makefile` for building the docker image. Use `make docker` to build the project or `make dockerbuildx` to execute a multiarch build (see [Multiarchitecture Builds](#multiarchitecture-builds) for details).
+
+### Running the image
+Currently the image expects that the runner will mount files it needs for operation. These files are `config.yaml`, `chainlink_oracle_dumpefile.csv`, and `dex_dumpfile.csv`. Additionally, the application stores stateful data in the folder `lb.badger.db` which is managed by the local backend. Currently this is also being mounted in order for the state to be maintained between application runs. A more architecturally stable solution for this should be explored in the future. For instance, if your current working directory is the project root and these files are also located at the project root, then you could run the container like this:
+
+```
+docker run \
+--name=geth-indexer \
+--mount type=bind,source="$(pwd)"/config.yaml,target=/geth-indexer/config.yaml \
+--mount type=bind,source="$(pwd)"/chainlink_oracle_dumpfile.csv,target=/geth-indexer/chainlink_oracle_dumpfile.csv \
+--mount type=bind,source="$(pwd)"/dex_dumpfile.csv,target=/geth-indexer/dex_dumpfile.csv \
+--mount type=bind,source="$(pwd)"/lb.badger.db,target=/geth-indexer/lb.badger.db \
+geth-indexer
+```
+
+### Multiarchitecture Builds
+
+#### Buildx
+Building for multiple architectures currently requires the docker buildx CLI plugin.  See [Docker docs: Install Docker Buildx](https://docs.docker.com/build/install-buildx/) for details on setup.
+
+#### Limitations
+Building for multiple architectures requires that the created artifacts be immediatly pushed to a docker remote. This means that the multiarchitecture builds cannot be used for local testing. Instead, for testing using your local docker server you should do the default single architecture build. See this [Github issue](https://github.com/docker/buildx/issues/59) for discussion on this topic and multiarchitecture builds should be run in a pipeline where the resulting images can be automatically pushed.
