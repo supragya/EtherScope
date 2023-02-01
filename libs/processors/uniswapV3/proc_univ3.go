@@ -21,17 +21,17 @@ func (n *UniswapV3Processor) ProcessUniV3Mint(
 	items []interface{},
 	idx int,
 	blockTime uint64,
-) {
+) error {
 	prcType, ok := n.Topics[itypes.UniV3MintTopic]
 	if !ok {
-		return
+		return nil
 	}
 
 	callopts := util.GetBlockCallOpts(l.BlockNumber)
 
 	// Test if the contract is a UniswapV2 type contract
 	if !n.isUniswapV3Pair(l.Address, callopts) {
-		return
+		return nil
 	}
 
 	mint := itypes.Mint{
@@ -59,29 +59,37 @@ func (n *UniswapV3Processor) ProcessUniV3Mint(
 	var err error
 	mint.Token0, mint.Token1, err = n.EthRPC.GetTokensUniV3(l.Address, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	token0decimals, err := n.EthRPC.GetERC20Decimals(mint.Token0, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	token1decimals, err := n.EthRPC.GetERC20Decimals(mint.Token1, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	reserves, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, mint.Token0}, {l.Address, mint.Token1},
 	}, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	mint.Reserve0 = util.DivideBy10pow(reserves[0], token0decimals)
 	mint.Reserve1 = util.DivideBy10pow(reserves[1], token1decimals)
@@ -90,14 +98,16 @@ func (n *UniswapV3Processor) ProcessUniV3Mint(
 	if prcType == itypes.UserRequested {
 		ok, sender, _, am0, am1 := InfoUniV3Mint(l)
 		if !ok {
-			return
+			return nil
 		}
 
 		txSender, err := n.EthRPC.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
 		if util.IsEthErr(err) {
-			return
+			return nil
 		}
-		util.ENOK(err)
+		if err != nil {
+			return err
+		}
 
 		mint.Sender = sender
 		mint.TxSender = txSender
@@ -107,6 +117,7 @@ func (n *UniswapV3Processor) ProcessUniV3Mint(
 
 	items[idx] = &mint
 	// instrumentation.MintV2Processed.Inc()
+	return nil
 }
 
 func (n *UniswapV3Processor) ProcessUniV3Burn(
@@ -114,17 +125,17 @@ func (n *UniswapV3Processor) ProcessUniV3Burn(
 	items []interface{},
 	idx int,
 	blockTime uint64,
-) {
+) error {
 	prcType, ok := n.Topics[itypes.UniV3BurnTopic]
 	if !ok {
-		return
+		return nil
 	}
 
 	callopts := util.GetBlockCallOpts(l.BlockNumber)
 
 	// Test if the contract is a UniswapV2 type contract
 	if !n.isUniswapV3Pair(l.Address, callopts) {
-		return
+		return nil
 	}
 
 	burn := itypes.Burn{
@@ -152,29 +163,37 @@ func (n *UniswapV3Processor) ProcessUniV3Burn(
 	var err error
 	burn.Token0, burn.Token1, err = n.EthRPC.GetTokensUniV3(l.Address, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	token0decimals, err := n.EthRPC.GetERC20Decimals(burn.Token0, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	token1decimals, err := n.EthRPC.GetERC20Decimals(burn.Token1, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	reserves, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, burn.Token0}, {l.Address, burn.Token1},
 	}, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	burn.Reserve0 = util.DivideBy10pow(reserves[0], token0decimals)
 	burn.Reserve1 = util.DivideBy10pow(reserves[1], token1decimals)
@@ -183,14 +202,16 @@ func (n *UniswapV3Processor) ProcessUniV3Burn(
 	if prcType == itypes.UserRequested {
 		ok, sender, _, am0, am1 := InfoUniV3Burn(l)
 		if !ok {
-			return
+			return nil
 		}
 
 		txSender, err := n.EthRPC.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
 		if util.IsEthErr(err) {
-			return
+			return nil
 		}
-		util.ENOK(err)
+		if err != nil {
+			return err
+		}
 
 		burn.Sender = sender
 		burn.TxSender = txSender
@@ -200,6 +221,7 @@ func (n *UniswapV3Processor) ProcessUniV3Burn(
 
 	items[idx] = &burn
 	// instrumentation.BurnV2Processed.Inc()
+	return nil
 }
 
 func (n *UniswapV3Processor) ProcessUniV3Swap(
@@ -207,17 +229,17 @@ func (n *UniswapV3Processor) ProcessUniV3Swap(
 	items []interface{},
 	idx int,
 	blockTime uint64,
-) {
+) error {
 	prcType, ok := n.Topics[itypes.UniV2SwapTopic]
 	if !ok {
-		return
+		return nil
 	}
 
 	callopts := util.GetBlockCallOpts(l.BlockNumber)
 
 	// Test if the contract is a UniswapV2 type contract
 	if !n.isUniswapV3Pair(l.Address, callopts) {
-		return
+		return nil
 	}
 
 	swap := itypes.Swap{
@@ -246,29 +268,37 @@ func (n *UniswapV3Processor) ProcessUniV3Swap(
 	var err error
 	swap.Token0, swap.Token1, err = n.EthRPC.GetTokensUniV2(l.Address, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	token0decimals, err := n.EthRPC.GetERC20Decimals(swap.Token0, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	token1decimals, err := n.EthRPC.GetERC20Decimals(swap.Token1, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	reserves, err := n.EthRPC.GetERC20Balances([]itypes.Tuple2[common.Address, common.Address]{
 		{l.Address, swap.Token0}, {l.Address, swap.Token1},
 	}, callopts)
 	if util.IsEthErr(err) {
-		return
+		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	swap.Reserve0 = util.DivideBy10pow(reserves[0], token0decimals)
 	swap.Reserve1 = util.DivideBy10pow(reserves[1], token1decimals)
@@ -277,14 +307,16 @@ func (n *UniswapV3Processor) ProcessUniV3Swap(
 	if prcType == itypes.UserRequested {
 		ok, sender, receiver, am0, am1 := InfoUniV3Swap(l)
 		if !ok {
-			return
+			return nil
 		}
 
 		txSender, err := n.EthRPC.GetTxSender(l.TxHash, l.BlockHash, l.TxIndex)
 		if util.IsEthErr(err) {
-			return
+			return nil
 		}
-		util.ENOK(err)
+		if err != nil {
+			return err
+		}
 
 		swap.Sender = sender
 		swap.Receiver = receiver
@@ -298,6 +330,7 @@ func (n *UniswapV3Processor) ProcessUniV3Swap(
 	// AddToSynopsis(mt, bm, swap, items, "swap", true)
 	//		instrumentation.SwapV2Processed.Inc()
 	//	}
+	return nil
 }
 
 func (n *UniswapV3Processor) isUniswapV3Pair(address common.Address,
