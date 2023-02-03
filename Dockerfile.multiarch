@@ -4,11 +4,11 @@ FROM --platform=$BUILDPLATFORM golang:1.19.3 as build
 
 ARG TARGETOS
 ARG TARGETARCH
-ARG buildCommit
-ARG gittag
-ARG buildTime
-ARG builder
-ARG gover
+ARG buildCommit=unknown
+ARG gittag=unknown
+ARG buildTime=unknown
+ARG builder=unknown
+ARG gover=unknown
 
 WORKDIR /geth-indexer
 
