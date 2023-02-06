@@ -24,11 +24,13 @@ import (
 	outs "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
 )
 
 type NodeImpl struct {
@@ -61,6 +63,9 @@ type NodeImpl struct {
 	currentHeight    uint64
 	quitCh           chan struct{}
 
+	// Backoff configuration
+	backoff *backoff.ConstantBackOff
+
 	// Library instances
 	procUniV2 uniswapv2.UniswapV2Processor
 	procUniV3 uniswapv3.UniswapV3Processor
@@ -79,6 +84,8 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	runtime.GOMAXPROCS(n.maxCPUParallels)
 	n.log.Info("set runtime max parallelism",
 		"parallels", n.maxCPUParallels)
+
+	n.configureBackoff()
 
 	n.nodeID = uuid.New()
 
@@ -178,7 +185,10 @@ func (n *NodeImpl) loop() {
 			for {
 				height, err := n.EthRPC.GetCurrentBlockHeight()
 
-				util.ENOK(err)
+				if err != nil {
+					n.log.Warn(fmt.Sprintf("Error retrieving block height, retrying. Caused by: %s", err))
+					break
+				}
 				n.currentHeight = height
 
 				if n.currentHeight == n.indexedHeight {
@@ -228,87 +238,107 @@ func (n *NodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end u
 	kv := GroupByBlockNumber(logs)
 
 	for block := start; block <= end; block++ {
-		n.log.Info(fmt.Sprintf("processing block %d", block))
-		startTime := time.Now()
-		_time, err := n.EthRPC.GetBlockTimestamp(block)
-		util.ENOK(err)
-
-		logs := kv[block]
-		blockSynopis := itypes.BlockSynopsis{
-			Height:        block,
-			BlockTime:     _time,
-			EventsScanned: uint64(logs.Len()),
-		}
-
-		// Run logs parallely through processors
-		var wg sync.WaitGroup
-		var processedItems []interface{} = make([]interface{}, len(logs))
-		for idx, _log := range logs {
-			wg.Add(1)
-			go n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime, &wg)
-		}
-		wg.Wait()
-		processingTime := time.Now()
-
-		// Run processedItems through pricing engine
-		newDexes, err := n.pricer.Resolve(block, processedItems)
-		util.ENOK(err)
-		pricingTime := time.Now()
-
-		// Package processedItems into payload for output
-		populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
-		payload := n.genPayload(&blockSynopis, processedItems, newDexes)
-
-		for {
-			err = n.OutputSink.Send(payload)
-			if err == nil {
-				break
-			}
-			n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
-			time.Sleep(2 * time.Second)
-		}
-
-		// Sync localBackend states
-		util.ENOK(n.LocalBackend.Sync())
+		backoff.Retry(func() error { return n.processBlock(kv, block) }, n.backoff)
 	}
+}
+
+func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
+	n.log.Info(fmt.Sprintf("processing block %d", block))
+	startTime := time.Now()
+	_time, err := n.EthRPC.GetBlockTimestamp(block)
+	if err != nil {
+		n.log.Warn(fmt.Sprintf("Error retrieving timestamp for block %d. Caused by: %s", block, err))
+		return err
+	}
+
+	logs := kv[block]
+	blockSynopis := itypes.BlockSynopsis{
+		Height:        block,
+		BlockTime:     _time,
+		EventsScanned: uint64(logs.Len()),
+	}
+
+	var eg errgroup.Group
+
+	var processedItems []interface{} = make([]interface{}, len(logs))
+
+	for idx, _log := range logs {
+		eg.Go(func() error {
+			return n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
+		})
+	}
+
+	err = eg.Wait()
+
+	if err != nil {
+		n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
+		return err
+	}
+
+	processingTime := time.Now()
+
+	// Run processedItems through pricing engine
+	newDexes, err := backoff.RetryWithData(
+		func() ([]itypes.UniV2Metadata, error) {
+			return n.pricer.Resolve(block, processedItems)
+		}, n.backoff)
+
+	pricingTime := time.Now()
+
+	// Package processedItems into payload for output
+	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
+	payload := n.genPayload(&blockSynopis, processedItems, newDexes)
+
+	for {
+		err = n.OutputSink.Send(payload)
+		if err == nil {
+			break
+		}
+		n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
+		time.Sleep(2 * time.Second)
+	}
+
+	// Sync localBackend states
+	backoff.Retry(func() error { return n.LocalBackend.Sync() }, n.backoff)
+	return nil
 }
 
 func (n *NodeImpl) decodeLog(l types.Log,
 	items []interface{},
 	idx int,
 	blockTime uint64,
-	wg *sync.WaitGroup) {
-	defer wg.Done()
+) error {
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
 	// ---- Uniswap V2 ----
 	case itypes.UniV2MintTopic:
 		// instrumentation.MintV2Found.Inc()
-		n.procUniV2.ProcessUniV2Mint(l, items, idx, blockTime)
+		return n.procUniV2.ProcessUniV2Mint(l, items, idx, blockTime)
 	case itypes.UniV2BurnTopic:
 		// instrumentation.BurnV2Found.Inc()
-		n.procUniV2.ProcessUniV2Burn(l, items, idx, blockTime)
+		return n.procUniV2.ProcessUniV2Burn(l, items, idx, blockTime)
 	case itypes.UniV2SwapTopic:
 		// instrumentation.SwapV2Found.Inc()
-		n.procUniV2.ProcessUniV2Swap(l, items, idx, blockTime)
+		return n.procUniV2.ProcessUniV2Swap(l, items, idx, blockTime)
 
 	// // ---- Uniswap V3 ----
 	case itypes.UniV3MintTopic:
 		// instrumentation.MintV3Found.Inc()
-		n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
+		return n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
 	case itypes.UniV3BurnTopic:
 		// instrumentation.BurnV3Found.Inc()
-		n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
+		return n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
 	case itypes.UniV3SwapTopic:
 		// instrumentation.SwapV3Found.Inc()
-		n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
+		return n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
 
 		// // ---- ERC 20 ----
 		// case itypes.ERC20TransferTopic:
 		// 	// instrumentation.TfrFound.Inc()
 		// 	n.processERC20Transfer(l, items, bm, mt)
 	}
+	return nil
 }
 
 func populateBlockSynopsis(bs *itypes.BlockSynopsis,
@@ -569,4 +599,8 @@ func mergeTopics(requestedEvents, requiredEvents []common.Hash) map[common.Hash]
 		mergedMap[item] = itypes.UserRequested
 	}
 	return mergedMap
+}
+
+func (n *NodeImpl) configureBackoff() {
+	n.backoff = backoff.NewConstantBackOff(time.Second * 2)
 }
