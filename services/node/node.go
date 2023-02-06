@@ -308,7 +308,6 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	idx int,
 	blockTime uint64,
 ) error {
-	// defer wg.Done()
 
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
