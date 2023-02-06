@@ -382,9 +382,10 @@ func (n *Engine) updateGraph(graph *gg, updates map[addrTuple]itypes.UniV2Metada
 					defer wg.Done()
 					oracleMetadata, err := n.EthRPC.GetChainlinkRoundData(i.Oracle, &callopts)
 					if err != nil {
-						n.log.Fatal("cannot retrieve metadata for cl oracle, skipping",
+						n.log.Warn("cannot retrieve metadata for cl oracle, skipping",
 							"oracle", i.Oracle,
 							"height", resHeight)
+						return
 					}
 					i.Data = oracleMetadata
 					edge.Metadata = i
