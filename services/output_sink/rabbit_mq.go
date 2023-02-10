@@ -163,7 +163,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return err
+		return fmt.Errorf("OutputSinkDialError caused by: %s", err)
 	}
 
 	channelRabbitMQ, err := connectRabbitMQ.Channel()
@@ -171,7 +171,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return err
+		return fmt.Errorf("OutputSinkChannelError caused by: %s", err)
 	}
 
 	if n.disconnectTime.IsZero() {
