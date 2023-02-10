@@ -111,10 +111,11 @@ type RabbitMQOutputSinkImpl struct {
 	noWait           bool
 	disconnectTime   time.Time
 	connecting       bool
+	amqpImpl         AMQP
 
 	// Connections
-	connection *amqp.Connection
-	channel    *amqp.Channel
+	connection RabbitMQConnection
+	channel    RabbitMQChannel
 }
 
 // OnStart starts the rabbitmq OutputSink. It implements service.Service.
@@ -157,8 +158,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 	}()
 
 	mqConnStr := n.getConnectionString()
-
-	connectRabbitMQ, err := amqp.Dial(mqConnStr)
+	connectRabbitMQ, err := n.amqpImpl.Dial(mqConnStr)
 	if err != nil {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
@@ -190,7 +190,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 	if n.connection == nil || n.connection.IsClosed() {
 		if err := n.connect(); err != nil {
-			return err
+			return fmt.Errorf("OutputSinkUnavailable Caused By: %s", err)
 		}
 	}
 
@@ -217,7 +217,7 @@ func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return err
+		return fmt.Errorf("OutputSinkPublishError Caused by: %s", err)
 	}
 
 	n.log.Info("sent message onto outputsink rmq",
@@ -227,7 +227,7 @@ func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 	return nil
 }
 
-func NewRabbitMQOutputSinkWithViperFields(log logger.Logger) (OutputSink, error) {
+func NewRabbitMQOutputSinkWithViperFields(log logger.Logger, amqpImpl AMQP) (OutputSink, error) {
 	outs := &RabbitMQOutputSinkImpl{
 		log:              log,
 		queueName:        viper.GetString(RabbitMQCFGSection + ".queue"),
@@ -242,5 +242,6 @@ func NewRabbitMQOutputSinkWithViperFields(log logger.Logger) (OutputSink, error)
 		noWait:           viper.GetBool(RabbitMQCFGSection + ".queueNoWait"),     // no wait
 	}
 	outs.BaseService = *service.NewBaseService(log, "outputsink", outs)
+	outs.amqpImpl = amqpImpl
 	return outs, nil
 }

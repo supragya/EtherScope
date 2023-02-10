@@ -548,7 +548,7 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	if outsType != "rabbitmq" {
 		log.Fatal("unsupported outputsink: " + outsType)
 	}
-	outputSink, err := outs.NewRabbitMQOutputSinkWithViperFields(log.With("service", "outputsink"))
+	outputSink, err := outs.NewRabbitMQOutputSinkWithViperFields(log.With("service", "outputsink"), &outs.AMQPImpl{})
 	if err != nil {
 		return nil, err
 	}
