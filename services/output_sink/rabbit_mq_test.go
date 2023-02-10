@@ -14,10 +14,10 @@ import (
 )
 
 type TestAMQPImpl struct {
-	DialImpl func(address string) (outs.RabbitMQConnection, error)
+	DialImpl func(address string) (outs.AMQPConnection, error)
 }
 
-func (amqpImpl TestAMQPImpl) Dial(address string) (outs.RabbitMQConnection, error) {
+func (amqpImpl TestAMQPImpl) Dial(address string) (outs.AMQPConnection, error) {
 	if amqpImpl.DialImpl != nil {
 		return amqpImpl.DialImpl(address)
 	} else {
@@ -26,12 +26,12 @@ func (amqpImpl TestAMQPImpl) Dial(address string) (outs.RabbitMQConnection, erro
 }
 
 type TestAMQPConnectionImpl struct {
-	ChannelImpl  func() (outs.RabbitMQChannel, error)
+	ChannelImpl  func() (outs.AMQPChannel, error)
 	CloseImpl    func() error
 	IsClosedImpl func() bool
 }
 
-func (testConnection TestAMQPConnectionImpl) Channel() (outs.RabbitMQChannel, error) {
+func (testConnection TestAMQPConnectionImpl) Channel() (outs.AMQPChannel, error) {
 	if testConnection.ChannelImpl != nil {
 		return testConnection.ChannelImpl()
 	}
@@ -97,24 +97,24 @@ var _ = Describe("RabbitMq", func() {
 		testLogger = logger.NewNopLogger()
 		testOutputSinkRMQ, _ = outs.NewRabbitMQOutputSinkWithViperFields(testLogger, &testAMQP)
 		testConnection = TestAMQPConnectionImpl{}
-		testAMQP.DialImpl = func(address string) (outs.RabbitMQConnection, error) {
+		testAMQP.DialImpl = func(address string) (outs.AMQPConnection, error) {
 			return testConnection, nil
 		}
 
 		testRabbitMQChannel = TestAMQPChannelImpl{}
-		testConnection.ChannelImpl = func() (outs.RabbitMQChannel, error) {
+		testConnection.ChannelImpl = func() (outs.AMQPChannel, error) {
 			return testRabbitMQChannel, nil
 		}
 	})
 
 	Context("Start", func() {
 		It("should pass on err when connect fails", func() {
-			testAMQP.DialImpl = func(address string) (outs.RabbitMQConnection, error) { return nil, errors.New("Test dial error") }
+			testAMQP.DialImpl = func(address string) (outs.AMQPConnection, error) { return nil, errors.New("Test dial error") }
 			Expect(testOutputSinkRMQ.Start(context.Background())).To(MatchError("Test dial error"))
 		})
 
 		It("should return err when connect succeeds and Channel errors", func() {
-			testConnection.ChannelImpl = func() (outs.RabbitMQChannel, error) { return nil, errors.New("Test Channel error") }
+			testConnection.ChannelImpl = func() (outs.AMQPChannel, error) { return nil, errors.New("Test Channel error") }
 			Expect(testOutputSinkRMQ.Start(context.Background())).To(MatchError("Test Channel error"))
 		})
 
@@ -125,7 +125,7 @@ var _ = Describe("RabbitMq", func() {
 
 	Context("Send", func() {
 		It("should return OutputSinkUnavailable err when connection is nil and Dial returns err", func() {
-			testAMQP.DialImpl = func(address string) (outs.RabbitMQConnection, error) { return nil, errors.New("Test dial error") }
+			testAMQP.DialImpl = func(address string) (outs.AMQPConnection, error) { return nil, errors.New("Test dial error") }
 			Expect(testOutputSinkRMQ.Send(map[string]interface{}{"a": "B"})).To(MatchError(
 				ContainSubstring("OutputSinkUnavailable"),
 			))
@@ -137,7 +137,7 @@ var _ = Describe("RabbitMq", func() {
 
 			// Configure to appear as a closed connection and subsequent Dial call to fail
 			testConnection.IsClosedImpl = func() bool { return true }
-			testAMQP.DialImpl = func(address string) (outs.RabbitMQConnection, error) { return nil, errors.New("Test dial error") }
+			testAMQP.DialImpl = func(address string) (outs.AMQPConnection, error) { return nil, errors.New("Test dial error") }
 
 			Expect(testOutputSinkRMQ.Send(map[string]interface{}{"a": "B"})).To(MatchError(
 				ContainSubstring("OutputSinkUnavailable"),

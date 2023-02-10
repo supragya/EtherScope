@@ -114,8 +114,8 @@ type RabbitMQOutputSinkImpl struct {
 	amqpImpl         AMQP
 
 	// Connections
-	connection RabbitMQConnection
-	channel    RabbitMQChannel
+	connection AMQPConnection
+	channel    AMQPChannel
 }
 
 // OnStart starts the rabbitmq OutputSink. It implements service.Service.
