@@ -40,6 +40,10 @@ type Engine struct {
 	lastHeight uint64
 }
 
+var (
+	ErrorRequestedResolutionPresent = errors.New("RequestedResolutionPresentError")
+)
+
 // DefaultEngine is default form of enhanced pricing engine
 func NewDefaultEngine(log logger.Logger,
 	chainlinkOracledDumpFile string,
@@ -103,9 +107,10 @@ func (n *Engine) Resolve(resHeight uint64, items []interface{}) ([]itypes.UniV2M
 	// for heights >= height in localbackend
 	fetchedHeight := n.FetchLatestBlockHeightOrConstructTill(resHeight)
 	if resHeight < fetchedHeight {
-		return []itypes.UniV2Metadata{}, fmt.Errorf("requested resolution for %d while lb already has %d",
+		return []itypes.UniV2Metadata{}, fmt.Errorf("requested resolution for %d while lb already has %d: %w",
 			resHeight,
-			fetchedHeight)
+			fetchedHeight,
+			ErrorRequestedResolutionPresent)
 	}
 
 	// Get the graph from localbackend
