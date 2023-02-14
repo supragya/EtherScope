@@ -122,8 +122,8 @@ type RabbitMQOutputSinkImpl struct {
 func (n *RabbitMQOutputSinkImpl) OnStart(ctx context.Context) error {
 	if err := n.connect(); err != nil {
 		n.disconnectTime = time.Now()
-		n.log.Info(fmt.Sprintf("Unable to connect to RabbitMQ: %s", fmt.Sprint(err)))
-		return err
+		n.log.Info(fmt.Sprintf("Unable to connect to RabbitMQ: %s", err))
+		return fmt.Errorf("OutputSinkStartupError: %w", err)
 	}
 	return nil
 }
@@ -163,7 +163,8 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return fmt.Errorf("OutputSinkDialError caused by: %s", err)
+
+		return fmt.Errorf("OutputSinkDialError caused by: %w", err)
 	}
 
 	channelRabbitMQ, err := connectRabbitMQ.Channel()
@@ -171,7 +172,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return fmt.Errorf("OutputSinkChannelError caused by: %s", err)
+		return fmt.Errorf("OutputSinkChannelError caused by: %w", err)
 	}
 
 	if n.disconnectTime.IsZero() {
@@ -190,7 +191,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 	if n.connection == nil || n.connection.IsClosed() {
 		if err := n.connect(); err != nil {
-			return fmt.Errorf("OutputSinkUnavailable Caused By: %s", err)
+			return fmt.Errorf("OutputSinkUnavailable Caused By: %w", err)
 		}
 	}
 
@@ -217,10 +218,10 @@ func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return fmt.Errorf("OutputSinkPublishError Caused by: %s", err)
+		return fmt.Errorf("OutputSinkPublishError Caused by: %w", err)
 	}
 
-	n.log.Info("sent message onto outputsink rmq",
+	n.log.Debug("sent message onto outputsink rmq",
 		"msglen", len(item),
 		"queue", n.queueName)
 
