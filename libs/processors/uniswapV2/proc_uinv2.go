@@ -5,6 +5,7 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/services/instrumentation"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -121,7 +122,7 @@ func (n *UniswapV2Processor) ProcessUniV2Mint(
 	}
 
 	items[idx] = &mint
-	// instrumentation.MintV2Processed.Inc()
+	instrumentation.MintV2Processed.Inc()
 	return nil
 }
 
@@ -229,7 +230,7 @@ func (n *UniswapV2Processor) ProcessUniV2Burn(
 	}
 
 	items[idx] = &burn
-	// instrumentation.BurnV2Processed.Inc()
+	instrumentation.BurnV2Processed.Inc()
 	return nil
 }
 
@@ -340,9 +341,7 @@ func (n *UniswapV2Processor) ProcessUniV2Swap(
 
 	items[idx] = &swap
 
-	// AddToSynopsis(mt, bm, swap, items, "swap", true)
-	//		instrumentation.SwapV2Processed.Inc()
-	//	}
+	instrumentation.SwapV2Processed.Inc()
 	return nil
 }
 

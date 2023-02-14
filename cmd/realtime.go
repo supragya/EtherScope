@@ -11,6 +11,7 @@ import (
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/services/instrumentation"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,7 @@ func StartRealtimeNode(cmd *cobra.Command, args []string) {
 	if err := _n.Start(context.Background()); err != nil {
 		log.Fatal("error while starting node", "error", err.Error())
 	}
-
+	instrumentation.StartPromServer(log)
 	handleSig(_n, log)
 }
 

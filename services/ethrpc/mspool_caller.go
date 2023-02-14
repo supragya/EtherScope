@@ -19,6 +19,7 @@ func Do[C any, T any](upstreams *MasterSlavePool[C],
 
 	var gerr error = errors.New("")
 	maxRetries := (len(upstreams.Slaves) + 1) * int(DefaultMSPoolConfig.WindowSize)
+
 	for retries := 0; retries < maxRetries; retries++ {
 		client, _ := upstreams.GetItem()
 		// log.Info(client)

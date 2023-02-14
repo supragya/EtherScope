@@ -20,6 +20,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/services/instrumentation"
 	lb "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	outs "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
@@ -204,7 +205,7 @@ func (n *NodeImpl) loop() {
 				n.log.Info(fmt.Sprintf("chainhead: %d (+%d away), indexed: %d",
 					n.currentHeight, n.currentHeight-n.indexedHeight, n.indexedHeight))
 
-				// instrumentation.CurrentBlock.Set(float64(n.currentHeight))
+				instrumentation.CurrentBlock.Set(float64(n.currentHeight))
 
 				logs, err := n.EthRPC.GetFilteredLogs(ethereum.FilterQuery{
 					FromBlock: big.NewInt(int64(n.indexedHeight + 1)),
@@ -220,7 +221,7 @@ func (n *NodeImpl) loop() {
 				n.processBatchedBlockLogs(logs, n.indexedHeight+1, endingBlock)
 
 				n.indexedHeight = endingBlock
-				// instrumentation.ProcessedBlock.Set(float64(r.indexedHeight))
+				instrumentation.ProcessedBlock.Set(float64(n.currentHeight))
 
 				if isOnHead {
 					break
@@ -313,24 +314,24 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	switch primaryTopic {
 	// ---- Uniswap V2 ----
 	case itypes.UniV2MintTopic:
-		// instrumentation.MintV2Found.Inc()
+		instrumentation.MintV2Found.Inc()
 		return n.procUniV2.ProcessUniV2Mint(l, items, idx, blockTime)
 	case itypes.UniV2BurnTopic:
-		// instrumentation.BurnV2Found.Inc()
+		instrumentation.BurnV2Found.Inc()
 		return n.procUniV2.ProcessUniV2Burn(l, items, idx, blockTime)
 	case itypes.UniV2SwapTopic:
-		// instrumentation.SwapV2Found.Inc()
+		instrumentation.SwapV2Found.Inc()
 		return n.procUniV2.ProcessUniV2Swap(l, items, idx, blockTime)
 
 	// // ---- Uniswap V3 ----
 	case itypes.UniV3MintTopic:
-		// instrumentation.MintV3Found.Inc()
+		instrumentation.MintV3Found.Inc()
 		return n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
 	case itypes.UniV3BurnTopic:
-		// instrumentation.BurnV3Found.Inc()
+		instrumentation.BurnV3Found.Inc()
 		return n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
 	case itypes.UniV3SwapTopic:
-		// instrumentation.SwapV3Found.Inc()
+		instrumentation.SwapV3Found.Inc()
 		return n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
 
 		// // ---- ERC 20 ----
