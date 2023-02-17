@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
-	"golang.org/x/sync/errgroup"
 )
 
 type OracleNodeImpl struct {
@@ -80,6 +79,7 @@ func (n *OracleNodeImpl) OnStart(ctx context.Context) error {
 	n.indexedHeight = n.syncStartHeight()
 
 	// Loop for impl
+	n.setupInitial()
 	go n.loop()
 
 	return nil
@@ -104,130 +104,165 @@ func (n *OracleNodeImpl) OnStop() {
 	wg.Wait()
 }
 
+// SetupInitial sets up initial information that the oracleindexer needs
+func (n *OracleNodeImpl) setupInitial() {
+	start, end, stride := uint64(12864088), n.indexedHeight, uint64(100000) // Start of feed registry to now, each call indexing 100,000 blocks
+	n.log.Infof("need to index %d blocks for feed data, %d to %d", end-start, start, end)
+
+	for {
+		if start > end {
+			break
+		}
+
+		callStart, callEnd := start, start+stride
+		if callEnd > end {
+			callEnd = end
+		}
+
+		logs, err := n.EthRPC.GetFilteredLogs(ethereum.FilterQuery{
+			FromBlock: big.NewInt(int64(callStart)),
+			ToBlock:   big.NewInt(int64(callEnd)),
+			Topics:    [][]common.Hash{[]common.Hash{itypes.ChainLinkFeedConfirmed}},
+		})
+
+		if err != nil {
+			n.log.Fatal("error while getting logs for bootup", "error", err)
+		}
+
+		n.log.Infof("Found %d event logs", len(logs))
+
+		start = start + uint64(stride)
+	}
+}
+
 // Loop implements core indexing logic
 func (n *OracleNodeImpl) loop() {
-	for {
-		select {
-		case <-time.After(time.Second * 2):
-			// Loop in case we are lagging, so we dont wait 3 secs between epochs
-			for {
-				height, err := n.EthRPC.GetCurrentBlockHeight()
+	// for {
+	// 	select {
+	// 	case <-time.After(time.Second * 2):
+	// 		// Loop in case we are lagging, so we dont wait 3 secs between epochs
+	// 		for {
+	// 			height, err := n.EthRPC.GetCurrentBlockHeight()
 
-				if err != nil {
-					n.log.Warn(fmt.Sprintf("Error retrieving block height, retrying. Caused by: %s", err))
-					break
-				}
-				n.currentHeight = height
+	// 			if err != nil {
+	// 				n.log.Warn(fmt.Sprintf("Error retrieving block height, retrying. Caused by: %s", err))
+	// 				break
+	// 			}
+	// 			n.currentHeight = height
 
-				if n.currentHeight == n.indexedHeight {
-					continue
-				}
-				endingBlock := n.currentHeight
-				isOnHead := true
-				if (endingBlock - n.indexedHeight) > n.maxBlockSpanPerCall {
-					isOnHead = false
-					endingBlock = n.indexedHeight + n.maxBlockSpanPerCall
-				}
+	// 			if n.currentHeight == n.indexedHeight {
+	// 				continue
+	// 			}
+	// 			endingBlock := n.currentHeight
+	// 			isOnHead := true
+	// 			if (endingBlock - n.indexedHeight) > n.maxBlockSpanPerCall {
+	// 				isOnHead = false
+	// 				endingBlock = n.indexedHeight + n.maxBlockSpanPerCall
+	// 			}
 
-				n.log.Info(fmt.Sprintf("chainhead: %d (+%d away), indexed: %d",
-					n.currentHeight, n.currentHeight-n.indexedHeight, n.indexedHeight))
+	// 			n.log.Info(fmt.Sprintf("chainhead: %d (+%d away), indexed: %d",
+	// 				n.currentHeight, n.currentHeight-n.indexedHeight, n.indexedHeight))
 
-				// instrumentation.CurrentBlock.Set(float64(n.currentHeight))
+	// 			// instrumentation.CurrentBlock.Set(float64(n.currentHeight))
 
-				logs, err := n.EthRPC.GetFilteredLogs(ethereum.FilterQuery{
-					FromBlock: big.NewInt(int64(n.indexedHeight + 1)),
-					ToBlock:   big.NewInt(int64(endingBlock)),
-					Topics:    [][]common.Hash{n.mergedTopicsKeys},
-				})
+	// 			logs, err := n.EthRPC.GetFilteredLogs(ethereum.FilterQuery{
+	// 				FromBlock: big.NewInt(int64(n.indexedHeight + 1)),
+	// 				ToBlock:   big.NewInt(int64(endingBlock)),
+	// 				Topics:    [][]common.Hash{n.mergedTopicsKeys},
+	// 			})
 
-				if err != nil {
-					n.log.Error("encountered error", "error", err)
-					continue
-				}
+	// 			if err != nil {
+	// 				n.log.Error("encountered error", "error", err)
+	// 				continue
+	// 			}
 
-				n.processBatchedBlockLogs(logs, n.indexedHeight+1, endingBlock)
+	// 			n.processBatchedBlockLogs(logs, n.indexedHeight+1, endingBlock)
 
-				n.indexedHeight = endingBlock
-				// instrumentation.ProcessedBlock.Set(float64(r.indexedHeight))
+	// 			n.indexedHeight = endingBlock
+	// 			// instrumentation.ProcessedBlock.Set(float64(r.indexedHeight))
 
-				if isOnHead {
-					break
-				}
-			}
-		case <-n.quitCh:
-			n.log.Info("quitting realtime indexer")
-		}
-	}
+	// 			if isOnHead {
+	// 				break
+	// 			}
+	// 		}
+	// 	case <-n.quitCh:
+	// 		n.log.Info("quitting realtime indexer")
+	// 	}
+	// }
 }
 
 func (n *OracleNodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end uint64) {
 	// Assuming for any height H, either we will have all the concerned logs
 	// or not even one
-	kv := GroupByBlockNumber(logs)
+	// kv := GroupByBlockNumber(logs)
 
-	for block := start; block <= end; block++ {
-		backoff.Retry(func() error { return n.processBlock(kv, block) }, n.backoff)
-	}
+	// for block := start; block <= end; block++ {
+	// 	backoff.Retry(func() error { return n.processBlock(kv, block) }, n.backoff)
+	// }
 }
 
 func (n *OracleNodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	n.log.Info(fmt.Sprintf("processing block %d", block))
-	startTime := time.Now()
-	_time, err := n.EthRPC.GetBlockTimestamp(block)
-	if err != nil {
-		n.log.Warn(fmt.Sprintf("Error retrieving timestamp for block %d. Caused by: %s", block, err))
-		return err
-	}
+	// startTime := time.Now()
+	// _time, err := n.EthRPC.GetBlockTimestamp(block)
+	// if err != nil {
+	// 	n.log.Warn(fmt.Sprintf("Error retrieving timestamp for block %d. Caused by: %s", block, err))
+	// 	return err
+	// }
 
-	logs := kv[block]
-	blockSynopis := itypes.BlockSynopsis{
-		Height:        block,
-		BlockTime:     _time,
-		EventsScanned: uint64(logs.Len()),
-	}
+	// logs := kv[block]
+	// blockSynopis := itypes.BlockSynopsis{
+	// 	Height:        block,
+	// 	BlockTime:     _time,
+	// 	EventsScanned: uint64(logs.Len()),
+	// }
 
-	var eg errgroup.Group
+	// var eg errgroup.Group
 
-	var processedItems []interface{} = make([]interface{}, len(logs))
+	// var processedItems []interface{} = make([]interface{}, len(logs))
 
-	for idx, _log := range logs {
-		eg.Go(func() error {
-			return n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
-		})
-	}
+	// for idx, _log := range logs {
+	// 	eg.Go(func() error {
+	// 		return n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
+	// 	})
+	// }
 
-	err = eg.Wait()
+	// err = eg.Wait()
 
-	if err != nil {
-		n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
-		return err
-	}
+	// if err != nil {
+	// 	n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
+	// 	return err
+	// }
 
-	processingTime := time.Now()
+	// processingTime := time.Now()
 
-	// Run processedItems through pricing engine
-	newDexes, err := backoff.RetryWithData(
-		func() ([]itypes.UniV2Metadata, error) {
-			return n.pricer.Resolve(block, processedItems)
-		}, n.backoff)
+	// // Run processedItems through pricing engine
+	// newDexes, err := backoff.RetryWithData(
+	// 	func() ([]itypes.UniV2Metadata, error) {
+	// 		return n.pricer.Resolve(block, processedItems)
+	// 	}, n.backoff)
+	// kv := GroupByBlockNumber(logs)
 
-	pricingTime := time.Now()
+	// for block := start; block <= end; block++ {
+	// 	backoff.Retry(func() error { return n.processBlock(kv, block) }, n.backoff)
+	// }
+	// pricingTime := time.Now()
 
-	// Package processedItems into payload for output
-	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
-	payload := n.genPayload(&blockSynopis, processedItems, newDexes)
+	// // Package processedItems into payload for output
+	// populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
+	// payload := n.genPayload(&blockSynopis, processedItems, newDexes)
 
-	for {
-		err = n.OutputSink.Send(payload)
-		if err == nil {
-			break
-		}
-		n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
-		time.Sleep(2 * time.Second)
-	}
+	// for {
+	// 	err = n.OutputSink.Send(payload)
+	// 	if err == nil {
+	// 		break
+	// 	}
+	// 	n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
+	// 	time.Sleep(2 * time.Second)
+	// }
 
-	// Sync localBackend states
-	backoff.Retry(func() error { return n.LocalBackend.Sync() }, n.backoff)
+	// // Sync localBackend states
+	// backoff.Retry(func() error { return n.LocalBackend.Sync() }, n.backoff)
 	return nil
 }
 
@@ -237,35 +272,35 @@ func (n *OracleNodeImpl) decodeLog(l types.Log,
 	blockTime uint64,
 ) error {
 
-	primaryTopic := l.Topics[0]
-	switch primaryTopic {
-	// ---- Uniswap V2 ----
-	case itypes.UniV2MintTopic:
-		// instrumentation.MintV2Found.Inc()
-		return n.procUniV2.ProcessUniV2Mint(l, items, idx, blockTime)
-	case itypes.UniV2BurnTopic:
-		// instrumentation.BurnV2Found.Inc()
-		return n.procUniV2.ProcessUniV2Burn(l, items, idx, blockTime)
-	case itypes.UniV2SwapTopic:
-		// instrumentation.SwapV2Found.Inc()
-		return n.procUniV2.ProcessUniV2Swap(l, items, idx, blockTime)
+	// primaryTopic := l.Topics[0]
+	// switch primaryTopic {
+	// // ---- Uniswap V2 ----
+	// case itypes.UniV2MintTopic:
+	// 	// instrumentation.MintV2Found.Inc()
+	// 	return n.procUniV2.ProcessUniV2Mint(l, items, idx, blockTime)
+	// case itypes.UniV2BurnTopic:
+	// 	// instrumentation.BurnV2Found.Inc()
+	// 	return n.procUniV2.ProcessUniV2Burn(l, items, idx, blockTime)
+	// case itypes.UniV2SwapTopic:
+	// 	// instrumentation.SwapV2Found.Inc()
+	// 	return n.procUniV2.ProcessUniV2Swap(l, items, idx, blockTime)
 
-	// // ---- Uniswap V3 ----
-	case itypes.UniV3MintTopic:
-		// instrumentation.MintV3Found.Inc()
-		return n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
-	case itypes.UniV3BurnTopic:
-		// instrumentation.BurnV3Found.Inc()
-		return n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
-	case itypes.UniV3SwapTopic:
-		// instrumentation.SwapV3Found.Inc()
-		return n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
+	// // // ---- Uniswap V3 ----
+	// case itypes.UniV3MintTopic:
+	// 	// instrumentation.MintV3Found.Inc()
+	// 	return n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
+	// case itypes.UniV3BurnTopic:
+	// 	// instrumentation.BurnV3Found.Inc()
+	// 	return n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
+	// case itypes.UniV3SwapTopic:
+	// 	// instrumentation.SwapV3Found.Inc()
+	// 	return n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
 
-		// // ---- ERC 20 ----
-		// case itypes.ERC20TransferTopic:
-		// 	// instrumentation.TfrFound.Inc()
-		// 	n.processERC20Transfer(l, items, bm, mt)
-	}
+	// 	// // ---- ERC 20 ----
+	// 	// case itypes.ERC20TransferTopic:
+	// 	// 	// instrumentation.TfrFound.Inc()
+	// 	// 	n.processERC20Transfer(l, items, bm, mt)
+	// }
 	return nil
 }
 
@@ -384,8 +419,7 @@ func (n *OracleNodeImpl) syncStartHeight() uint64 {
 		}
 		if remoteLatestHeight < startBlock {
 			n.log.Fatal(fmt.Sprintf("remote reports latest height as %v but either cfg start height or localBackend height disallows this", remoteLatestHeight),
-				"cfg start", n.startBlock,
-				"lb latest", lbLatestHeightUint64)
+				"cfg start", n.startBlock)
 		}
 		if remoteLatestHeight > startBlock {
 			startBlock = remoteLatestHeight

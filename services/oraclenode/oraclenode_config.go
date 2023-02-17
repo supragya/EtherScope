@@ -6,7 +6,7 @@ import (
 
 var (
 	OracleNodeCFGSection   = "oraclenode"
-	OracleNodeCFGNecessity = "always needed"
+	OracleNodeCFGNecessity = "oracle indexing"
 	OracleNodeCFGHeader    = cfg.SArr("oraclenode is chainlink indexing service for bgidx",
 		"oraclenode is tasked with initiating other services such as",
 		"localbackend (badger-db) and outputsink (rabbitmq)")

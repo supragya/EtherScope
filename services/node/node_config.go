@@ -6,7 +6,7 @@ import (
 
 var (
 	NodeCFGSection   = "node"
-	NodeCFGNecessity = "always needed"
+	NodeCFGNecessity = "general evm events indexing"
 	NodeCFGHeader    = cfg.SArr("node is core indexing service for bgidx",
 		"node is tasked with initiating other services such as",
 		"localbackend (badger-db) and outputsink (rabbitmq)")

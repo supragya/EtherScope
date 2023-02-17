@@ -9,6 +9,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
 	localbackend "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/services/oraclenode"
 	outputsink "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	"github.com/spf13/cobra"
@@ -46,6 +47,8 @@ func GenConfig(cmd *cobra.Command, args []string) {
 	// Services config
 	content += sectionGen(node.NodeCFGSection, node.NodeCFGNecessity,
 		node.NodeCFGHeader, node.NodeCFGFields[:])
+	content += sectionGen(oraclenode.OracleNodeCFGSection, oraclenode.OracleNodeCFGNecessity,
+		oraclenode.OracleNodeCFGHeader, oraclenode.OracleNodeCFGFields[:])
 	content += sectionGen(localbackend.BadgerCFGSection, localbackend.BadgerCFGNecessity,
 		localbackend.BadgerCFGHeader, localbackend.BadgerCFGFields[:])
 	content += sectionGen(outputsink.RabbitMQCFGSection, outputsink.RabbitMQCFGNecessity,
