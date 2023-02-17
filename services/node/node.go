@@ -557,7 +557,7 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	if ethrpcType != "mspool" {
 		log.Fatal("unsupported ethrpc: " + ethrpcType)
 	}
-	_ethrpc, err := ethrpc.NewMSPoolEthRPCWithViperFields(log.With("service", "ethrpc"), localBackend)
+	_ethrpc, err := ethrpc.NewMSPoolEthRPCWithViperFields(log.With("service", "ethrpc"))
 	if err != nil {
 		return nil, err
 	}

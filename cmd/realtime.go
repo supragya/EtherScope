@@ -41,7 +41,7 @@ var RealtimeCmd = &cobra.Command{
 func StartRealtimeNode(cmd *cobra.Command, args []string) {
 	var log = globalLogger
 
-	log.Info("setting up a new indexer node")
+	log.Info("setting up a new realtime geth indexer node")
 	_n, err := node.NewNodeWithViperFields(globalLogger)
 	if err != nil {
 		log.Fatal(err.Error(), nil)
