@@ -2,11 +2,13 @@ package oraclenode
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -14,6 +16,7 @@ import (
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
 	outs "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
@@ -106,10 +109,25 @@ func (n *OracleNodeImpl) OnStop() {
 
 // SetupInitial sets up initial information that the oracleindexer needs
 func (n *OracleNodeImpl) setupInitial() {
-	start, end, stride := uint64(12864088), n.indexedHeight, uint64(100000) // Start of feed registry to now, each call indexing 100,000 blocks
+	start, end, stride := uint64(12864088), n.indexedHeight, uint64(1000) // Start of feed registry to now, each call indexing 100,000 blocks
 	n.log.Infof("need to index %d blocks for feed data, %d to %d", end-start, start, end)
 
+	feedMap := make(map[itypes.Tuple2[common.Address, common.Address]]common.Address)
+
+	f, err := os.Create("feeds.csv") // TODO: make it configurable, check err
+	if err != nil {
+		n.log.Fatal("error opening csv file")
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+
+	if err := w.Write([]string{"asset", "denomination", "latestAggregator"}); err != nil {
+		n.log.Fatal("error writing record to file", err)
+	}
+
 	for {
+		w.Flush()
 		if start > end {
 			break
 		}
@@ -129,7 +147,20 @@ func (n *OracleNodeImpl) setupInitial() {
 			n.log.Fatal("error while getting logs for bootup", "error", err)
 		}
 
-		n.log.Infof("Found %d event logs", len(logs))
+		for _, log := range logs {
+			asset := util.ExtractAddressFromLogTopic(log.Topics[1])
+			denomination := util.ExtractAddressFromLogTopic(log.Topics[2])
+			latestAggregator := util.ExtractAddressFromLogTopic(log.Topics[3])
+
+			record := []string{asset.Hex(), denomination.Hex(), latestAggregator.Hex()}
+			if err := w.Write(record); err != nil {
+				n.log.Fatal("error writing record to file", err)
+			}
+
+			n.log.Infof("Aggregator found @ %d (%x:%x) %x", log.BlockNumber, asset, denomination, latestAggregator)
+
+			feedMap[itypes.Tuple2[common.Address, common.Address]{asset, denomination}] = latestAggregator
+		}
 
 		start = start + uint64(stride)
 	}
