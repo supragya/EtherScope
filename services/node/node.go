@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -262,7 +263,6 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	var eg errgroup.Group
 
 	var processedItems []interface{} = make([]interface{}, len(logs))
-
 	for idx, _log := range logs {
 		eg.Go(func() error {
 			return n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
@@ -281,7 +281,15 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	// Run processedItems through pricing engine
 	newDexes, err := backoff.RetryWithData(
 		func() ([]itypes.UniV2Metadata, error) {
-			return n.pricer.Resolve(block, processedItems)
+			newDexes, err := n.pricer.Resolve(block, processedItems)
+			if err != nil {
+				if errors.Is(err, priceresolver.ErrorRequestedResolutionPresent) {
+					n.log.Debugf("%s", err)
+					return newDexes, nil
+				}
+				n.log.Infof("Error resolving dex. Caused by: %s\n", err)
+			}
+			return newDexes, err
 		}, n.backoff)
 
 	pricingTime := time.Now()
@@ -289,7 +297,7 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	// Package processedItems into payload for output
 	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
 	payload := n.genPayload(&blockSynopis, processedItems, newDexes)
-
+	n.log.Debug("Sending data to output sink")
 	for {
 		err = n.OutputSink.Send(payload)
 		if err == nil {
@@ -299,6 +307,7 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 		time.Sleep(2 * time.Second)
 	}
 
+	n.log.Debug("Syncing local backend")
 	// Sync localBackend states
 	backoff.Retry(func() error { return n.LocalBackend.Sync() }, n.backoff)
 	return nil
