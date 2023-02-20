@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -122,7 +123,7 @@ func (n *OracleNodeImpl) setupInitial() {
 
 	w := csv.NewWriter(f)
 
-	if err := w.Write([]string{"asset", "denomination", "latestAggregator"}); err != nil {
+	if err := w.Write([]string{"height", "asset", "denomination", "latestAggregator"}); err != nil {
 		n.log.Fatal("error writing record to file", err)
 	}
 
@@ -152,7 +153,7 @@ func (n *OracleNodeImpl) setupInitial() {
 			denomination := util.ExtractAddressFromLogTopic(log.Topics[2])
 			latestAggregator := util.ExtractAddressFromLogTopic(log.Topics[3])
 
-			record := []string{asset.Hex(), denomination.Hex(), latestAggregator.Hex()}
+			record := []string{strconv.Itoa(int(log.BlockNumber)), asset.Hex(), denomination.Hex(), latestAggregator.Hex()}
 			if err := w.Write(record); err != nil {
 				n.log.Fatal("error writing record to file", err)
 			}
