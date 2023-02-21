@@ -49,14 +49,15 @@ type OracleNodeImpl struct {
 	feedFile            string
 
 	// Internal Data Structures
-	moniker       string    // user defined moniker for this node
-	network       string    // user defined evm compatible network name
-	nodeID        uuid.UUID // system generated node identifier unique for each run
-	indexedHeight uint64
-	currentHeight uint64
-	feedMap       map[itypes.Tuple2[common.Address, common.Address]]common.Address
-	feedMapRev    map[common.Address]itypes.Tuple2[common.Address, common.Address]
-	quitCh        chan struct{}
+	moniker            string    // user defined moniker for this node
+	network            string    // user defined evm compatible network name
+	nodeID             uuid.UUID // system generated node identifier unique for each run
+	indexedHeight      uint64
+	currentHeight      uint64
+	feedMap            map[itypes.Tuple2[common.Address, common.Address]]common.Address
+	feedMapRev         map[common.Address]itypes.Tuple2[common.Address, common.Address]
+	quitCh             chan struct{}
+	maxFeedHeightKnown int
 
 	// Backoff configuration
 	backoff *backoff.ConstantBackOff
@@ -133,24 +134,48 @@ func (n *OracleNodeImpl) setupInitial() {
 		defer f.Close()
 		reader := csv.NewReader(f)
 		reader.Read() // First one for heading, don't care
+
+		addMore := true
 		count := 0
+		linesRead := 0
 
 		for {
 			items, err := reader.Read()
 			if err != nil {
-				n.log.Fatal(err.Error())
+				break
 			}
+			linesRead++
 			height, err := strconv.Atoi(items[0])
 			if err != nil {
 				n.log.Fatal(err.Error())
 			}
 			if height > int(n.indexedHeight) {
-				break
+				addMore = false
+			}
+
+			if !addMore {
+				if n.maxFeedHeightKnown < height {
+					n.maxFeedHeightKnown = height
+				}
+				continue
 			}
 
 			asset := common.HexToAddress(items[1])
 			denomination := common.HexToAddress(items[2])
 			latestAggregator := common.HexToAddress(items[3])
+
+			if util.IsGroundedAddress(asset) || util.IsGroundedAddress(denomination) || util.IsGroundedAddress(latestAggregator) {
+				n.log.Warningf("Skipping aggregator since one of the addresses is grounded, (%x:%x) %x", asset, denomination, latestAggregator)
+
+				if prevAgg, ok := n.feedMap[itypes.Tuple2[common.Address, common.Address]{asset, denomination}]; ok {
+					n.log.Warningf("Deleting previous aggregator, (%x:%x) %x", asset, denomination, prevAgg)
+					delete(n.feedMapRev, prevAgg)
+					delete(n.feedMap, itypes.Tuple2[common.Address, common.Address]{asset, denomination})
+				}
+
+				continue
+			}
+
 			n.log.Infof("Read Aggregator found (%x:%x) %x", asset, denomination, latestAggregator)
 
 			n.feedMap[itypes.Tuple2[common.Address, common.Address]{
@@ -159,9 +184,9 @@ func (n *OracleNodeImpl) setupInitial() {
 			n.feedMapRev[latestAggregator] = itypes.Tuple2[common.Address, common.Address]{
 				asset, denomination,
 			}
-			count += 1
+			count++
 		}
-		n.log.Infof("Added %d count aggregator", count)
+		n.log.Infof("Added %d count aggregator, read %d lines", count, linesRead)
 		return
 	}
 
@@ -204,6 +229,18 @@ func (n *OracleNodeImpl) setupInitial() {
 			asset := util.ExtractAddressFromLogTopic(log.Topics[1])
 			denomination := util.ExtractAddressFromLogTopic(log.Topics[2])
 			latestAggregator := util.ExtractAddressFromLogTopic(log.Topics[3])
+
+			if util.IsGroundedAddress(asset) || util.IsGroundedAddress(denomination) || util.IsGroundedAddress(latestAggregator) {
+				n.log.Warningf("Skipping aggregator since one of the addresses is grounded, (%x:%x) %x", asset, denomination, latestAggregator)
+
+				if prevAgg, ok := n.feedMap[itypes.Tuple2[common.Address, common.Address]{asset, denomination}]; ok {
+					n.log.Warningf("Deleting previous aggregator, (%x:%x) %x", asset, denomination, prevAgg)
+					delete(n.feedMapRev, prevAgg)
+					delete(n.feedMap, itypes.Tuple2[common.Address, common.Address]{asset, denomination})
+				}
+
+				continue
+			}
 
 			record := []string{strconv.Itoa(int(log.BlockNumber)), asset.Hex(), denomination.Hex(), latestAggregator.Hex()}
 			if err := w.Write(record); err != nil {
@@ -348,13 +385,14 @@ func (n *OracleNodeImpl) decodeLog(l types.Log) (ChainLinkUpdate, bool) {
 		info, ok := n.feedMapRev[l.Address]
 		if !ok {
 			n.log.Infof("Unknown feed answer update for %s, skipping", l.Address.Hex())
+			return ChainLinkUpdate{}, false
 		}
 		ans, err := n.EthRPC.GetChainlinkRoundData(l.Address, util.GetBlockCallOpts(l.BlockNumber))
 		if err != nil {
 			n.log.Infof("Error while getting round data for %x: %x, skipping", l.Address.Hex(), err)
 			return ChainLinkUpdate{}, false
 		}
-		n.log.Infof("Rev map: %s, %s %s", l.Address.Hex(), info.First.Hex(), info.Second.Hex())
+		// n.log.Infof("Rev map: %s, %s %s", l.Address.Hex(), info.First.Hex(), info.Second.Hex())
 		return ChainLinkUpdate{
 			Asset:        info.First,
 			Denomination: info.Second,
@@ -363,9 +401,25 @@ func (n *OracleNodeImpl) decodeLog(l types.Log) (ChainLinkUpdate, bool) {
 		}, true
 
 	case itypes.ChainLinkFeedConfirmed:
+		if n.maxFeedHeightKnown > int(l.BlockNumber) {
+			n.log.Warningf("Not adding aggregator for feed file since maxFeedHeightKnown is bigger %d vs %d", n.maxFeedHeightKnown, l.BlockNumber)
+		}
+
 		asset := util.ExtractAddressFromLogTopic(l.Topics[1])
 		denomination := util.ExtractAddressFromLogTopic(l.Topics[2])
 		latestAggregator := util.ExtractAddressFromLogTopic(l.Topics[3])
+
+		if util.IsGroundedAddress(asset) || util.IsGroundedAddress(denomination) || util.IsGroundedAddress(latestAggregator) {
+			n.log.Warningf("Skipping aggregator since one of the addresses is grounded, (%x:%x) %x", asset, denomination, latestAggregator)
+
+			if prevAgg, ok := n.feedMap[itypes.Tuple2[common.Address, common.Address]{asset, denomination}]; ok {
+				n.log.Warningf("Deleting previous aggregator, (%x:%x) %x", asset, denomination, prevAgg)
+				delete(n.feedMapRev, prevAgg)
+				delete(n.feedMap, itypes.Tuple2[common.Address, common.Address]{asset, denomination})
+			}
+
+			return ChainLinkUpdate{}, false
+		}
 
 		record := []string{strconv.Itoa(int(l.BlockNumber)), asset.Hex(), denomination.Hex(), latestAggregator.Hex()}
 
@@ -524,8 +578,9 @@ func NewOracleNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		feedRegistry:        common.HexToAddress(viper.GetString(OracleNodeCFGSection + ".chainlinkFeedRegistry")),
 		feedFile:            viper.GetString(OracleNodeCFGSection + ".feedFile"),
 
-		feedMap:    make(map[itypes.Tuple2[common.Address, common.Address]]common.Address),
-		feedMapRev: make(map[common.Address]itypes.Tuple2[common.Address, common.Address]),
+		feedMap:            make(map[itypes.Tuple2[common.Address, common.Address]]common.Address),
+		feedMapRev:         make(map[common.Address]itypes.Tuple2[common.Address, common.Address]),
+		maxFeedHeightKnown: 0,
 	}
 	node.BaseService = *service.NewBaseService(log, "oraclenode", node)
 	return node, nil

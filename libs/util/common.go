@@ -56,6 +56,10 @@ func ENOKF(err error, info interface{}) {
 	}
 }
 
+func IsGroundedAddress(addr common.Address) bool {
+	return addr == common.Address{} || addr == common.HexToAddress("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
+}
+
 // Check if error (if any) is ethereum error
 // Also takes into account boolean flag `failOnNonEthError` in cfg
 // If false, silently fail and continue to next event
