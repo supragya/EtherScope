@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
 
+	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	outs "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 )
@@ -16,11 +17,11 @@ import (
 /* Struct definitions with stubbing functions */
 type (
 	TestAMQPImpl struct {
-		DialImpl func(address string) (outs.AMQPConnection, error)
+		DialImpl func(address string) (iamqp.AMQPConnection, error)
 	}
 
 	TestAMQPConnectionImpl struct {
-		ChannelImpl  func() (outs.AMQPChannel, error)
+		ChannelImpl  func() (iamqp.AMQPChannel, error)
 		CloseImpl    func() error
 		IsClosedImpl func() bool
 	}
@@ -32,7 +33,7 @@ type (
 )
 
 /* Setup interface implementations that defer to stubs */
-func (amqpImpl TestAMQPImpl) Dial(address string) (outs.AMQPConnection, error) {
+func (amqpImpl TestAMQPImpl) Dial(address string) (iamqp.AMQPConnection, error) {
 	if amqpImpl.DialImpl != nil {
 		return amqpImpl.DialImpl(address)
 	} else {
@@ -40,7 +41,7 @@ func (amqpImpl TestAMQPImpl) Dial(address string) (outs.AMQPConnection, error) {
 	}
 }
 
-func (testConnection TestAMQPConnectionImpl) Channel() (outs.AMQPChannel, error) {
+func (testConnection TestAMQPConnectionImpl) Channel() (iamqp.AMQPChannel, error) {
 	if testConnection.ChannelImpl != nil {
 		return testConnection.ChannelImpl()
 	}
@@ -108,10 +109,10 @@ var _ = Describe("RabbitMq", func() {
 		testRabbitMQChannel = TestAMQPChannelImpl{}
 
 		/* Default stubs */
-		testAMQP.DialImpl = func(address string) (outs.AMQPConnection, error) {
+		testAMQP.DialImpl = func(address string) (iamqp.AMQPConnection, error) {
 			return testConnection, nil
 		}
-		testConnection.ChannelImpl = func() (outs.AMQPChannel, error) {
+		testConnection.ChannelImpl = func() (iamqp.AMQPChannel, error) {
 			return testRabbitMQChannel, nil
 		}
 	})
@@ -119,14 +120,14 @@ var _ = Describe("RabbitMq", func() {
 	Context("Start", func() {
 		It("should pass on err when connect fails", func() {
 			// Provide stubbed Dial implementation
-			testAMQP.DialImpl = func(address string) (outs.AMQPConnection, error) { return nil, errors.New("Test dial error") }
+			testAMQP.DialImpl = func(address string) (iamqp.AMQPConnection, error) { return nil, errors.New("Test dial error") }
 			Expect(testOutputSinkRMQ.Start(context.Background())).To(MatchError(
 				ContainSubstring("OutputSinkDialError"),
 			))
 		})
 
 		It("should return err when connect succeeds and Channel errors", func() {
-			testConnection.ChannelImpl = func() (outs.AMQPChannel, error) { return nil, errors.New("Test Channel error") }
+			testConnection.ChannelImpl = func() (iamqp.AMQPChannel, error) { return nil, errors.New("Test Channel error") }
 			Expect(testOutputSinkRMQ.Start(context.Background())).To(MatchError(
 				ContainSubstring("OutputSinkChannelError"),
 			))
@@ -139,7 +140,7 @@ var _ = Describe("RabbitMq", func() {
 
 	Context("Send", func() {
 		It("should return OutputSinkUnavailable err when connection is nil and Dial returns err", func() {
-			testAMQP.DialImpl = func(address string) (outs.AMQPConnection, error) { return nil, errors.New("Test dial error") }
+			testAMQP.DialImpl = func(address string) (iamqp.AMQPConnection, error) { return nil, errors.New("Test dial error") }
 			Expect(testOutputSinkRMQ.Send(testMessage)).To(MatchError(
 				ContainSubstring("OutputSinkUnavailable"),
 			))
@@ -151,7 +152,7 @@ var _ = Describe("RabbitMq", func() {
 
 			// Configure to appear as a closed connection and subsequent Dial call to fail
 			testConnection.IsClosedImpl = func() bool { return true }
-			testAMQP.DialImpl = func(address string) (outs.AMQPConnection, error) { return nil, errors.New("Test dial error") }
+			testAMQP.DialImpl = func(address string) (iamqp.AMQPConnection, error) { return nil, errors.New("Test dial error") }
 
 			Expect(testOutputSinkRMQ.Send(testMessage)).To(MatchError(
 				ContainSubstring("OutputSinkUnavailable"),

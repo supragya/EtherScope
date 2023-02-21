@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
@@ -111,11 +112,11 @@ type RabbitMQOutputSinkImpl struct {
 	noWait           bool
 	disconnectTime   time.Time
 	connecting       bool
-	amqpImpl         AMQP
+	amqpImpl         iamqp.AMQP
 
 	// Connections
-	connection AMQPConnection
-	channel    AMQPChannel
+	connection iamqp.AMQPConnection
+	channel    iamqp.AMQPChannel
 }
 
 // OnStart starts the rabbitmq OutputSink. It implements service.Service.
@@ -228,7 +229,7 @@ func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 	return nil
 }
 
-func NewRabbitMQOutputSinkWithViperFields(log logger.Logger, amqpImpl AMQP) (OutputSink, error) {
+func NewRabbitMQOutputSinkWithViperFields(log logger.Logger, amqpImpl iamqp.AMQP) (OutputSink, error) {
 	outs := &RabbitMQOutputSinkImpl{
 		log:              log,
 		queueName:        viper.GetString(RabbitMQCFGSection + ".queue"),

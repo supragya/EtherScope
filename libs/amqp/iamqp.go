@@ -1,4 +1,4 @@
-package outputsink
+package iamqp
 
 import (
 	"github.com/streadway/amqp"
