@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
 	outs "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,6 +45,8 @@ type OracleNodeImpl struct {
 	prodcheck           bool   // checks for prod grade settings
 	maxCPUParallels     int    // user requested CPU threads to allocate to the process
 	maxBlockSpanPerCall uint64 // max block spans to log per initial filtering call
+	feedRegistry        common.Address
+	feedFile            string
 
 	// Internal Data Structures
 	moniker       string    // user defined moniker for this node
@@ -50,6 +54,8 @@ type OracleNodeImpl struct {
 	nodeID        uuid.UUID // system generated node identifier unique for each run
 	indexedHeight uint64
 	currentHeight uint64
+	feedMap       map[itypes.Tuple2[common.Address, common.Address]]common.Address
+	feedMapRev    map[common.Address]itypes.Tuple2[common.Address, common.Address]
 	quitCh        chan struct{}
 
 	// Backoff configuration
@@ -77,6 +83,10 @@ func (n *OracleNodeImpl) OnStart(ctx context.Context) error {
 
 	if err := n.EthRPC.Start(ctx); err != nil {
 		return err
+	}
+
+	if err := n.OutputSink.Start(ctx); err != nil {
+		n.log.Info("Error initializing output sink, will reattempt connection until ready")
 	}
 
 	// startHeight, err := n.getResumeHeight()
@@ -113,9 +123,50 @@ func (n *OracleNodeImpl) setupInitial() {
 	start, end, stride := uint64(12864088), n.indexedHeight, uint64(1000) // Start of feed registry to now, each call indexing 100,000 blocks
 	n.log.Infof("need to index %d blocks for feed data, %d to %d", end-start, start, end)
 
-	feedMap := make(map[itypes.Tuple2[common.Address, common.Address]]common.Address)
+	if _, err := os.Stat(n.feedFile); err == nil {
+		// This means that feedfile exists already
+		n.log.Info("feed file already exists, reading")
+		f, err := os.Open(n.feedFile)
+		if err != nil {
+			n.log.Fatal(err.Error())
+		}
+		defer f.Close()
+		reader := csv.NewReader(f)
+		reader.Read() // First one for heading, don't care
+		count := 0
 
-	f, err := os.Create("feeds.csv") // TODO: make it configurable, check err
+		for {
+			items, err := reader.Read()
+			if err != nil {
+				n.log.Fatal(err.Error())
+			}
+			height, err := strconv.Atoi(items[0])
+			if err != nil {
+				n.log.Fatal(err.Error())
+			}
+			if height > int(n.indexedHeight) {
+				break
+			}
+
+			asset := common.HexToAddress(items[1])
+			denomination := common.HexToAddress(items[2])
+			latestAggregator := common.HexToAddress(items[3])
+			n.log.Infof("Read Aggregator found (%x:%x) %x", asset, denomination, latestAggregator)
+
+			n.feedMap[itypes.Tuple2[common.Address, common.Address]{
+				asset, denomination,
+			}] = latestAggregator // aggregator
+			n.feedMapRev[latestAggregator] = itypes.Tuple2[common.Address, common.Address]{
+				asset, denomination,
+			}
+			count += 1
+		}
+		n.log.Infof("Added %d count aggregator", count)
+		return
+	}
+
+	// otherwise
+	f, err := os.Create(n.feedFile) // TODO: make it configurable, check err
 	if err != nil {
 		n.log.Fatal("error opening csv file")
 	}
@@ -142,6 +193,7 @@ func (n *OracleNodeImpl) setupInitial() {
 			FromBlock: big.NewInt(int64(callStart)),
 			ToBlock:   big.NewInt(int64(callEnd)),
 			Topics:    [][]common.Hash{[]common.Hash{itypes.ChainLinkFeedConfirmed}},
+			Addresses: []common.Address{n.feedRegistry},
 		})
 
 		if err != nil {
@@ -160,7 +212,8 @@ func (n *OracleNodeImpl) setupInitial() {
 
 			n.log.Infof("Aggregator found @ %d (%x:%x) %x", log.BlockNumber, asset, denomination, latestAggregator)
 
-			feedMap[itypes.Tuple2[common.Address, common.Address]{asset, denomination}] = latestAggregator
+			n.feedMap[itypes.Tuple2[common.Address, common.Address]{asset, denomination}] = latestAggregator
+			n.feedMapRev[latestAggregator] = itypes.Tuple2[common.Address, common.Address]{asset, denomination}
 		}
 
 		start = start + uint64(stride)
@@ -169,275 +222,196 @@ func (n *OracleNodeImpl) setupInitial() {
 
 // Loop implements core indexing logic
 func (n *OracleNodeImpl) loop() {
-	// for {
-	// 	select {
-	// 	case <-time.After(time.Second * 2):
-	// 		// Loop in case we are lagging, so we dont wait 3 secs between epochs
-	// 		for {
-	// 			height, err := n.EthRPC.GetCurrentBlockHeight()
+	for {
+		select {
+		case <-time.After(time.Second * 2):
+			// Loop in case we are lagging, so we dont wait 3 secs between epochs
+			for {
+				height, err := n.EthRPC.GetCurrentBlockHeight()
 
-	// 			if err != nil {
-	// 				n.log.Warn(fmt.Sprintf("Error retrieving block height, retrying. Caused by: %s", err))
-	// 				break
-	// 			}
-	// 			n.currentHeight = height
+				if err != nil {
+					n.log.Warn(fmt.Sprintf("Error retrieving block height, retrying. Caused by: %s", err))
+					break
+				}
+				n.currentHeight = height
 
-	// 			if n.currentHeight == n.indexedHeight {
-	// 				continue
-	// 			}
-	// 			endingBlock := n.currentHeight
-	// 			isOnHead := true
-	// 			if (endingBlock - n.indexedHeight) > n.maxBlockSpanPerCall {
-	// 				isOnHead = false
-	// 				endingBlock = n.indexedHeight + n.maxBlockSpanPerCall
-	// 			}
+				if n.currentHeight == n.indexedHeight {
+					continue
+				}
+				endingBlock := n.currentHeight
+				isOnHead := true
+				if (endingBlock - n.indexedHeight) > n.maxBlockSpanPerCall {
+					isOnHead = false
+					endingBlock = n.indexedHeight + n.maxBlockSpanPerCall
+				}
 
-	// 			n.log.Info(fmt.Sprintf("chainhead: %d (+%d away), indexed: %d",
-	// 				n.currentHeight, n.currentHeight-n.indexedHeight, n.indexedHeight))
+				n.log.Info(fmt.Sprintf("chainhead: %d (+%d away), indexed: %d",
+					n.currentHeight, n.currentHeight-n.indexedHeight, n.indexedHeight))
 
-	// 			// instrumentation.CurrentBlock.Set(float64(n.currentHeight))
+				// instrumentation.CurrentBlock.Set(float64(n.currentHeight))
 
-	// 			logs, err := n.EthRPC.GetFilteredLogs(ethereum.FilterQuery{
-	// 				FromBlock: big.NewInt(int64(n.indexedHeight + 1)),
-	// 				ToBlock:   big.NewInt(int64(endingBlock)),
-	// 				Topics:    [][]common.Hash{n.mergedTopicsKeys},
-	// 			})
+				logs, err := n.EthRPC.GetFilteredLogs(ethereum.FilterQuery{
+					FromBlock: big.NewInt(int64(n.indexedHeight + 1)),
+					ToBlock:   big.NewInt(int64(endingBlock)),
+					Topics: [][]common.Hash{[]common.Hash{
+						itypes.ChainLinkFeedConfirmed,
+						itypes.ChainLinkAnswerUpdated,
+					}},
+				})
 
-	// 			if err != nil {
-	// 				n.log.Error("encountered error", "error", err)
-	// 				continue
-	// 			}
+				if err != nil {
+					n.log.Error("encountered error", "error", err)
+					continue
+				}
 
-	// 			n.processBatchedBlockLogs(logs, n.indexedHeight+1, endingBlock)
+				n.processBatchedBlockLogs(logs, n.indexedHeight+1, endingBlock)
 
-	// 			n.indexedHeight = endingBlock
-	// 			// instrumentation.ProcessedBlock.Set(float64(r.indexedHeight))
+				n.indexedHeight = endingBlock
 
-	// 			if isOnHead {
-	// 				break
-	// 			}
-	// 		}
-	// 	case <-n.quitCh:
-	// 		n.log.Info("quitting realtime indexer")
-	// 	}
-	// }
+				if isOnHead {
+					break
+				}
+			}
+		case <-n.quitCh:
+			n.log.Info("quitting realtime indexer")
+		}
+	}
 }
 
 func (n *OracleNodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64, end uint64) {
 	// Assuming for any height H, either we will have all the concerned logs
 	// or not even one
-	// kv := GroupByBlockNumber(logs)
+	kv := GroupByBlockNumber(logs)
 
-	// for block := start; block <= end; block++ {
-	// 	backoff.Retry(func() error { return n.processBlock(kv, block) }, n.backoff)
-	// }
+	for block := start; block <= end; block++ {
+		backoff.Retry(func() error { return n.processBlock(kv, block) }, n.backoff)
+	}
+}
+
+type ChainLinkUpdate struct {
+	Asset        common.Address
+	Denomination common.Address
+	Aggregator   common.Address
+	Answer       itypes.ChainlinkLatestRoundData
 }
 
 func (n *OracleNodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	n.log.Info(fmt.Sprintf("processing block %d", block))
-	// startTime := time.Now()
-	// _time, err := n.EthRPC.GetBlockTimestamp(block)
-	// if err != nil {
-	// 	n.log.Warn(fmt.Sprintf("Error retrieving timestamp for block %d. Caused by: %s", block, err))
-	// 	return err
-	// }
+	_time, err := n.EthRPC.GetBlockTimestamp(block)
+	if err != nil {
+		n.log.Warn(fmt.Sprintf("Error retrieving timestamp for block %d. Caused by: %s", block, err))
+		return err
+	}
 
-	// logs := kv[block]
-	// blockSynopis := itypes.BlockSynopsis{
-	// 	Height:        block,
-	// 	BlockTime:     _time,
-	// 	EventsScanned: uint64(logs.Len()),
-	// }
+	logs := kv[block]
+	blockSynopis := itypes.BlockSynopsis{
+		Height:        block,
+		BlockTime:     _time,
+		EventsScanned: uint64(logs.Len()),
+	}
 
-	// var eg errgroup.Group
+	var processedItems []ChainLinkUpdate
 
-	// var processedItems []interface{} = make([]interface{}, len(logs))
-
-	// for idx, _log := range logs {
-	// 	eg.Go(func() error {
-	// 		return n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
-	// 	})
-	// }
-
-	// err = eg.Wait()
-
-	// if err != nil {
-	// 	n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
-	// 	return err
-	// }
-
-	// processingTime := time.Now()
-
-	// // Run processedItems through pricing engine
-	// newDexes, err := backoff.RetryWithData(
-	// 	func() ([]itypes.UniV2Metadata, error) {
-	// 		return n.pricer.Resolve(block, processedItems)
-	// 	}, n.backoff)
-	// kv := GroupByBlockNumber(logs)
-
-	// for block := start; block <= end; block++ {
-	// 	backoff.Retry(func() error { return n.processBlock(kv, block) }, n.backoff)
-	// }
-	// pricingTime := time.Now()
-
-	// // Package processedItems into payload for output
-	// populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
-	// payload := n.genPayload(&blockSynopis, processedItems, newDexes)
-
-	// for {
-	// 	err = n.OutputSink.Send(payload)
-	// 	if err == nil {
-	// 		break
-	// 	}
-	// 	n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
-	// 	time.Sleep(2 * time.Second)
-	// }
-
-	// // Sync localBackend states
-	// backoff.Retry(func() error { return n.LocalBackend.Sync() }, n.backoff)
-	return nil
-}
-
-func (n *OracleNodeImpl) decodeLog(l types.Log,
-	items []interface{},
-	idx int,
-	blockTime uint64,
-) error {
-
-	// primaryTopic := l.Topics[0]
-	// switch primaryTopic {
-	// // ---- Uniswap V2 ----
-	// case itypes.UniV2MintTopic:
-	// 	// instrumentation.MintV2Found.Inc()
-	// 	return n.procUniV2.ProcessUniV2Mint(l, items, idx, blockTime)
-	// case itypes.UniV2BurnTopic:
-	// 	// instrumentation.BurnV2Found.Inc()
-	// 	return n.procUniV2.ProcessUniV2Burn(l, items, idx, blockTime)
-	// case itypes.UniV2SwapTopic:
-	// 	// instrumentation.SwapV2Found.Inc()
-	// 	return n.procUniV2.ProcessUniV2Swap(l, items, idx, blockTime)
-
-	// // // ---- Uniswap V3 ----
-	// case itypes.UniV3MintTopic:
-	// 	// instrumentation.MintV3Found.Inc()
-	// 	return n.procUniV3.ProcessUniV3Mint(l, items, idx, blockTime)
-	// case itypes.UniV3BurnTopic:
-	// 	// instrumentation.BurnV3Found.Inc()
-	// 	return n.procUniV3.ProcessUniV3Burn(l, items, idx, blockTime)
-	// case itypes.UniV3SwapTopic:
-	// 	// instrumentation.SwapV3Found.Inc()
-	// 	return n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
-
-	// 	// // ---- ERC 20 ----
-	// 	// case itypes.ERC20TransferTopic:
-	// 	// 	// instrumentation.TfrFound.Inc()
-	// 	// 	n.processERC20Transfer(l, items, bm, mt)
-	// }
-	return nil
-}
-
-func populateBlockSynopsis(bs *itypes.BlockSynopsis,
-	items []interface{},
-	startTime time.Time,
-	processingTime time.Time,
-	pricingTime time.Time) {
-	distribution := make(map[string]uint64, len(items))
-	defaultKey := ""
-	for _, item := range items {
-		if item == nil {
+	for _, _log := range logs {
+		roundData, isRoundData := n.decodeLog(_log)
+		if !isRoundData {
 			continue
 		}
-
-		itemKey := defaultKey
-		isPricedCorrectly := false
-
-		switch i := item.(type) {
-		case *itypes.Mint:
-			itemKey = fmt.Sprintf("(%v, %v)", i.Type, i.ProcessingType.ToString())
-			isPricedCorrectly = i.Price0 != nil && i.Price1 != nil && i.Amount0 != nil && i.Amount1 != nil && i.AmountUSD != nil
-		case *itypes.Burn:
-			itemKey = fmt.Sprintf("(%v, %v)", i.Type, i.ProcessingType.ToString())
-			isPricedCorrectly = i.Price0 != nil && i.Price1 != nil && i.Amount0 != nil && i.Amount1 != nil && i.AmountUSD != nil
-		case *itypes.Swap:
-			itemKey = fmt.Sprintf("(%v, %v)", i.Type, i.ProcessingType.ToString())
-			isPricedCorrectly = i.Price0 != nil && i.Price1 != nil && i.Amount0 != nil && i.Amount1 != nil && i.AmountUSD != nil
-		case *itypes.Transfer:
-			itemKey = fmt.Sprintf("(%v, %v)", i.Type, i.ProcessingType.ToString())
-			isPricedCorrectly = i.AmountUSD != nil
-		}
-
-		if itemKey != defaultKey {
-			count, ok := distribution[itemKey]
-			if !ok {
-				distribution[itemKey] = 1
-			} else {
-				distribution[itemKey] = count + 1
-			}
-		}
-
-		if isPricedCorrectly {
-			bs.EventsPriced += 1
-		}
+		processedItems = append(processedItems, roundData)
 	}
-	bs.EventsUserDistribution = distribution
-	bs.IndexingTimeNanos = uint64(pricingTime.UnixNano())
-	bs.ProcessingDurationNanos = uint64(processingTime.Sub(startTime).Nanoseconds())
-	bs.PricingDurationNanos = uint64(pricingTime.Sub(processingTime).Nanoseconds())
+
+	if err != nil {
+		n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
+		return err
+	}
+
+	// // Package processedItems into payload for output
+	payload := n.genPayload(&blockSynopis, processedItems)
+
+	for {
+		err = n.OutputSink.Send(payload)
+		if err == nil {
+			break
+		}
+		n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
+		time.Sleep(2 * time.Second)
+	}
+
+	return nil
 }
 
-// type Payload struct {
-// 	NodeMoniker   string
-// 	NodeID        uuid.UUID
-// 	NodeVersion   string
-// 	Environment   string
-// 	Network       string
-// 	BlockSynopsis *itypes.BlockSynopsis
-// 	NewDexes      []itypes.UniV2Metadata
-// 	Items         []interface{}
-// }
+func (n *OracleNodeImpl) decodeLog(l types.Log) (ChainLinkUpdate, bool) {
+	primaryTopic := l.Topics[0]
+	switch primaryTopic {
+	case itypes.ChainLinkAnswerUpdated:
+		// Ensure that this aggregator exists
+		info, ok := n.feedMapRev[l.Address]
+		if !ok {
+			n.log.Infof("Unknown feed answer update for %s, skipping", l.Address.Hex())
+		}
+		ans, err := n.EthRPC.GetChainlinkRoundData(l.Address, util.GetBlockCallOpts(l.BlockNumber))
+		if err != nil {
+			n.log.Infof("Error while getting round data for %x: %x, skipping", l.Address.Hex(), err)
+			return ChainLinkUpdate{}, false
+		}
+		n.log.Infof("Rev map: %s, %s %s", l.Address.Hex(), info.First.Hex(), info.Second.Hex())
+		return ChainLinkUpdate{
+			Asset:        info.First,
+			Denomination: info.Second,
+			Aggregator:   l.Address,
+			Answer:       ans,
+		}, true
 
-// func (n *OracleNodeImpl) genPayload(bs *itypes.BlockSynopsis,
-// 	items []interface{},
-// 	newDexes []itypes.UniV2Metadata) *Payload {
-// 	nonNilUserItems := []interface{}{}
-// 	for _, item := range items {
-// 		if item == nil {
-// 			continue
-// 		}
-// 		switch i := item.(type) {
-// 		case *itypes.Mint:
-// 			if i.ProcessingType == itypes.UserRequested {
-// 				nonNilUserItems = append(nonNilUserItems, i)
-// 			}
-// 		case *itypes.Burn:
-// 			if i.ProcessingType == itypes.UserRequested {
-// 				nonNilUserItems = append(nonNilUserItems, i)
-// 			}
-// 		case *itypes.Swap:
-// 			if i.ProcessingType == itypes.UserRequested {
-// 				nonNilUserItems = append(nonNilUserItems, i)
-// 			}
-// 		case *itypes.Transfer:
-// 			if i.ProcessingType == itypes.UserRequested {
-// 				nonNilUserItems = append(nonNilUserItems, i)
-// 			}
-// 		}
-// 	}
-// 	env := "staging"
-// 	if n.prodcheck {
-// 		env = "production tagged " + version.GetGitTag()
-// 	}
-// 	return &Payload{
-// 		NodeMoniker:   n.moniker,
-// 		NodeID:        n.nodeID,
-// 		Environment:   env,
-// 		NodeVersion:   strings.Trim(cfg.SFmt(version.GetVersionStrings()), " "),
-// 		Network:       n.network,
-// 		BlockSynopsis: bs,
-// 		Items:         nonNilUserItems,
-// 		NewDexes:      newDexes,
-// 	}
-// }
+	case itypes.ChainLinkFeedConfirmed:
+		asset := util.ExtractAddressFromLogTopic(l.Topics[1])
+		denomination := util.ExtractAddressFromLogTopic(l.Topics[2])
+		latestAggregator := util.ExtractAddressFromLogTopic(l.Topics[3])
+
+		record := []string{strconv.Itoa(int(l.BlockNumber)), asset.Hex(), denomination.Hex(), latestAggregator.Hex()}
+
+		n.log.Infof("Aggregator found @ %d (%x:%x) %x", l.BlockNumber, asset, denomination, latestAggregator)
+
+		f, err := os.OpenFile(n.feedFile, os.O_APPEND, 0777)
+		if err != nil {
+			n.log.Fatal("error opening csv file")
+		}
+		defer f.Close()
+
+		w := csv.NewWriter(f)
+		if err := w.Write(record); err != nil {
+			n.log.Fatal("error writing record to file", err)
+		}
+
+		n.feedMap[itypes.Tuple2[common.Address, common.Address]{asset, denomination}] = latestAggregator
+		n.feedMapRev[latestAggregator] = itypes.Tuple2[common.Address, common.Address]{asset, denomination}
+	}
+	return ChainLinkUpdate{}, false
+}
+
+type Payload struct {
+	NodeMoniker string
+	NodeID      uuid.UUID
+	NodeVersion string
+	Environment string
+	Network     string
+	Items       []ChainLinkUpdate
+}
+
+func (n *OracleNodeImpl) genPayload(bs *itypes.BlockSynopsis,
+	items []ChainLinkUpdate) *Payload {
+	env := "staging"
+	if n.prodcheck {
+		env = "production tagged " + version.GetGitTag()
+	}
+	return &Payload{
+		NodeMoniker: n.moniker,
+		NodeID:      n.nodeID,
+		Environment: env,
+		NodeVersion: strings.Trim(cfg.SFmt(version.GetVersionStrings()), " "),
+		Network:     n.network,
+		Items:       items,
+	}
+}
 
 func (n *OracleNodeImpl) syncStartHeight() uint64 {
 	// start by assuming cfg height is correct
@@ -503,7 +477,7 @@ func NewOracleNodeWithViperFields(log logger.Logger) (service.Service, error) {
 
 	var (
 		// lbType     = viper.GetString(OracleNodeCFGSection + ".localBackendType")
-		// outsType   = viper.GetString(OracleNodeCFGSection + ".outputSinkType")
+		outsType   = viper.GetString(OracleNodeCFGSection + ".outputSinkType")
 		ethrpcType = viper.GetString(OracleNodeCFGSection + ".ethRPCType")
 	)
 
@@ -516,14 +490,14 @@ func NewOracleNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	// 	return nil, err
 	// }
 
-	// // Setup output link
-	// if outsType != "rabbitmq" {
-	// 	log.Fatal("unsupported outputsink: " + outsType)
-	// }
-	// outputSink, err := outs.NewRabbitMQOutputSinkWithViperFields(log.With("service", "outputsink"))
-	// if err != nil {
-	// 	return nil, err
-	// }
+	// Setup output link
+	if outsType != "rabbitmq" {
+		log.Fatal("unsupported outputsink: " + outsType)
+	}
+	outputSink, err := outs.NewRabbitMQOutputSinkWithViperFields(log.With("service", "outputsink"))
+	if err != nil {
+		return nil, err
+	}
 
 	// Setup ethrpc
 	if ethrpcType != "mspool" {
@@ -535,10 +509,9 @@ func NewOracleNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	}
 
 	node := &OracleNodeImpl{
-		log:    log.With("service", "oraclenode"),
-		EthRPC: _ethrpc,
-		// LocalBackend:                    localBackend,
-		// OutputSink:                      outputSink,
+		log:                 log.With("service", "oraclenode"),
+		EthRPC:              _ethrpc,
+		OutputSink:          outputSink,
 		startBlock:          viper.GetUint64(OracleNodeCFGSection + ".startBlock"),
 		skipResumeRemote:    viper.GetBool(OracleNodeCFGSection + ".skipResumeRemote"),
 		remoteResumeURL:     viper.GetString(OracleNodeCFGSection + ".remoteResumeURL"),
@@ -548,6 +521,11 @@ func NewOracleNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		moniker:             viper.GetString(OracleNodeCFGSection + ".moniker"),
 		network:             viper.GetString(OracleNodeCFGSection + ".network"),
 		prodcheck:           viper.GetBool(OracleNodeCFGSection + ".prodcheck"),
+		feedRegistry:        common.HexToAddress(viper.GetString(OracleNodeCFGSection + ".chainlinkFeedRegistry")),
+		feedFile:            viper.GetString(OracleNodeCFGSection + ".feedFile"),
+
+		feedMap:    make(map[itypes.Tuple2[common.Address, common.Address]]common.Address),
+		feedMapRev: make(map[common.Address]itypes.Tuple2[common.Address, common.Address]),
 	}
 	node.BaseService = *service.NewBaseService(log, "oraclenode", node)
 	return node, nil
