@@ -330,6 +330,7 @@ type ChainLinkUpdate struct {
 	Denomination common.Address
 	Aggregator   common.Address
 	Answer       itypes.ChainlinkLatestRoundData
+	Decimals     uint8
 }
 
 func (n *OracleNodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
@@ -392,12 +393,18 @@ func (n *OracleNodeImpl) decodeLog(l types.Log) (ChainLinkUpdate, bool) {
 			n.log.Infof("Error while getting round data for %x: %x, skipping", l.Address.Hex(), err)
 			return ChainLinkUpdate{}, false
 		}
+		decimals, err := n.EthRPC.GetChainlinkDecimals(l.Address, util.GetBlockCallOpts(l.BlockNumber))
+		if err != nil {
+			n.log.Infof("Error while getting round data for %x: %x, skipping", l.Address.Hex(), err)
+			return ChainLinkUpdate{}, false
+		}
 		// n.log.Infof("Rev map: %s, %s %s", l.Address.Hex(), info.First.Hex(), info.Second.Hex())
 		return ChainLinkUpdate{
 			Asset:        info.First,
 			Denomination: info.Second,
 			Aggregator:   l.Address,
 			Answer:       ans,
+			Decimals:     decimals,
 		}, true
 
 	case itypes.ChainLinkFeedConfirmed:
@@ -448,6 +455,7 @@ type Payload struct {
 	NodeVersion string
 	Environment string
 	Network     string
+	Height      uint64
 	Items       []ChainLinkUpdate
 }
 
@@ -463,6 +471,7 @@ func (n *OracleNodeImpl) genPayload(bs *itypes.BlockSynopsis,
 		Environment: env,
 		NodeVersion: strings.Trim(cfg.SFmt(version.GetVersionStrings()), " "),
 		Network:     n.network,
+		Height:      bs.Height,
 		Items:       items,
 	}
 }

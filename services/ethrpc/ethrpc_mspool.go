@@ -466,3 +466,18 @@ func (n *MSPoolEthRPCImpl) GetChainlinkRoundData(
 		}, itypes.ChainlinkLatestRoundData{})
 	return roundData, err
 }
+
+func (n *MSPoolEthRPCImpl) GetChainlinkDecimals(
+	contractAddress common.Address, callopts *bind.CallOpts) (uint8, error) {
+	roundData, err := Do(n.pool,
+		n.sem,
+		func(ctx context.Context, c *ethclient.Client) (uint8, error) {
+			oracle, err := chainlink.NewChainlink(contractAddress, c)
+			if err != nil {
+				return 0, err
+			}
+			callopts.Context = ctx
+			return oracle.Decimals(callopts)
+		}, 0)
+	return roundData, err
+}
