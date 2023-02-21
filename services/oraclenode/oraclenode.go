@@ -320,8 +320,23 @@ func (n *OracleNodeImpl) processBatchedBlockLogs(logs []types.Log, start uint64,
 	// or not even one
 	kv := GroupByBlockNumber(logs)
 
+	payloads := []*Payload{}
+
 	for block := start; block <= end; block++ {
-		backoff.Retry(func() error { return n.processBlock(kv, block) }, n.backoff)
+		p, err := n.processBlock(kv, block)
+		if err != nil {
+			n.log.Fatal(err.Error())
+		}
+		payloads = append(payloads, p)
+	}
+
+	for {
+		err := n.OutputSink.Send(payloads)
+		if err == nil {
+			break
+		}
+		n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
+		time.Sleep(2 * time.Second)
 	}
 }
 
@@ -333,12 +348,12 @@ type ChainLinkUpdate struct {
 	Decimals     uint8
 }
 
-func (n *OracleNodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
+func (n *OracleNodeImpl) processBlock(kv map[uint64]CLogType, block uint64) (*Payload, error) {
 	n.log.Info(fmt.Sprintf("processing block %d", block))
 	_time, err := n.EthRPC.GetBlockTimestamp(block)
 	if err != nil {
 		n.log.Warn(fmt.Sprintf("Error retrieving timestamp for block %d. Caused by: %s", block, err))
-		return err
+		return &Payload{}, err
 	}
 
 	logs := kv[block]
@@ -360,22 +375,13 @@ func (n *OracleNodeImpl) processBlock(kv map[uint64]CLogType, block uint64) erro
 
 	if err != nil {
 		n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
-		return err
+		return &Payload{}, err
 	}
 
 	// // Package processedItems into payload for output
 	payload := n.genPayload(&blockSynopis, processedItems)
 
-	for {
-		err = n.OutputSink.Send(payload)
-		if err == nil {
-			break
-		}
-		n.log.Warn("Error sending message to output sink: " + fmt.Sprint(err))
-		time.Sleep(2 * time.Second)
-	}
-
-	return nil
+	return payload, nil
 }
 
 func (n *OracleNodeImpl) decodeLog(l types.Log) (ChainLinkUpdate, bool) {
