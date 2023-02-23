@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
@@ -111,18 +112,19 @@ type RabbitMQOutputSinkImpl struct {
 	noWait           bool
 	disconnectTime   time.Time
 	connecting       bool
+	amqpImpl         iamqp.AMQP
 
 	// Connections
-	connection *amqp.Connection
-	channel    *amqp.Channel
+	connection iamqp.AMQPConnection
+	channel    iamqp.AMQPChannel
 }
 
 // OnStart starts the rabbitmq OutputSink. It implements service.Service.
 func (n *RabbitMQOutputSinkImpl) OnStart(ctx context.Context) error {
 	if err := n.connect(); err != nil {
 		n.disconnectTime = time.Now()
-		n.log.Info(fmt.Sprintf("Unable to connect to RabbitMQ: %s", fmt.Sprint(err)))
-		return err
+		n.log.Info(fmt.Sprintf("Unable to connect to RabbitMQ: %s", err))
+		return fmt.Errorf("OutputSinkStartupError: %w", err)
 	}
 	return nil
 }
@@ -157,13 +159,13 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 	}()
 
 	mqConnStr := n.getConnectionString()
-
-	connectRabbitMQ, err := amqp.Dial(mqConnStr)
+	connectRabbitMQ, err := n.amqpImpl.Dial(mqConnStr)
 	if err != nil {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return err
+
+		return fmt.Errorf("OutputSinkDialError caused by: %w", err)
 	}
 
 	channelRabbitMQ, err := connectRabbitMQ.Channel()
@@ -171,7 +173,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return err
+		return fmt.Errorf("OutputSinkChannelError caused by: %w", err)
 	}
 
 	if n.disconnectTime.IsZero() {
@@ -190,7 +192,7 @@ func (n *RabbitMQOutputSinkImpl) connect() error {
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 	if n.connection == nil || n.connection.IsClosed() {
 		if err := n.connect(); err != nil {
-			return err
+			return fmt.Errorf("OutputSinkUnavailable Caused By: %w", err)
 		}
 	}
 
@@ -217,17 +219,17 @@ func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 		if n.disconnectTime.IsZero() {
 			n.disconnectTime = time.Now()
 		}
-		return err
+		return fmt.Errorf("OutputSinkPublishError Caused by: %w", err)
 	}
 
-	n.log.Info("sent message onto outputsink rmq",
+	n.log.Debug("sent message onto outputsink rmq",
 		"msglen", len(item),
 		"queue", n.queueName)
 
 	return nil
 }
 
-func NewRabbitMQOutputSinkWithViperFields(log logger.Logger) (OutputSink, error) {
+func NewRabbitMQOutputSinkWithViperFields(log logger.Logger, amqpImpl iamqp.AMQP) (OutputSink, error) {
 	outs := &RabbitMQOutputSinkImpl{
 		log:              log,
 		queueName:        viper.GetString(RabbitMQCFGSection + ".queue"),
@@ -242,5 +244,6 @@ func NewRabbitMQOutputSinkWithViperFields(log logger.Logger) (OutputSink, error)
 		noWait:           viper.GetBool(RabbitMQCFGSection + ".queueNoWait"),     // no wait
 	}
 	outs.BaseService = *service.NewBaseService(log, "outputsink", outs)
+	outs.amqpImpl = amqpImpl
 	return outs, nil
 }

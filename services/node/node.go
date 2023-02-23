@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	priceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/pricing"
@@ -558,7 +559,7 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	if outsType != "rabbitmq" {
 		log.Fatal("unsupported outputsink: " + outsType)
 	}
-	outputSink, err := outs.NewRabbitMQOutputSinkWithViperFields(log.With("service", "outputsink"))
+	outputSink, err := outs.NewRabbitMQOutputSinkWithViperFields(log.With("service", "outputsink"), &iamqp.AMQPImpl{})
 	if err != nil {
 		return nil, err
 	}
