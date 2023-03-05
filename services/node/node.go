@@ -547,12 +547,21 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	)
 
 	// Setup local backend
-	if lbType != "badgerdb" {
+	var localBackend lb.LocalBackend
+	var err error
+	switch lbType {
+	case "badgerdb":
+		localBackend, err = lb.NewBadgerDBWithViperFields(log.With("service", "localbackend"))
+		if err != nil {
+			return nil, err
+		}
+	case "none":
+		localBackend, err = lb.NewNoneDB(log.With("service", "localbackend"))
+		if err != nil {
+			return nil, err
+		}
+	default:
 		log.Fatal("unsupported localbackend: " + lbType)
-	}
-	localBackend, err := lb.NewBadgerDBWithViperFields(log.With("service", "localbackend"))
-	if err != nil {
-		return nil, err
 	}
 
 	// Setup output link

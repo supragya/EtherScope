@@ -76,8 +76,8 @@ var (
 			Type:      "string",
 			Necessity: "always needed",
 			Info: cfg.SArr("type of local backend indexer should use.",
-				"only possible type right now is `badgerdb`"),
-			Default: "badgerdb",
+				"Use `none` or `badgerdb`"),
+			Default: "none",
 		},
 		{
 			Name:      "outputSinkType",
