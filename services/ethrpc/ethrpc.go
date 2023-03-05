@@ -27,4 +27,5 @@ type EthRPC interface {
 		callopts *bind.CallOpts) (common.Address, common.Address, error)
 	GetTokensUniV3NFT(nftContract common.Address, tokenID *big.Int, callopts *bind.CallOpts) (common.Address, common.Address, error)
 	GetChainlinkRoundData(contractAddress common.Address, callopts *bind.CallOpts) (itypes.ChainlinkLatestRoundData, error)
+	GetChainlinkDecimals(contractAddress common.Address, callopts *bind.CallOpts) (uint8, error)
 }

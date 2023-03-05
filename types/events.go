@@ -23,6 +23,10 @@ var (
 	// ---- ERC 20 ----
 	ERC20TransferTopic common.Hash
 
+	// ---- Chainlink ----
+	ChainLinkFeedConfirmed common.Hash
+	ChainLinkAnswerUpdated common.Hash
+
 	// ---- Topic Map and Reverse Map ---
 	topicMap  map[string]common.Hash
 	rTopicMap map[common.Hash]string
@@ -139,6 +143,10 @@ func init() {
 
 	// ---- ERC 20 ---
 	ERC20TransferTopic = setTopic("Transfer(address,address,uint256)", "ERC20Transfer")
+
+	// ---- Chainlink ----
+	ChainLinkFeedConfirmed = setTopic("FeedConfirmed(address,address,address,address,uint16,address)", "ChainLinkFeedConfirmed")
+	ChainLinkAnswerUpdated = setTopic("AnswerUpdated(int256,uint256,uint256)", "ChainLinkAnswerUpdated")
 }
 
 func setTopic(topicString, infoString string) common.Hash {

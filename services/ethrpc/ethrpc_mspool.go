@@ -13,7 +13,6 @@ import (
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
-	lb "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
 	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -136,9 +135,8 @@ type MSPoolEthRPCImpl struct {
 	maxParallels      uint
 
 	// Internal Data Structures
-	pool         *MasterSlavePool[ethclient.Client]
-	localBackend lb.LocalBackend
-	sem          *semaphore.Weighted
+	pool *MasterSlavePool[ethclient.Client]
+	sem  *semaphore.Weighted
 
 	// In-memory caches
 	cacheContractTokens *lru.ARCCache
@@ -169,7 +167,7 @@ func (n *MSPoolEthRPCImpl) OnStart(ctx context.Context) error {
 func (n *MSPoolEthRPCImpl) OnStop() {
 }
 
-func NewMSPoolEthRPCWithViperFields(log logger.Logger, localBackend lb.LocalBackend) (EthRPC, error) {
+func NewMSPoolEthRPCWithViperFields(log logger.Logger) (EthRPC, error) {
 	// ensure field integrity for viper
 	for _, mf := range EthRPCMSPoolCFGFields {
 		err := cfg.EnsureFieldIntegrity(EthRPCMSPoolCFGSection, mf)
@@ -203,7 +201,6 @@ func NewMSPoolEthRPCWithViperFields(log logger.Logger, localBackend lb.LocalBack
 		},
 		maxParallels:        viper.GetUint(EthRPCMSPoolCFGSection + ".maxParallels"),
 		periodicRecording:   viper.GetDuration(EthRPCMSPoolCFGSection + ".periodicRecording"),
-		localBackend:        localBackend,
 		cacheContractTokens: cacheContractTokens,
 		cacheERC20:          cacheERC20,
 		cacheERC20Name:      cacheERC20Name,
@@ -467,5 +464,20 @@ func (n *MSPoolEthRPCImpl) GetChainlinkRoundData(
 			callopts.Context = ctx
 			return oracle.LatestRoundData(callopts)
 		}, itypes.ChainlinkLatestRoundData{})
+	return roundData, err
+}
+
+func (n *MSPoolEthRPCImpl) GetChainlinkDecimals(
+	contractAddress common.Address, callopts *bind.CallOpts) (uint8, error) {
+	roundData, err := Do(n.pool,
+		n.sem,
+		func(ctx context.Context, c *ethclient.Client) (uint8, error) {
+			oracle, err := chainlink.NewChainlink(contractAddress, c)
+			if err != nil {
+				return 0, err
+			}
+			callopts.Context = ctx
+			return oracle.Decimals(callopts)
+		}, 0)
 	return roundData, err
 }
