@@ -80,6 +80,13 @@ var (
 			Default: "none",
 		},
 		{
+			Name:      "oldPricerOracleMap",
+			Type:      "string",
+			Necessity: "needed if `localBackendType` == `None`",
+			Info:      cfg.SArr("place where oracle map exists on disk for old pricer"),
+			Default:   "/etc/oraclemap.json",
+		},
+		{
 			Name:      "outputSinkType",
 			Type:      "string",
 			Necessity: "always needed",

@@ -16,6 +16,7 @@ import (
 	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	oldpriceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/oldpricing"
 	priceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/pricing"
 	uniswapv2 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV2"
 	uniswapv3 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV3"
@@ -57,14 +58,16 @@ type NodeImpl struct {
 	pricingDexDumpFile              string   // user provided dexes for faster catchup
 
 	// Internal Data Structures
-	moniker          string                                // user defined moniker for this node
-	network          string                                // user defined evm compatible network name
-	nodeID           uuid.UUID                             // system generated node identifier unique for each run
-	mergedTopics     map[common.Hash]itypes.ProcessingType // information on topics to index
-	mergedTopicsKeys []common.Hash                         // cached keys of mergedTopics
-	indexedHeight    uint64
-	currentHeight    uint64
-	quitCh           chan struct{}
+	moniker            string                                // user defined moniker for this node
+	network            string                                // user defined evm compatible network name
+	nodeID             uuid.UUID                             // system generated node identifier unique for each run
+	mergedTopics       map[common.Hash]itypes.ProcessingType // information on topics to index
+	mergedTopicsKeys   []common.Hash                         // cached keys of mergedTopics
+	indexedHeight      uint64
+	currentHeight      uint64
+	allowPricingState  bool
+	oldPricerOracleMap string
+	quitCh             chan struct{}
 
 	// Backoff configuration
 	backoff *backoff.ConstantBackOff
@@ -73,6 +76,7 @@ type NodeImpl struct {
 	procUniV2 uniswapv2.UniswapV2Processor
 	procUniV3 uniswapv3.UniswapV3Processor
 	pricer    *priceresolver.Engine
+	oldpricer *oldpriceresolver.Pricing
 }
 
 // OnStart starts the Node. It implements service.Service.
@@ -145,6 +149,7 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 		n.pricingDexDumpFile,
 		n.EthRPC,
 		n.LocalBackend)
+	n.oldpricer = oldpriceresolver.GetPricingEngine(n.oldPricerOracleMap, n.EthRPC)
 
 	// TODO: Do height syncup using both LocalBackend and remote http
 	// startHeight, err := n.getResumeHeight()
@@ -280,24 +285,36 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	processingTime := time.Now()
 
 	// Run processedItems through pricing engine
-	newDexes, err := backoff.RetryWithData(
-		func() ([]itypes.UniV2Metadata, error) {
-			newDexes, err := n.pricer.Resolve(block, processedItems)
-			if err != nil {
-				if errors.Is(err, priceresolver.ErrorRequestedResolutionPresent) {
-					n.log.Debugf("%s", err)
-					return newDexes, nil
+	var newDexes []itypes.UniV2Metadata
+	if n.allowPricingState {
+		newDexes, err = backoff.RetryWithData(
+			func() ([]itypes.UniV2Metadata, error) {
+				newDexes, err := n.pricer.Resolve(block, processedItems)
+				if err != nil {
+					if errors.Is(err, priceresolver.ErrorRequestedResolutionPresent) {
+						n.log.Debugf("%s", err)
+						return newDexes, nil
+					}
+					n.log.Infof("Error resolving dex. Caused by: %s\n", err)
 				}
-				n.log.Infof("Error resolving dex. Caused by: %s\n", err)
-			}
-			return newDexes, err
-		}, n.backoff)
+				return newDexes, err
+			}, n.backoff)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = n.oldpricer.Resolve(block, processedItems)
+		if err != nil {
+			return err
+		}
+	}
 
 	pricingTime := time.Now()
 
 	// Package processedItems into payload for output
 	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
 	payload := n.genPayload(&blockSynopis, processedItems, newDexes)
+	payload.allowPricingState = n.allowPricingState
 	n.log.Debug("Sending data to output sink")
 	for {
 		err = n.OutputSink.Send(payload)
@@ -402,14 +419,15 @@ func populateBlockSynopsis(bs *itypes.BlockSynopsis,
 }
 
 type Payload struct {
-	NodeMoniker   string
-	NodeID        uuid.UUID
-	NodeVersion   string
-	Environment   string
-	Network       string
-	BlockSynopsis *itypes.BlockSynopsis
-	NewDexes      []itypes.UniV2Metadata
-	Items         []interface{}
+	NodeMoniker       string
+	NodeID            uuid.UUID
+	NodeVersion       string
+	Environment       string
+	Network           string
+	allowPricingState bool
+	BlockSynopsis     *itypes.BlockSynopsis
+	NewDexes          []itypes.UniV2Metadata
+	Items             []interface{}
 }
 
 func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis,
@@ -547,8 +565,11 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	)
 
 	// Setup local backend
-	var localBackend lb.LocalBackend
-	var err error
+	var (
+		localBackend         lb.LocalBackend
+		err                  error
+		isLocalBackendNoneDB = false
+	)
 	switch lbType {
 	case "badgerdb":
 		localBackend, err = lb.NewBadgerDBWithViperFields(log.With("service", "localbackend"))
@@ -560,6 +581,7 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		if err != nil {
 			return nil, err
 		}
+		isLocalBackendNoneDB = true
 	default:
 		log.Fatal("unsupported localbackend: " + lbType)
 	}
@@ -597,7 +619,9 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		quitCh:                          make(chan struct{}, 1),
 		moniker:                         viper.GetString(NodeCFGSection + ".moniker"),
 		network:                         viper.GetString(NodeCFGSection + ".network"),
+		allowPricingState:               isLocalBackendNoneDB,
 		pricingChainlinkOraclesDumpFile: viper.GetString(NodeCFGSection + ".pricingChainlinkOraclesDumpFile"),
+		oldPricerOracleMap:              viper.GetString(NodeCFGSection + ".oldPricerOracleMap"),
 		pricingDexDumpFile:              viper.GetString(NodeCFGSection + ".pricingDexDumpFile"),
 		prodcheck:                       viper.GetBool(NodeCFGSection + ".prodcheck"),
 	}

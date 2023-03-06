@@ -1,0 +1,33 @@
+{
+    "Network": "ethereum",
+    "ChainID": 1,
+    "StableCoinsUSD" : [
+        {"id": "USDC",  "contract": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "oracleContract": "0x8fffffd4afb6115b954bd326cbe7b4ba576818f6"},
+        {"id": "DAI", "contract": "0x6B175474E89094C44Da98b954EedeAC495271d0F", "oracleContract": "0xaed0c38402a5d19df6e4c03f4e2dced6e29c1ee9"}
+    ],
+    "Tokens": [
+        {"id": "WETH", "contract": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"},
+        {"id": "WBTC", "contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"},
+        {"id": "LINK", "contract": "0x514910771AF9Ca656af840dff83E8264EcF986CA"},
+        {"id": "SNX", "contract": "0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F"},
+        {"id": "LRC", "contract": "0xBBbbCA6A901c926F240b89EacB641d8Aec7AEafD"},
+        {"id": "MKR", "contract": "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"},
+        {"id": "MANA", "contract": "0x0F5D2fB29fb7d3CFeE444a200298f468908cC942"},
+        {"id": "KNC", "contract": "0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202"},
+        {"id": "BAT", "contract": "0x0D8775F648430679A709E98d2b0Cb6250d2887EF"},
+        {"id": "ZRX", "contract": "0xE41d2489571d322189246DaFA5ebDe1F4699F498"}
+    ],
+    "Oracles": [
+        {"from": "WETH", "to": "USD", "contract": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419"},
+        {"from": "WBTC", "to": "USD", "contract": "0xf4030086522a5beea4988f8ca5b36dbc97bee88c"},
+        {"from": "LINK", "to": "USD", "contract": "0x2c1d072e956affc0d435cb7ac38ef18d24d9127c"},
+        {"from": "USD", "to": "WETH", "contract": "0xee9f2375b4bdf6387aa8265dd4fb8f16512a1d46"},
+        {"from": "SNX", "to": "WETH", "contract": "0x79291a9d692df95334b1a0b3b4ae6bc606782f8c"},
+        {"from": "LRC", "to": "WETH", "contract": "0x160ac928a16c93ed4895c2de6f81ecce9a7eb7b4"},
+        {"from": "MKR", "to": "WETH", "contract": "0x24551a8fb2a7211a25a17b1481f043a8a8adc7f2"},
+        {"from": "MANA", "to": "WETH", "contract": "0x82a44d92d6c329826dc557c5e1be6ebec5d5feb9"},
+        {"from": "KNC", "to": "WETH", "contract": "0x656c0544ef4c98a6a98491833a89204abb045d6b"},
+        {"from": "BAT", "to": "WETH", "contract": "0x0d16d4528239e9ee52fa531af613acdb23d88c94"},
+        {"from": "ZRX", "to": "WETH", "contract": "0x2da4983a622a8498bb1a21fae9d8f6c664939962"}
+    ]
+}
