@@ -199,7 +199,7 @@ func (n *NodeImpl) loop() {
 				}
 				n.currentHeight = height
 
-				if n.currentHeight == n.indexedHeight {
+				if n.currentHeight <= n.indexedHeight {
 					continue
 				}
 				endingBlock := n.currentHeight
