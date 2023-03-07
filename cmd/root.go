@@ -23,6 +23,7 @@ var RootCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(RealtimeCmd)
+	RootCmd.AddCommand(OracleCmd)
 	RootCmd.AddCommand(ConfigGen)
 
 	RootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "loglevel (default is INFO)")
