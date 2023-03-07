@@ -467,6 +467,19 @@ func (n *MSPoolEthRPCImpl) GetChainlinkRoundData(
 	return roundData, err
 }
 
+// CodeAt returns the contract bytecode associated with the given account. If the account isn't a contract, returns nil.
+func (n *MSPoolEthRPCImpl) IsContract(Address common.Address, callopts *bind.CallOpts) (bool, error) {
+	isAddressContract, err := Do(n.pool,
+		n.sem,
+		func(ctx context.Context, c *ethclient.Client) ([]byte, error) {
+			return c.CodeAt(ctx, Address, nil)
+		}, []byte{})
+	if len(isAddressContract) > 0 {
+		return true, err
+	}
+	return false, err
+}
+
 func (n *MSPoolEthRPCImpl) GetChainlinkDecimals(
 	contractAddress common.Address, callopts *bind.CallOpts) (uint8, error) {
 	roundData, err := Do(n.pool,
