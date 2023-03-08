@@ -29,8 +29,12 @@ func (n *NoneDBImpl) Set(key string, val []byte) error {
 	return errors.New("cannot set on none_db")
 }
 
+func (n *NoneDBImpl) Sync() error {
+	return nil
+}
+
 func NewNoneDB(log logger.Logger) (LocalBackend, error) {
-	lb := &BadgerDBLocalBackendImpl{}
+	lb := &NoneDBImpl{}
 	lb.BaseService = *service.NewBaseService(log, "localbackend", lb)
 	return lb, nil
 }

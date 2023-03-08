@@ -113,9 +113,10 @@ func GetPricingEngine(oracleMapLocation string, rpc ethrpc.EthRPC) *Pricing {
 	// Load bare oracle Map
 	util.ENOK(json.Unmarshal(fileBytes, &pricing.oracleMap))
 
-	tempGraph := gograph.NewGraphStringUintString(false)
 	for _, o := range pricing.oracleMap.Oracles {
-		tempGraph.AddEdge(o.From, o.To, 1, o.Contract)
+		if err := pricing.graph.AddEdge(o.From, o.To, 1, o.Contract); err != nil {
+			panic(fmt.Sprintf("error while adding edge: %s %s->%s as %s", err, o.From, o.To, o.Contract))
+		}
 	}
 
 	// Setup stablecoins
@@ -130,6 +131,8 @@ func GetPricingEngine(oracleMapLocation string, rpc ethrpc.EthRPC) *Pricing {
 	for _, token := range pricing.oracleMap.Tokens {
 		pricing.tokenMap[common.HexToAddress(token.Contract)] = token.ID
 	}
+
+	pricing.graph.CalculateAllPairShortestPath()
 
 	return &pricing
 }
@@ -269,7 +272,8 @@ func (d *Pricing) GetRateForBlock(
 		price := big.NewFloat(1.0)
 
 		if len(route.Edges)+1 != len(route.Vertices) {
-			panic("error in APSP routing logic")
+			panic(fmt.Sprintf("error in APSP routing logic token: %s edges: %d vs vertices: %d, totals: %d %d",
+				tokenID, len(route.Edges), len(route.Vertices), d.graph.GetEdgeCount(), d.graph.GetVertexCount()))
 		}
 
 		routingMetadata := make(map[string]DirectPriceDerivationInfo, len(route.Edges))

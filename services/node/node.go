@@ -144,12 +144,15 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	// Setup processors
 	n.procUniV2 = uniswapv2.UniswapV2Processor{n.mergedTopics, n.EthRPC}
 	n.procUniV3 = uniswapv3.UniswapV3Processor{n.mergedTopics, n.EthRPC}
-	n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
-		n.pricingChainlinkOraclesDumpFile,
-		n.pricingDexDumpFile,
-		n.EthRPC,
-		n.LocalBackend)
-	n.oldpricer = oldpriceresolver.GetPricingEngine(n.oldPricerOracleMap, n.EthRPC)
+	if n.allowPricingState {
+		n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
+			n.pricingChainlinkOraclesDumpFile,
+			n.pricingDexDumpFile,
+			n.EthRPC,
+			n.LocalBackend)
+	} else {
+		n.oldpricer = oldpriceresolver.GetPricingEngine(n.oldPricerOracleMap, n.EthRPC)
+	}
 
 	// TODO: Do height syncup using both LocalBackend and remote http
 	// startHeight, err := n.getResumeHeight()
@@ -199,7 +202,11 @@ func (n *NodeImpl) loop() {
 				}
 				n.currentHeight = height
 
-				if n.currentHeight <= n.indexedHeight {
+				if n.currentHeight < n.indexedHeight {
+					n.log.Warn(fmt.Sprintf("rpc height (%d) is less than indexed height (%d), possible n/w reorg or p2p failure",
+						n.currentHeight, n.indexedHeight))
+				}
+				if n.currentHeight == n.indexedHeight {
 					continue
 				}
 				endingBlock := n.currentHeight
@@ -287,6 +294,7 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	// Run processedItems through pricing engine
 	var newDexes []itypes.UniV2Metadata
 	if n.allowPricingState {
+		n.log.Info("allowed pricing state")
 		newDexes, err = backoff.RetryWithData(
 			func() ([]itypes.UniV2Metadata, error) {
 				newDexes, err := n.pricer.Resolve(block, processedItems)
@@ -619,7 +627,7 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		quitCh:                          make(chan struct{}, 1),
 		moniker:                         viper.GetString(NodeCFGSection + ".moniker"),
 		network:                         viper.GetString(NodeCFGSection + ".network"),
-		allowPricingState:               isLocalBackendNoneDB,
+		allowPricingState:               !isLocalBackendNoneDB,
 		pricingChainlinkOraclesDumpFile: viper.GetString(NodeCFGSection + ".pricingChainlinkOraclesDumpFile"),
 		oldPricerOracleMap:              viper.GetString(NodeCFGSection + ".oldPricerOracleMap"),
 		pricingDexDumpFile:              viper.GetString(NodeCFGSection + ".pricingDexDumpFile"),
