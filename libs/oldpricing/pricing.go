@@ -206,7 +206,7 @@ func (d *Pricing) GetRates2Tokens(
 		}
 	}
 
-	return prs[0], prs[1], amountUSD
+	return prs[0], prs[1], amountUSD.Abs(amountUSD)
 }
 
 func (d *Pricing) GetPriceResults(
@@ -328,44 +328,19 @@ func (d *Pricing) Resolve(resHeight uint64, items []interface{}) error {
 			if i.ProcessingType != itypes.UserRequested {
 				continue
 			}
-			priceResults := d.GetPriceResults(callopts, []itypes.Tuple2[common.Address, *big.Float]{
-				itypes.Tuple2[common.Address, *big.Float]{i.Token0, i.Amount0},
-				itypes.Tuple2[common.Address, *big.Float]{i.Token1, i.Amount1},
-			})
+			i.Price0, i.Price1, i.AmountUSD = d.GetRates2Tokens(callopts, i.Token0, i.Token1, i.Amount0, i.Amount1)
 
-			if len(priceResults) != 2 {
-				continue
-			}
-			i.Price0 = priceResults[0]
-			i.Price1 = priceResults[1]
 		case *itypes.Burn:
 			if i.ProcessingType != itypes.UserRequested {
 				continue
 			}
-			priceResults := d.GetPriceResults(callopts, []itypes.Tuple2[common.Address, *big.Float]{
-				itypes.Tuple2[common.Address, *big.Float]{i.Token0, i.Amount0},
-				itypes.Tuple2[common.Address, *big.Float]{i.Token1, i.Amount1},
-			})
+			i.Price0, i.Price1, i.AmountUSD = d.GetRates2Tokens(callopts, i.Token0, i.Token1, i.Amount0, i.Amount1)
 
-			if len(priceResults) != 2 {
-				continue
-			}
-			i.Price0 = priceResults[0]
-			i.Price1 = priceResults[1]
 		case *itypes.Swap:
 			if i.ProcessingType != itypes.UserRequested {
 				continue
 			}
-			priceResults := d.GetPriceResults(callopts, []itypes.Tuple2[common.Address, *big.Float]{
-				itypes.Tuple2[common.Address, *big.Float]{i.Token0, i.Amount0},
-				itypes.Tuple2[common.Address, *big.Float]{i.Token1, i.Amount1},
-			})
-
-			if len(priceResults) != 2 {
-				continue
-			}
-			i.Price0 = priceResults[0]
-			i.Price1 = priceResults[1]
+			i.Price0, i.Price1, i.AmountUSD = d.GetRates2Tokens(callopts, i.Token0, i.Token1, i.Amount0, i.Amount1)
 		}
 	}
 
