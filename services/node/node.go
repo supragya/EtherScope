@@ -18,6 +18,7 @@ import (
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
 	oldpriceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/oldpricing"
 	priceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/pricing"
+	erc20 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/erc20"
 	uniswapv2 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV2"
 	uniswapv3 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV3"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
@@ -74,6 +75,7 @@ type NodeImpl struct {
 	// Library instances
 	procUniV2 uniswapv2.UniswapV2Processor
 	procUniV3 uniswapv3.UniswapV3Processor
+	procERC20 erc20.ERC20Processor
 	pricer    *priceresolver.Engine
 	oldpricer *oldpriceresolver.Pricing
 }
@@ -146,6 +148,7 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	// Setup processors
 	n.procUniV2 = uniswapv2.UniswapV2Processor{n.mergedTopics, n.EthRPC}
 	n.procUniV3 = uniswapv3.UniswapV3Processor{n.mergedTopics, n.EthRPC}
+	n.procERC20 = erc20.ERC20Processor{n.mergedTopics, n.EthRPC}
 	if n.allowPricingState {
 		n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
 			n.pricingChainlinkOraclesDumpFile,
@@ -374,10 +377,10 @@ func (n *NodeImpl) decodeLog(l types.Log,
 		instrumentation.SwapV3Found.Inc()
 		return n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
 
-		// // ---- ERC 20 ----
-		// case itypes.ERC20TransferTopic:
-		// 	// instrumentation.TfrFound.Inc()
-		// 	n.processERC20Transfer(l, items, bm, mt)
+	// ---- ERC 20 ----
+	case itypes.ERC20TransferTopic:
+		instrumentation.TfrFound.Inc()
+		return n.procERC20.ProcessERC20Transfer(l, items, idx, blockTime)
 	}
 	return nil
 }
