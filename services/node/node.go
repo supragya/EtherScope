@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
-	"golang.org/x/sync/errgroup"
 )
 
 type NodeImpl struct {
@@ -116,11 +115,14 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 		return err
 	}
 	// required topics by the pricing engine
-	requiredEvents := []common.Hash{itypes.UniV2MintTopic,
-		itypes.UniV2BurnTopic,
-		itypes.UniV2SwapTopic}
+	var extraRequiredEvents []common.Hash
+	if n.allowPricingState {
+		extraRequiredEvents = []common.Hash{itypes.UniV2MintTopic,
+			itypes.UniV2BurnTopic,
+			itypes.UniV2SwapTopic}
+	}
 
-	n.mergedTopics = mergeTopics(requestedEvents, requiredEvents)
+	n.mergedTopics = mergeTopics(requestedEvents, extraRequiredEvents)
 	keys := make([]common.Hash, len(n.mergedTopics))
 
 	i := 0
@@ -273,21 +275,23 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 		EventsScanned: uint64(logs.Len()),
 	}
 
-	var eg errgroup.Group
+	var wg sync.WaitGroup
 
 	var processedItems []interface{} = make([]interface{}, len(logs))
 	for idx, _log := range logs {
-		eg.Go(func() error {
-			return n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
-		})
+		wg.Add(1)
+		go func(_log types.Log, idx int) {
+			n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
+			wg.Done()
+		}(_log, idx)
 	}
 
-	err = eg.Wait()
+	wg.Wait()
 
-	if err != nil {
-		n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
-		return err
-	}
+	// if err != nil {
+	// 	n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
+	// 	return err
+	// }
 
 	processingTime := time.Now()
 
@@ -312,6 +316,7 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 		}
 	} else {
 		err = n.oldpricer.Resolve(block, processedItems)
+
 		if err != nil {
 			return err
 		}
