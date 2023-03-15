@@ -35,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
 )
 
 type NodeImpl struct {
@@ -278,23 +279,25 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 		EventsScanned: uint64(logs.Len()),
 	}
 
-	var wg sync.WaitGroup
+	eg := new(errgroup.Group)
 
 	var processedItems []interface{} = make([]interface{}, len(logs))
 	for idx, _log := range logs {
-		wg.Add(1)
-		go func(_log types.Log, idx int) {
-			n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
-			wg.Done()
-		}(_log, idx)
+		index, l := idx, _log
+		eg.Go(func() error {
+			err = n.decodeLog(l, processedItems, index, blockSynopis.BlockTime)
+			if err != nil {
+				fmt.Println(err)
+			}
+			return err
+		})
 	}
 
-	wg.Wait()
-
-	// if err != nil {
-	// 	n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
-	// 	return err
-	// }
+	err = eg.Wait()
+	if err != nil {
+		n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
+		return err
+	}
 
 	processingTime := time.Now()
 
@@ -352,7 +355,6 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	idx int,
 	blockTime uint64,
 ) error {
-
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
 	// ---- Uniswap V2 ----
