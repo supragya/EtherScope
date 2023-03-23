@@ -163,6 +163,7 @@ func (d *Pricing) GetRates2Tokens(
 		numerator := big.NewFloat(1.0).Mul(cpdi.CounterpartyPrice, cpdi.CounterpartyQty)
 		denominator := cpdi.SelfQty
 		derivedPrice := big.NewFloat(1.0).Quo(numerator, denominator)
+		derivedPrice = derivedPrice.Abs(derivedPrice)
 
 		entry := itypes.PriceResult{
 			Price: derivedPrice,
@@ -185,6 +186,7 @@ func (d *Pricing) GetRates2Tokens(
 		numerator := big.NewFloat(1.0).Mul(cpdi.CounterpartyPrice, cpdi.CounterpartyQty)
 		denominator := cpdi.SelfQty
 		derivedPrice := big.NewFloat(1.0).Quo(numerator, denominator)
+		derivedPrice = derivedPrice.Abs(derivedPrice)
 
 		entry := itypes.PriceResult{
 			Price: derivedPrice,
@@ -306,6 +308,7 @@ func (d *Pricing) GetRateForBlock(
 				ConversionPrice: tokenFormatted,
 			}
 		}
+		price = price.Abs(price)
 
 		result := itypes.PriceResult{
 			Price: price,
