@@ -194,7 +194,7 @@ func (d *Pricing) GetRates2Tokens(
 		}
 
 		// cache derived rate
-		lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
+		lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
 		d.PriceCache.Add(lookupKey, &entry)
 		prs[1] = &entry
 	}
