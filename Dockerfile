@@ -34,4 +34,6 @@ WORKDIR /geth-indexer
 
 COPY --from=build /geth-indexer/build/bgidx /geth-indexer/bgidx
 
+RUN "printf \"%s\" \"$CONFIG\" > ./config.yaml"
+
 CMD ["./bgidx", "realtime", "-c", "config.yaml"]
