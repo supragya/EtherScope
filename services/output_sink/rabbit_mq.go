@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
@@ -145,8 +146,7 @@ func (n *RabbitMQOutputSinkImpl) getConnectionString() string {
 	if viper.GetBool("mq.secureConnection") {
 		connPrefix = "amqps"
 	}
-
-	return fmt.Sprintf("%s://%s:%s@%s:%d/", connPrefix, n.user, n.pass, n.host, n.port)
+	return fmt.Sprintf("%s://%s:%s@%s:%d/", connPrefix, n.user, url.QueryEscape(n.pass), n.host, n.port)
 }
 
 func (n *RabbitMQOutputSinkImpl) connect() error {
