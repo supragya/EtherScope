@@ -1,0 +1,29 @@
+general:
+  network: algorand
+  chainID: 1
+  networkName: algorand
+  startBlock: 27143078
+  maxBlockSpanPerCall: 10
+  persistence: mq # only mq
+  prometheusEndpoint: 127.0.0.1:9722
+
+rpc:
+  indexerUrl: "https://flashy-quiet-card.algorand-mainnet.discover.quiknode.pro/288becf9ca16eb031fb0d515a208176d424a861e/index"
+  algodUrl: "https://flashy-quiet-card.algorand-mainnet.discover.quiknode.pro/288becf9ca16eb031fb0d515a208176d424a861e/algod"
+  token:  "288becf9ca16eb031fb0d515a208176d424a861e"
+  timeout: 800ms
+
+mq:
+  secureConnection: false
+  host: 127.0.0.1
+  port: 5672
+  user: devuser
+  pass: devpass
+  queue: "algorand-indexer"
+  queueIsDurable: true
+  queueAutoDelete: false
+  queueExclusive: false
+  queueNoWait: false
+  skipResume: true
+  resumeURL: "http://127.0.0.1:8080/GetBlockToResumeFrom"
+
