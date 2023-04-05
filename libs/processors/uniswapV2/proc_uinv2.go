@@ -472,5 +472,5 @@ func InfoUniV2Swap(l types.Log) (hasSufficientData bool,
 		am1Out = util.ExtractIntFromBytes(l.Data[96:128])
 	)
 
-	return true, sender, receiver, big.NewInt(0).Sub(am0Out, am0In), big.NewInt(0).Sub(am1Out, am1In)
+	return true, sender, receiver, big.NewInt(0).Sub(am0In, am0Out), big.NewInt(0).Sub(am1In, am1Out)
 }
