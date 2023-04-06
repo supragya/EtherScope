@@ -22,6 +22,7 @@ COPY ./scripts scripts
 COPY ./services services
 COPY ./types types
 COPY ./version version
+COPY ./algorand algorand
 
 RUN env GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="\
   -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildCommit=$buildCommit' \

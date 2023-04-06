@@ -18,6 +18,7 @@ COPY ./scripts scripts
 COPY ./services services
 COPY ./types types
 COPY ./version version
+COPY ./algorand algorand
 
 RUN go build -ldflags="\
   -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildCommit=$buildCommit' \
