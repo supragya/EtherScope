@@ -121,6 +121,7 @@ type BlockSynopsis struct {
 	EventsScanned           uint64
 	EventsPriced            uint64
 	EventsUserDistribution  map[string]uint64
+	EventsIndexed           []string
 }
 
 func toHash(str string) common.Hash {

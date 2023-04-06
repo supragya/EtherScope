@@ -331,7 +331,7 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	pricingTime := time.Now()
 
 	// Package processedItems into payload for output
-	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
+	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime, n.eventsToIndex)
 	payload := n.genPayload(&blockSynopis, processedItems, newDexes)
 	payload.allowPricingState = n.allowPricingState
 	for {
@@ -390,7 +390,8 @@ func populateBlockSynopsis(bs *itypes.BlockSynopsis,
 	items []interface{},
 	startTime time.Time,
 	processingTime time.Time,
-	pricingTime time.Time) {
+	pricingTime time.Time,
+	events []string) {
 	distribution := make(map[string]uint64, len(items))
 	defaultKey := ""
 	for _, item := range items {
@@ -433,6 +434,7 @@ func populateBlockSynopsis(bs *itypes.BlockSynopsis,
 	bs.IndexingTimeNanos = uint64(pricingTime.UnixNano())
 	bs.ProcessingDurationNanos = uint64(processingTime.Sub(startTime).Nanoseconds())
 	bs.PricingDurationNanos = uint64(pricingTime.Sub(processingTime).Nanoseconds())
+	bs.EventsIndexed = events
 }
 
 type Payload struct {
