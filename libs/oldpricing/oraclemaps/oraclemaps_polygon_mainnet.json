@@ -1,0 +1,27 @@
+{
+    "Network": "matic",
+    "ChainID": 137,
+    "Oracle_Earliest_Start": 8403469,
+    "Time": "December 16, 2020",
+    "StableCoinsUSD" : [
+        {"id": "DAI", "contract": "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063", "oracleContract": "0x4746dec9e833a82ec7c2c1356372ccf2cfcd2f3d"},
+        {"id": "USDC", "contract": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174", "oracleContract": "0xfe4a8cc5b5b2366c1b58bea3858e81843581b2f7"},
+        {"id": "USDT", "contract": "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", "oracleContract": "0x0a6513e40db6eb1b165753ad52e80663aea50545"}
+
+    ],
+    "Tokens": [
+        {"id": "MATIC", "contract": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270"},
+        {"id": "ETH", "contract": "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619"},
+        {"id": "BTC", "contract": "0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6"},
+        {"id": "USDC", "contract": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"},
+        {"id": "DAI", "contract": "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063"},
+        {"id": "USDT", "contract": "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"}
+
+    ],
+    "Oracles": [
+        {"from": "MATIC", "to": "USD", "contract": "0xab594600376ec9fd91f8e885dadf0ce036862de0"},
+        {"from": "BTC", "to": "USD", "contract": "0xc907e116054ad103354f2d350fd2514433d57f6f"},
+        {"from": "ETH", "to": "USD", "contract": "0xf9680d99d6c9589e2a93a78a04a279e509205945"}
+
+    ]
+}
