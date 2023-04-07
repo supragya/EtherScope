@@ -333,10 +333,7 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	// Package processedItems into payload for output
 	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
 	payload := n.genPayload(&blockSynopis, processedItems, newDexes)
-	m, err := json.MarshalIndent(payload, "", " ")
-	n.log.Infof("Payload: %s", m)
 	payload.allowPricingState = n.allowPricingState
-	n.log.Debug("Sending data to output sink")
 	for {
 		err = n.OutputSink.Send(payload)
 		if err == nil {
