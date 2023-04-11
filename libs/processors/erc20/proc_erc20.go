@@ -43,7 +43,9 @@ func (n *ERC20Processor) ProcessERC20Transfer(
 	if util.IsEthErr(err) {
 		return nil
 	}
-	util.ENOK(err)
+	if err != nil {
+		return err
+	}
 
 	transfer := itypes.Transfer{
 		Type:           "erc20transfer",
