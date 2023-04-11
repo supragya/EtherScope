@@ -51,6 +51,7 @@ type NodeImpl struct {
 	skipResumeRemote                bool     // skip checking remote for resume height
 	skipResumeLocal                 bool     // skip checking localbackend for resume height
 	remoteResumeURL                 string   // URL to use for resume height GET request
+	remoteResumeType                string   // Deictates the remote resume type - can be removed once all deployments transition to event based
 	prodcheck                       bool     // checks for prod grade settings
 	eventsToIndex                   []string // user requested events to index in string form
 	maxCPUParallels                 int      // user requested CPU threads to allocate to the process
@@ -520,18 +521,47 @@ func (n *NodeImpl) syncStartHeight() uint64 {
 
 	// Check resume URL
 	if !n.skipResumeRemote {
-		remoteLatestHeight, err := n.getRemoteLatestheight()
-		if err != nil {
-			n.log.Fatal(fmt.Sprintf("error while fetching latest height from remote: %v", err))
+		switch n.remoteResumeType {
+		case "event":
+			n.log.Info("Retrieving last block heights by event")
+			eventHeights, err := n.getRemoteEventHeights()
+
+			if err != nil {
+				n.log.Fatal(fmt.Sprintf("error while fetching latest height from remote: %v", err))
+			}
+
+			startBlock = ^uint64(0) - 1
+			for _, event := range n.eventsToIndex {
+				height, ok := eventHeights[event]
+				if ok {
+					if startBlock > height {
+						startBlock = height
+					}
+				} else {
+					startBlock = 0
+				}
+			}
+			n.log.Info("Starting height: %d", startBlock)
+
+		case "network":
+		default:
+			n.log.Info("Retrieving last block heights by network")
+			remoteLatestHeight, err := n.getRemoteLatestheight()
+
+			if err != nil {
+				n.log.Fatal(fmt.Sprintf("error while fetching latest height from remote: %v", err))
+			}
+
+			if remoteLatestHeight < startBlock {
+				n.log.Fatal(fmt.Sprintf("remote reports latest height as %v but either cfg start height or localBackend height disallows this", remoteLatestHeight),
+					"cfg start", n.startBlock)
+			}
+			if remoteLatestHeight > startBlock {
+				startBlock = remoteLatestHeight
+			}
 		}
-		if remoteLatestHeight < startBlock {
-			n.log.Fatal(fmt.Sprintf("remote reports latest height as %v but either cfg start height or localBackend height disallows this", remoteLatestHeight),
-				"cfg start", n.startBlock,
-				"lb latest", lbLatestHeightUint64)
-		}
-		if remoteLatestHeight > startBlock {
-			startBlock = remoteLatestHeight
-		}
+
+		return startBlock
 	}
 
 	n.log.Info("start block height set", "start", startBlock)
@@ -556,6 +586,28 @@ func (n *NodeImpl) getRemoteLatestheight() (uint64, error) {
 
 	n.log.Info("resuming from block height (via API response): ", responseObject.Data.Height)
 	return responseObject.Data.Height, nil
+}
+
+func (n *NodeImpl) getRemoteEventHeights() (map[string]uint64, error) {
+	resp, err := http.Get(n.remoteResumeURL)
+	if err != nil {
+		fmt.Println("HTTP error retrieving block heights")
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading HTTP response data")
+		return nil, err
+	}
+
+	var responseObject map[string]uint64
+	if err := json.Unmarshal(body, &responseObject); err != nil {
+		fmt.Printf("Error parsing JSON response data: %s\n", body)
+		return nil, err
+	}
+
+	return responseObject, nil
 }
 
 // Creates a new node service with spf13/viper fields (yaml)
@@ -632,6 +684,7 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		skipResumeRemote:                viper.GetBool(NodeCFGSection + ".skipResumeRemote"),
 		skipResumeLocal:                 viper.GetBool(NodeCFGSection + ".skipResumeLocal"),
 		remoteResumeURL:                 viper.GetString(NodeCFGSection + ".remoteResumeURL"),
+		remoteResumeType:                viper.GetString(NodeCFGSection + ".remoteResumeType"),
 		eventsToIndex:                   viper.GetStringSlice(NodeCFGSection + ".eventsToIndex"),
 		maxCPUParallels:                 viper.GetInt(NodeCFGSection + ".maxCPUParallels"),
 		maxBlockSpanPerCall:             viper.GetUint64(NodeCFGSection + ".maxBlockSpanPerCall"),
