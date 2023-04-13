@@ -541,7 +541,7 @@ func (n *NodeImpl) syncStartHeight() uint64 {
 					startBlock = 0
 				}
 			}
-			n.log.Info("Starting height: %d", startBlock)
+			n.log.Info(fmt.Sprintf("Starting height: %d", startBlock))
 
 		case "network":
 		default:
