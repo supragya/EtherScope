@@ -51,7 +51,7 @@ type NodeImpl struct {
 	skipResumeRemote                bool     // skip checking remote for resume height
 	skipResumeLocal                 bool     // skip checking localbackend for resume height
 	remoteResumeURL                 string   // URL to use for resume height GET request
-	remoteResumeType                string   // Deictates the remote resume type - can be removed once all deployments transition to event based
+	remoteResumeType                string   // Dictates the remote resume type - can be removed once all deployments transition to event based
 	prodcheck                       bool     // checks for prod grade settings
 	eventsToIndex                   []string // user requested events to index in string form
 	maxCPUParallels                 int      // user requested CPU threads to allocate to the process
