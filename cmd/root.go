@@ -25,6 +25,7 @@ func init() {
 	RootCmd.AddCommand(RealtimeCmd)
 	RootCmd.AddCommand(OracleCmd)
 	RootCmd.AddCommand(ConfigGen)
+	RootCmd.AddCommand(AlgoIndexerCmd)
 
 	RootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "loglevel (default is INFO)")
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.blockpour/bgidx/config.yaml)")

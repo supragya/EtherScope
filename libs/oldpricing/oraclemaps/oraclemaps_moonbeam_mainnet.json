@@ -1,0 +1,23 @@
+{
+    "Network": "moonbeam",
+    "ChainID": 1284,
+    "Oracle_Earliest_Start": 2777777,
+    "Time": "July 19, 2021",
+    "StableCoinsUSD" : [
+        {"id": "USDC", "contract": "0x818ec0a7fe18ff94269904fced6ae3dae6d6dc0b", "oracleContract": "0xa122591f60115d63421f66f752ef9f6e0bc73abc"},
+        {"id": "BUSD", "contract": "0xa649325aa7c5093d12d6f98eb4378deae68ce23f", "oracleContract": "0x2330fd83662bba3fc62bc48cc935ca58847a8957"}
+    ],
+    "Tokens": [
+        {"id": "BNB", "contract": "0xc9baa8cfdde8e328787e29b4b078abf2dadc2055"},
+        {"id": "ETH", "contract": "0xfa9343c3897324496a05fc75abed6bac29f8a40f"},
+        {"id": "BTC", "contract": "0x922d641a426dcffaef11680e5358f34d97d112e1"},
+        {"id": "BUSD", "contract": "0xa649325aa7c5093d12d6f98eb4378deae68ce23f"},
+        {"id": "USDC", "contract": "0x818ec0a7fe18ff94269904fced6ae3dae6d6dc0b"}
+    ],
+    "Oracles": [
+        {"from": "BNB", "to": "USD", "contract": "0x0147f2ad7f1e2bc51f998cc128a8355d5ae8c32d"},
+        {"from": "BTC", "to": "USD", "contract": "0x8c4425e141979c66423a83be2ee59135864487eb"},
+        {"from": "ETH", "to": "USD", "contract": "0x9ce2388a1696e22f870341c3fc1e89710c7569b5"}
+
+    ]
+}

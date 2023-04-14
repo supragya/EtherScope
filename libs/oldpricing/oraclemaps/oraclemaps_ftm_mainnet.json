@@ -1,0 +1,29 @@
+{
+    "Network": "ftm",
+    "ChainID": 250,
+    "Oracle_Earliest_Start": 19900000,
+    "Time": "October 19, 2021",
+    "StableCoinsUSD" : [
+        {"id": "DAI", "contract": "0x8d11ec38a3eb5e956b052f67da8bdc9bef8abf3e", "oracleContract": "0x91d5defaffe2854c7d02f50c80fa1fdc8a721e52"},
+        {"id": "USDC", "contract": "0x04068da6c83afcfa0e13ba15a6696662335d5b75", "oracleContract": "0x2553f4eeb82d5a26427b8d1106c51499cba5d99c"},
+        {"id": "MIM", "contract": "0x82f0b8b456c1a451378467398982d4834b6829c1", "oracleContract": "0x28de48d3291f31f839274b8d82691c77df1c5ced"}
+
+    ],
+    "Tokens": [
+        {"id": "FTM", "contract": "0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83"},
+        {"id": "SPELL", "contract": "0x468003b688943977e6130f4f68f23aad939a1040"},
+        {"id": "ETH", "contract": "0x74b23882a30290451A17c44f4F05243b6b58C76d"},
+        {"id": "BTC", "contract": "0x321162Cd933E2Be498Cd2267a90534A804051b11"},
+        {"id": "USDC", "contract": "0x04068da6c83afcfa0e13ba15a6696662335d5b75"},
+        {"id": "DAI", "contract": "0x8d11ec38a3eb5e956b052f67da8bdc9bef8abf3e"},
+        {"id": "MIM", "contract": "0x82f0b8b456c1a451378467398982d4834b6829c1"}
+
+    ],
+    "Oracles": [
+        {"from": "FTM", "to": "USD", "contract": "0xf4766552d15ae4d256ad41b6cf2933482b0680dc"},
+        {"from": "SPELL", "to": "USD", "contract": "0x02e48946849e0bfdd7bea5daa80af77195c7e24c"},
+        {"from": "BTC", "to": "USD", "contract": "0x8e94c22142f4a64b99022ccdd994f4e9ec86e4b4"},
+        {"from": "ETH", "to": "USD", "contract": "0x11ddd3d147e5b83d01cee7070027092397d63658"}
+
+    ]
+}

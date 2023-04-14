@@ -117,7 +117,7 @@ func (n *UniswapV3Processor) ProcessUniV3Mint(
 	}
 
 	items[idx] = &mint
-	instrumentation.MintV2Processed.Inc()
+	instrumentation.MintV3Processed.Inc()
 	return nil
 }
 
@@ -221,7 +221,7 @@ func (n *UniswapV3Processor) ProcessUniV3Burn(
 	}
 
 	items[idx] = &burn
-	instrumentation.BurnV2Processed.Inc()
+	instrumentation.BurnV3Processed.Inc()
 	return nil
 }
 
@@ -328,7 +328,7 @@ func (n *UniswapV3Processor) ProcessUniV3Swap(
 
 	items[idx] = &swap
 
-	instrumentation.SwapV2Processed.Inc()
+	instrumentation.SwapV3Processed.Inc()
 	return nil
 }
 

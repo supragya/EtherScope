@@ -16,7 +16,9 @@ import (
 	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
 	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
 	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	oldpriceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/oldpricing"
 	priceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/pricing"
+	erc20 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/erc20"
 	uniswapv2 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV2"
 	uniswapv3 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV3"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
@@ -49,6 +51,7 @@ type NodeImpl struct {
 	skipResumeRemote                bool     // skip checking remote for resume height
 	skipResumeLocal                 bool     // skip checking localbackend for resume height
 	remoteResumeURL                 string   // URL to use for resume height GET request
+	remoteResumeType                string   // Dictates the remote resume type - can be removed once all deployments transition to event based
 	prodcheck                       bool     // checks for prod grade settings
 	eventsToIndex                   []string // user requested events to index in string form
 	maxCPUParallels                 int      // user requested CPU threads to allocate to the process
@@ -57,14 +60,16 @@ type NodeImpl struct {
 	pricingDexDumpFile              string   // user provided dexes for faster catchup
 
 	// Internal Data Structures
-	moniker          string                                // user defined moniker for this node
-	network          string                                // user defined evm compatible network name
-	nodeID           uuid.UUID                             // system generated node identifier unique for each run
-	mergedTopics     map[common.Hash]itypes.ProcessingType // information on topics to index
-	mergedTopicsKeys []common.Hash                         // cached keys of mergedTopics
-	indexedHeight    uint64
-	currentHeight    uint64
-	quitCh           chan struct{}
+	moniker            string                                // user defined moniker for this node
+	network            string                                // user defined evm compatible network name
+	nodeID             uuid.UUID                             // system generated node identifier unique for each run
+	mergedTopics       map[common.Hash]itypes.ProcessingType // information on topics to index
+	mergedTopicsKeys   []common.Hash                         // cached keys of mergedTopics
+	indexedHeight      uint64
+	currentHeight      uint64
+	allowPricingState  bool
+	oldPricerOracleMap string
+	quitCh             chan struct{}
 
 	// Backoff configuration
 	backoff *backoff.ConstantBackOff
@@ -72,7 +77,9 @@ type NodeImpl struct {
 	// Library instances
 	procUniV2 uniswapv2.UniswapV2Processor
 	procUniV3 uniswapv3.UniswapV3Processor
+	procERC20 erc20.ERC20Processor
 	pricer    *priceresolver.Engine
+	oldpricer *oldpriceresolver.Pricing
 }
 
 // OnStart starts the Node. It implements service.Service.
@@ -112,11 +119,14 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 		return err
 	}
 	// required topics by the pricing engine
-	requiredEvents := []common.Hash{itypes.UniV2MintTopic,
-		itypes.UniV2BurnTopic,
-		itypes.UniV2SwapTopic}
+	var extraRequiredEvents []common.Hash
+	if n.allowPricingState {
+		extraRequiredEvents = []common.Hash{itypes.UniV2MintTopic,
+			itypes.UniV2BurnTopic,
+			itypes.UniV2SwapTopic}
+	}
 
-	n.mergedTopics = mergeTopics(requestedEvents, requiredEvents)
+	n.mergedTopics = mergeTopics(requestedEvents, extraRequiredEvents)
 	keys := make([]common.Hash, len(n.mergedTopics))
 
 	i := 0
@@ -140,11 +150,16 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	// Setup processors
 	n.procUniV2 = uniswapv2.UniswapV2Processor{n.mergedTopics, n.EthRPC}
 	n.procUniV3 = uniswapv3.UniswapV3Processor{n.mergedTopics, n.EthRPC}
-	n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
-		n.pricingChainlinkOraclesDumpFile,
-		n.pricingDexDumpFile,
-		n.EthRPC,
-		n.LocalBackend)
+	n.procERC20 = erc20.ERC20Processor{n.mergedTopics, n.EthRPC}
+	if n.allowPricingState {
+		n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
+			n.pricingChainlinkOraclesDumpFile,
+			n.pricingDexDumpFile,
+			n.EthRPC,
+			n.LocalBackend)
+	} else {
+		n.oldpricer = oldpriceresolver.GetPricingEngine(n.oldPricerOracleMap, n.EthRPC)
+	}
 
 	// TODO: Do height syncup using both LocalBackend and remote http
 	// startHeight, err := n.getResumeHeight()
@@ -194,6 +209,10 @@ func (n *NodeImpl) loop() {
 				}
 				n.currentHeight = height
 
+				if n.currentHeight < n.indexedHeight {
+					n.log.Warn(fmt.Sprintf("rpc height (%d) is less than indexed height (%d), possible n/w reorg or p2p failure",
+						n.currentHeight, n.indexedHeight))
+				}
 				if n.currentHeight == n.indexedHeight {
 					continue
 				}
@@ -261,17 +280,21 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 		EventsScanned: uint64(logs.Len()),
 	}
 
-	var eg errgroup.Group
+	eg := new(errgroup.Group)
 
 	var processedItems []interface{} = make([]interface{}, len(logs))
 	for idx, _log := range logs {
+		index, l := idx, _log
 		eg.Go(func() error {
-			return n.decodeLog(_log, processedItems, idx, blockSynopis.BlockTime)
+			err = n.decodeLog(l, processedItems, index, blockSynopis.BlockTime)
+			if err != nil {
+				fmt.Println(err)
+			}
+			return err
 		})
 	}
 
 	err = eg.Wait()
-
 	if err != nil {
 		n.log.Debug(fmt.Sprintf("Error processing block %d. Retrying. Error caused by: %s", block, err))
 		return err
@@ -280,25 +303,38 @@ func (n *NodeImpl) processBlock(kv map[uint64]CLogType, block uint64) error {
 	processingTime := time.Now()
 
 	// Run processedItems through pricing engine
-	newDexes, err := backoff.RetryWithData(
-		func() ([]itypes.UniV2Metadata, error) {
-			newDexes, err := n.pricer.Resolve(block, processedItems)
-			if err != nil {
-				if errors.Is(err, priceresolver.ErrorRequestedResolutionPresent) {
-					n.log.Debugf("%s", err)
-					return newDexes, nil
+	var newDexes []itypes.UniV2Metadata
+	if n.allowPricingState {
+		n.log.Info("allowed pricing state")
+		newDexes, err = backoff.RetryWithData(
+			func() ([]itypes.UniV2Metadata, error) {
+				newDexes, err := n.pricer.Resolve(block, processedItems)
+				if err != nil {
+					if errors.Is(err, priceresolver.ErrorRequestedResolutionPresent) {
+						n.log.Debugf("%s", err)
+						return newDexes, nil
+					}
+					n.log.Infof("Error resolving dex. Caused by: %s\n", err)
 				}
-				n.log.Infof("Error resolving dex. Caused by: %s\n", err)
-			}
-			return newDexes, err
-		}, n.backoff)
+				return newDexes, err
+			}, n.backoff)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = n.oldpricer.Resolve(block, processedItems)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	pricingTime := time.Now()
 
 	// Package processedItems into payload for output
-	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime)
+	populateBlockSynopsis(&blockSynopis, processedItems, startTime, processingTime, pricingTime, n.eventsToIndex)
 	payload := n.genPayload(&blockSynopis, processedItems, newDexes)
-	n.log.Debug("Sending data to output sink")
+	payload.allowPricingState = n.allowPricingState
 	for {
 		err = n.OutputSink.Send(payload)
 		if err == nil {
@@ -319,7 +355,6 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	idx int,
 	blockTime uint64,
 ) error {
-
 	primaryTopic := l.Topics[0]
 	switch primaryTopic {
 	// ---- Uniswap V2 ----
@@ -344,10 +379,10 @@ func (n *NodeImpl) decodeLog(l types.Log,
 		instrumentation.SwapV3Found.Inc()
 		return n.procUniV3.ProcessUniV3Swap(l, items, idx, blockTime)
 
-		// // ---- ERC 20 ----
-		// case itypes.ERC20TransferTopic:
-		// 	// instrumentation.TfrFound.Inc()
-		// 	n.processERC20Transfer(l, items, bm, mt)
+	// ---- ERC 20 ----
+	case itypes.ERC20TransferTopic:
+		instrumentation.TfrFound.Inc()
+		return n.procERC20.ProcessERC20Transfer(l, items, idx, blockTime)
 	}
 	return nil
 }
@@ -356,7 +391,8 @@ func populateBlockSynopsis(bs *itypes.BlockSynopsis,
 	items []interface{},
 	startTime time.Time,
 	processingTime time.Time,
-	pricingTime time.Time) {
+	pricingTime time.Time,
+	events []string) {
 	distribution := make(map[string]uint64, len(items))
 	defaultKey := ""
 	for _, item := range items {
@@ -399,17 +435,19 @@ func populateBlockSynopsis(bs *itypes.BlockSynopsis,
 	bs.IndexingTimeNanos = uint64(pricingTime.UnixNano())
 	bs.ProcessingDurationNanos = uint64(processingTime.Sub(startTime).Nanoseconds())
 	bs.PricingDurationNanos = uint64(pricingTime.Sub(processingTime).Nanoseconds())
+	bs.EventsIndexed = events
 }
 
 type Payload struct {
-	NodeMoniker   string
-	NodeID        uuid.UUID
-	NodeVersion   string
-	Environment   string
-	Network       string
-	BlockSynopsis *itypes.BlockSynopsis
-	NewDexes      []itypes.UniV2Metadata
-	Items         []interface{}
+	NodeMoniker       string
+	NodeID            uuid.UUID
+	NodeVersion       string
+	Environment       string
+	Network           string
+	allowPricingState bool
+	BlockSynopsis     *itypes.BlockSynopsis
+	NewDexes          []itypes.UniV2Metadata
+	Items             []interface{}
 }
 
 func (n *NodeImpl) genPayload(bs *itypes.BlockSynopsis,
@@ -483,18 +521,47 @@ func (n *NodeImpl) syncStartHeight() uint64 {
 
 	// Check resume URL
 	if !n.skipResumeRemote {
-		remoteLatestHeight, err := n.getRemoteLatestheight()
-		if err != nil {
-			n.log.Fatal(fmt.Sprintf("error while fetching latest height from remote: %v", err))
+		switch n.remoteResumeType {
+		case "event":
+			n.log.Info("Retrieving last block heights by event")
+			eventHeights, err := n.getRemoteEventHeights()
+
+			if err != nil {
+				n.log.Fatal(fmt.Sprintf("error while fetching latest height from remote: %v", err))
+			}
+
+			startBlock = ^uint64(0) - 1
+			for _, event := range n.eventsToIndex {
+				height, ok := eventHeights[event]
+				if ok {
+					if startBlock > height {
+						startBlock = height
+					}
+				} else {
+					startBlock = 0
+				}
+			}
+			n.log.Info(fmt.Sprintf("Starting height: %d", startBlock))
+
+		case "network":
+		default:
+			n.log.Info("Retrieving last block heights by network")
+			remoteLatestHeight, err := n.getRemoteLatestheight()
+
+			if err != nil {
+				n.log.Fatal(fmt.Sprintf("error while fetching latest height from remote: %v", err))
+			}
+
+			if remoteLatestHeight < startBlock {
+				n.log.Fatal(fmt.Sprintf("remote reports latest height as %v but either cfg start height or localBackend height disallows this", remoteLatestHeight),
+					"cfg start", n.startBlock)
+			}
+			if remoteLatestHeight > startBlock {
+				startBlock = remoteLatestHeight
+			}
 		}
-		if remoteLatestHeight < startBlock {
-			n.log.Fatal(fmt.Sprintf("remote reports latest height as %v but either cfg start height or localBackend height disallows this", remoteLatestHeight),
-				"cfg start", n.startBlock,
-				"lb latest", lbLatestHeightUint64)
-		}
-		if remoteLatestHeight > startBlock {
-			startBlock = remoteLatestHeight
-		}
+
+		return startBlock
 	}
 
 	n.log.Info("start block height set", "start", startBlock)
@@ -519,6 +586,28 @@ func (n *NodeImpl) getRemoteLatestheight() (uint64, error) {
 
 	n.log.Info("resuming from block height (via API response): ", responseObject.Data.Height)
 	return responseObject.Data.Height, nil
+}
+
+func (n *NodeImpl) getRemoteEventHeights() (map[string]uint64, error) {
+	resp, err := http.Get(n.remoteResumeURL)
+	if err != nil {
+		fmt.Println("HTTP error retrieving block heights")
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading HTTP response data")
+		return nil, err
+	}
+
+	var responseObject map[string]uint64
+	if err := json.Unmarshal(body, &responseObject); err != nil {
+		fmt.Printf("Error parsing JSON response data: %s\n", body)
+		return nil, err
+	}
+
+	return responseObject, nil
 }
 
 // Creates a new node service with spf13/viper fields (yaml)
@@ -547,12 +636,25 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 	)
 
 	// Setup local backend
-	if lbType != "badgerdb" {
+	var (
+		localBackend         lb.LocalBackend
+		err                  error
+		isLocalBackendNoneDB = false
+	)
+	switch lbType {
+	case "badgerdb":
+		localBackend, err = lb.NewBadgerDBWithViperFields(log.With("service", "localbackend"))
+		if err != nil {
+			return nil, err
+		}
+	case "none":
+		localBackend, err = lb.NewNoneDB(log.With("service", "localbackend"))
+		if err != nil {
+			return nil, err
+		}
+		isLocalBackendNoneDB = true
+	default:
 		log.Fatal("unsupported localbackend: " + lbType)
-	}
-	localBackend, err := lb.NewBadgerDBWithViperFields(log.With("service", "localbackend"))
-	if err != nil {
-		return nil, err
 	}
 
 	// Setup output link
@@ -582,13 +684,16 @@ func NewNodeWithViperFields(log logger.Logger) (service.Service, error) {
 		skipResumeRemote:                viper.GetBool(NodeCFGSection + ".skipResumeRemote"),
 		skipResumeLocal:                 viper.GetBool(NodeCFGSection + ".skipResumeLocal"),
 		remoteResumeURL:                 viper.GetString(NodeCFGSection + ".remoteResumeURL"),
+		remoteResumeType:                viper.GetString(NodeCFGSection + ".remoteResumeType"),
 		eventsToIndex:                   viper.GetStringSlice(NodeCFGSection + ".eventsToIndex"),
 		maxCPUParallels:                 viper.GetInt(NodeCFGSection + ".maxCPUParallels"),
 		maxBlockSpanPerCall:             viper.GetUint64(NodeCFGSection + ".maxBlockSpanPerCall"),
 		quitCh:                          make(chan struct{}, 1),
 		moniker:                         viper.GetString(NodeCFGSection + ".moniker"),
 		network:                         viper.GetString(NodeCFGSection + ".network"),
+		allowPricingState:               !isLocalBackendNoneDB,
 		pricingChainlinkOraclesDumpFile: viper.GetString(NodeCFGSection + ".pricingChainlinkOraclesDumpFile"),
+		oldPricerOracleMap:              viper.GetString(NodeCFGSection + ".oldPricerOracleMap"),
 		pricingDexDumpFile:              viper.GetString(NodeCFGSection + ".pricingDexDumpFile"),
 		prodcheck:                       viper.GetBool(NodeCFGSection + ".prodcheck"),
 	}

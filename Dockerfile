@@ -18,6 +18,7 @@ COPY ./scripts scripts
 COPY ./services services
 COPY ./types types
 COPY ./version version
+COPY ./algorand algorand
 
 RUN go build -ldflags="\
   -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildCommit=$buildCommit' \
@@ -33,5 +34,7 @@ FROM golang:1.19.3
 WORKDIR /geth-indexer
 
 COPY --from=build /geth-indexer/build/bgidx /geth-indexer/bgidx
+
+RUN "printf \"%s\" \"$CONFIG\" > ./config.yaml"
 
 CMD ["./bgidx", "realtime", "-c", "config.yaml"]

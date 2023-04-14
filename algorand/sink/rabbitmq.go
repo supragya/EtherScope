@@ -1,96 +1,83 @@
-package outputsink
+package sink
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"time"
 
-	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
-	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/config"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/logger"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/service"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/version"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
 )
 
 var (
-	RabbitMQCFGSection   = "outputSinkRabbitMQ"
+	RabbitMQCFGSection   = "mq"
 	RabbitMQCFGNecessity = "needed if `node.outputSinkType` == rabbitmq"
-	RabbitMQCFGHeader    = cfg.SArr("rabbitmq is an impl for OutputSink used",
-		"by indexer to send indexed information to the",
-		"backend")
-	RabbitMQCFGFields = [...]cfg.Field{
+	RabbitMQCFGHeader    = "RabbitMQ output sink config"
+	RabbitMQCFGFields    = [...]config.Field{
 		{
 			Name:      "queue",
 			Type:      "string",
 			Necessity: "always needed",
-			Info:      cfg.SArr("queue to output processed info onto"),
 			Default:   "bgidx_processed",
 		},
 		{
 			Name:      "secureConnection",
 			Type:      "bool",
 			Necessity: "always needed",
-			Info:      cfg.SArr("if set to true use secure connection (amqps)"),
+			Info:      "if set to true use secure connection (amqps)",
 			Default:   false,
 		},
 		{
 			Name:      "host",
 			Type:      "string",
 			Necessity: "always needed",
-			Info:      cfg.SArr("rabbitmq host"),
 			Default:   "127.0.0.1",
 		},
 		{
 			Name:      "port",
 			Type:      "uint64",
 			Necessity: "always needed",
-			Info:      cfg.SArr("rabbitmq port"),
 			Default:   5672,
 		},
 		{
 			Name:      "user",
 			Type:      "string",
 			Necessity: "always needed",
-			Info:      cfg.SArr("rabbitmq user"),
 			Default:   "devuser",
 		},
 		{
 			Name:      "pass",
 			Type:      "string",
 			Necessity: "always needed",
-			Info:      cfg.SArr("rabbitmq pass"),
 			Default:   "devpass",
 		},
 		{
 			Name:      "queueIsDurable",
 			Type:      "bool",
 			Necessity: "always needed",
-			Info:      cfg.SArr("queue durability"),
 			Default:   true,
 		},
 		{
 			Name:      "queueAutoDelete",
 			Type:      "bool",
 			Necessity: "always needed",
-			Info:      cfg.SArr("queue autodelete"),
 			Default:   false,
 		},
 		{
 			Name:      "queueExclusive",
 			Type:      "bool",
 			Necessity: "always needed",
-			Info:      cfg.SArr("queue exclusivity"),
 			Default:   false,
 		},
 		{
 			Name:      "queueNoWait",
 			Type:      "bool",
 			Necessity: "always needed",
-			Info:      cfg.SArr("queue no wait"),
 			Default:   false,
 		},
 	}
@@ -111,22 +98,35 @@ type RabbitMQOutputSinkImpl struct {
 	autoDelete       bool
 	exclusive        bool
 	noWait           bool
-	disconnectTime   time.Time
-	connecting       bool
-	amqpImpl         iamqp.AMQP
 
 	// Connections
-	connection iamqp.AMQPConnection
-	channel    iamqp.AMQPChannel
+	connection *amqp.Connection
+	channel    *amqp.Channel
 }
 
 // OnStart starts the rabbitmq OutputSink. It implements service.Service.
 func (n *RabbitMQOutputSinkImpl) OnStart(ctx context.Context) error {
-	if err := n.connect(); err != nil {
-		n.disconnectTime = time.Now()
-		n.log.Info(fmt.Sprintf("Unable to connect to RabbitMQ: %s", err))
-		return fmt.Errorf("OutputSinkStartupError: %w", err)
+	connPrefix := "amqp"
+	if viper.GetBool("mq.secureConnection") {
+		connPrefix = "amqps"
 	}
+
+	mqConnStr := fmt.Sprintf("%s://%s:%s@%s:%d/", connPrefix, n.user, n.pass, n.host, n.port)
+
+	fmt.Print(mqConnStr)
+
+	connectRabbitMQ, err := amqp.Dial(mqConnStr)
+	if err != nil {
+		return err
+	}
+
+	channelRabbitMQ, err := connectRabbitMQ.Channel()
+	if err != nil {
+		return err
+	}
+
+	n.connection = connectRabbitMQ
+	n.channel = channelRabbitMQ
 	return nil
 }
 
@@ -141,61 +141,7 @@ type WrappedPayload struct {
 	Data               interface{}
 }
 
-func (n *RabbitMQOutputSinkImpl) getConnectionString() string {
-	connPrefix := "amqp"
-	if viper.GetBool("mq.secureConnection") {
-		connPrefix = "amqps"
-	}
-	return fmt.Sprintf("%s://%s:%s@%s:%d/", connPrefix, n.user, url.QueryEscape(n.pass), n.host, n.port)
-}
-
-func (n *RabbitMQOutputSinkImpl) connect() error {
-	if n.connecting {
-		return nil
-	}
-	n.connecting = true
-	defer func() {
-		n.connecting = false
-	}()
-
-	mqConnStr := n.getConnectionString()
-	connectRabbitMQ, err := n.amqpImpl.Dial(mqConnStr)
-	if err != nil {
-		if n.disconnectTime.IsZero() {
-			n.disconnectTime = time.Now()
-		}
-
-		return fmt.Errorf("OutputSinkDialError caused by: %w", err)
-	}
-
-	channelRabbitMQ, err := connectRabbitMQ.Channel()
-	if err != nil {
-		if n.disconnectTime.IsZero() {
-			n.disconnectTime = time.Now()
-		}
-		return fmt.Errorf("OutputSinkChannelError caused by: %w", err)
-	}
-
-	if n.disconnectTime.IsZero() {
-		n.log.Info("RabbitMQ connected")
-	} else {
-		n.log.Info(fmt.Sprintf("RabbitMQ reconnected. Downtime: %dms",
-			time.Since(n.disconnectTime).Milliseconds()))
-		n.disconnectTime = time.Time{}
-	}
-
-	n.connection = connectRabbitMQ
-	n.channel = channelRabbitMQ
-	return nil
-}
-
 func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
-	if n.connection == nil || n.connection.IsClosed() {
-		if err := n.connect(); err != nil {
-			return fmt.Errorf("OutputSinkUnavailable Caused By: %w", err)
-		}
-	}
-
 	item, err := json.MarshalIndent(WrappedPayload{version.PersistenceVersion, payload}, "", " ")
 	if err != nil {
 		return err
@@ -213,23 +159,16 @@ func (n *RabbitMQOutputSinkImpl) Send(payload interface{}) error {
 			Body:            item,
 		}, // message to publish
 	)
-
 	if err != nil {
-		n.log.Warn("Error publishing message to RabbitMQ: " + fmt.Sprint(err) + ", caching message")
-		if n.disconnectTime.IsZero() {
-			n.disconnectTime = time.Now()
-		}
-		return fmt.Errorf("OutputSinkPublishError Caused by: %w", err)
+		return err
 	}
-
-	n.log.Debug("sent message onto outputsink rmq",
+	n.log.Info("sent message onto outputsink rmq",
 		"msglen", len(item),
 		"queue", n.queueName)
-
 	return nil
 }
 
-func NewRabbitMQOutputSinkWithViperFields(log logger.Logger, amqpImpl iamqp.AMQP) (OutputSink, error) {
+func NewRabbitMQOutputSinkWithViperFields(log logger.Logger) (OutputSink, error) {
 	outs := &RabbitMQOutputSinkImpl{
 		log:              log,
 		queueName:        viper.GetString(RabbitMQCFGSection + ".queue"),
@@ -244,6 +183,5 @@ func NewRabbitMQOutputSinkWithViperFields(log logger.Logger, amqpImpl iamqp.AMQP
 		noWait:           viper.GetBool(RabbitMQCFGSection + ".queueNoWait"),     // no wait
 	}
 	outs.BaseService = *service.NewBaseService(log, "outputsink", outs)
-	outs.amqpImpl = amqpImpl
 	return outs, nil
 }

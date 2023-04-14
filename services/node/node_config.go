@@ -76,8 +76,15 @@ var (
 			Type:      "string",
 			Necessity: "always needed",
 			Info: cfg.SArr("type of local backend indexer should use.",
-				"only possible type right now is `badgerdb`"),
-			Default: "badgerdb",
+				"Use `none` or `badgerdb`"),
+			Default: "none",
+		},
+		{
+			Name:      "oldPricerOracleMap",
+			Type:      "string",
+			Necessity: "needed if `localBackendType` == `None`",
+			Info:      cfg.SArr("place where oracle map exists on disk for old pricer"),
+			Default:   "/etc/oraclemap.json",
 		},
 		{
 			Name:      "outputSinkType",

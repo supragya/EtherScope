@@ -94,7 +94,9 @@ func IsRPCCallTimedOut(err error) bool {
 }
 
 func IsExecutionReverted(err error) bool {
-	return err != nil && EthErrorRegexes[0].MatchString(err.Error())
+	return err != nil &&
+		(EthErrorRegexes[0].MatchString(err.Error()) ||
+			EthErrorRegexes[6].MatchString(err.Error()))
 }
 
 func GetUser() (*user.User, error) {
@@ -202,6 +204,7 @@ func init() {
 		"abi: attempting to unmarshall",
 		"missing trie node",
 		"no contract code at given address",
+		"VM Exception while processing transaction: revert",
 	}
 	for _, e := range EthErrors {
 		EthErrorRegexes = append(EthErrorRegexes, regexp.MustCompile(e))
