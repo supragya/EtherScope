@@ -231,7 +231,7 @@ func (n *UniswapV3Processor) ProcessUniV3Swap(
 	idx int,
 	blockTime uint64,
 ) error {
-	prcType, ok := n.Topics[itypes.UniV2SwapTopic]
+	prcType, ok := n.Topics[itypes.UniV3SwapTopic]
 	if !ok {
 		return nil
 	}
@@ -267,7 +267,7 @@ func (n *UniswapV3Processor) ProcessUniV3Swap(
 
 	// Fill up the fields needed by pricing engine
 	var err error
-	swap.Token0, swap.Token1, err = n.EthRPC.GetTokensUniV2(l.Address, callopts)
+	swap.Token0, swap.Token1, err = n.EthRPC.GetTokensUniV3(l.Address, callopts)
 	if util.IsEthErr(err) {
 		return nil
 	}

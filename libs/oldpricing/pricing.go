@@ -150,6 +150,8 @@ func (d *Pricing) GetRates2Tokens(
 		{token1Address, token1Amount},
 	})
 
+	amountUSD = big.NewFloat(0.0)
+
 	if prs[0] == nil && prs[1] == nil {
 		return nil, nil, nil
 	} else if prs[0] == nil && token0Amount.Cmp(big.NewFloat(0.0)) != 0 {
@@ -171,10 +173,10 @@ func (d *Pricing) GetRates2Tokens(
 		}
 
 		// cache derived rate
-		lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
-		d.PriceCache.Add(lookupKey, &entry)
+		// lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{token0Address, *callopts}
+		// d.PriceCache.Add(lookupKey, &entry)
 		prs[0] = &entry
-
+		amountUSD.Mul(prs[1].Price, token1Amount)
 	} else if prs[1] == nil && token1Amount.Cmp(big.NewFloat(0.0)) != 0 {
 		cpdi := CounterpartyPriceDerivationInfo{
 			CounterpartyToken: token0Address,
@@ -194,13 +196,13 @@ func (d *Pricing) GetRates2Tokens(
 		}
 
 		// cache derived rate
-		lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
-		d.PriceCache.Add(lookupKey, &entry)
+		// lookupKey := itypes.Tuple2[common.Address, bind.CallOpts]{token1Address, *callopts}
+		// d.PriceCache.Add(lookupKey, &entry)
 		prs[1] = &entry
+		amountUSD.Mul(prs[0].Price, token0Amount)
 	}
 
-	amountUSD = big.NewFloat(0.0)
-	if prs[0] != nil && prs[1] != nil {
+	if amountUSD.Cmp(big.NewFloat(0.0)) == 0 && prs[0] != nil && prs[1] != nil {
 		if token0Amount.Cmp(big.NewFloat(0.0)) != 0 {
 			amountUSD.Mul(prs[0].Price, token0Amount)
 		} else {
@@ -344,6 +346,7 @@ func (d *Pricing) Resolve(resHeight uint64, items []interface{}) error {
 				continue
 			}
 			i.Price0, i.Price1, i.AmountUSD = d.GetRates2Tokens(callopts, i.Token0, i.Token1, i.Amount0, i.Amount1)
+
 		}
 	}
 
