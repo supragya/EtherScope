@@ -21,7 +21,6 @@
         {"from": "WETH", "to": "USD", "contract": "0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419"},
         {"from": "WBTC", "to": "USD", "contract": "0xf4030086522a5beea4988f8ca5b36dbc97bee88c"},
         {"from": "LINK", "to": "USD", "contract": "0x2c1d072e956affc0d435cb7ac38ef18d24d9127c"},
-        {"from": "USD", "to": "WETH", "contract": "0xee9f2375b4bdf6387aa8265dd4fb8f16512a1d46"},
         {"from": "SNX", "to": "WETH", "contract": "0x79291a9d692df95334b1a0b3b4ae6bc606782f8c"},
         {"from": "LRC", "to": "WETH", "contract": "0x160ac928a16c93ed4895c2de6f81ecce9a7eb7b4"},
         {"from": "MKR", "to": "WETH", "contract": "0x24551a8fb2a7211a25a17b1481f043a8a8adc7f2"},

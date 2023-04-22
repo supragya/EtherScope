@@ -19,6 +19,7 @@ import (
 	oldpriceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/oldpricing"
 	priceresolver "github.com/Blockpour/Blockpour-Geth-Indexer/libs/pricing"
 	erc20 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/erc20"
+	traderjoev2 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/traderjoev2"
 	uniswapv2 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV2"
 	uniswapv3 "github.com/Blockpour/Blockpour-Geth-Indexer/libs/processors/uniswapV3"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
@@ -75,11 +76,12 @@ type NodeImpl struct {
 	backoff *backoff.ConstantBackOff
 
 	// Library instances
-	procUniV2 uniswapv2.UniswapV2Processor
-	procUniV3 uniswapv3.UniswapV3Processor
-	procERC20 erc20.ERC20Processor
-	pricer    *priceresolver.Engine
-	oldpricer *oldpriceresolver.Pricing
+	procUniV2  uniswapv2.UniswapV2Processor
+	procUniV3  uniswapv3.UniswapV3Processor
+	procERC20  erc20.ERC20Processor
+	procTJoeV2 traderjoev2.TraderJoeProcessor
+	pricer     *priceresolver.Engine
+	oldpricer  *oldpriceresolver.Pricing
 }
 
 // OnStart starts the Node. It implements service.Service.
@@ -151,6 +153,7 @@ func (n *NodeImpl) OnStart(ctx context.Context) error {
 	n.procUniV2 = uniswapv2.UniswapV2Processor{n.mergedTopics, n.EthRPC}
 	n.procUniV3 = uniswapv3.UniswapV3Processor{n.mergedTopics, n.EthRPC}
 	n.procERC20 = erc20.ERC20Processor{n.mergedTopics, n.EthRPC}
+	n.procTJoeV2 = traderjoev2.TraderJoeProcessor{n.mergedTopics, n.EthRPC}
 	if n.allowPricingState {
 		n.pricer = priceresolver.NewDefaultEngine(n.log.With("module", "pricing"),
 			n.pricingChainlinkOraclesDumpFile,
@@ -383,6 +386,11 @@ func (n *NodeImpl) decodeLog(l types.Log,
 	case itypes.ERC20TransferTopic:
 		instrumentation.TfrFound.Inc()
 		return n.procERC20.ProcessERC20Transfer(l, items, idx, blockTime)
+
+	// ---- Trader Joe ----
+	case itypes.TraderJoeV2SwapTopic:
+		instrumentation.TraderJoeV2SwapFound.Inc()
+		return n.procTJoeV2.ProcessTokenExchange(l, items, idx, blockTime)
 	}
 	return nil
 }

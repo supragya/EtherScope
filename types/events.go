@@ -23,6 +23,9 @@ var (
 	// ---- ERC 20 ----
 	ERC20TransferTopic common.Hash
 
+	// ---- Trader Joe ----
+	TraderJoeV2SwapTopic common.Hash
+
 	// ---- Chainlink ----
 	ChainLinkFeedConfirmed common.Hash
 	ChainLinkAnswerUpdated common.Hash
@@ -110,6 +113,7 @@ type Swap struct {
 	AmountUSD      *big.Float
 	Price0         *PriceResult
 	Price1         *PriceResult
+	ExtraData      interface{}
 }
 
 type BlockSynopsis struct {
@@ -148,6 +152,9 @@ func init() {
 	// ---- Chainlink ----
 	ChainLinkFeedConfirmed = setTopic("FeedConfirmed(address,address,address,address,uint16,address)", "ChainLinkFeedConfirmed")
 	ChainLinkAnswerUpdated = setTopic("AnswerUpdated(int256,uint256,uint256)", "ChainLinkAnswerUpdated")
+
+	// ---- Trader Joe ----
+	TraderJoeV2SwapTopic = setTopic("Swap(address,address,uint256,bool,uint256,uint256,uint256,uint256)", "TraderJoeV2Swap")
 }
 
 func setTopic(topicString, infoString string) common.Hash {
