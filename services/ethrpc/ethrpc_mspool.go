@@ -7,6 +7,7 @@ import (
 
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/ERC20"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/chainlink"
+	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/traderjoev2"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ2pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ3pair"
 	"github.com/Blockpour/Blockpour-Geth-Indexer/assets/abi/univ3positionsnft"
@@ -493,4 +494,34 @@ func (n *MSPoolEthRPCImpl) GetChainlinkDecimals(
 			return oracle.Decimals(callopts)
 		}, 0)
 	return roundData, err
+}
+
+func (n *MSPoolEthRPCImpl) GetTraderJoeTokenX(
+	contractAddress common.Address, callopts *bind.CallOpts) (common.Address, error) {
+	tokenXAddress, err := Do(n.pool,
+		n.sem,
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
+			traderJoePool, err := traderjoev2.NewTraderjoev2(contractAddress, c)
+			if err != nil {
+				return common.Address{}, err
+			}
+			callopts.Context = ctx
+			return traderJoePool.TokenX(callopts)
+		}, common.Address{})
+	return tokenXAddress, err
+}
+
+func (n *MSPoolEthRPCImpl) GetTraderJoeTokenY(
+	contractAddress common.Address, callopts *bind.CallOpts) (common.Address, error) {
+	tokenYAddress, err := Do(n.pool,
+		n.sem,
+		func(ctx context.Context, c *ethclient.Client) (common.Address, error) {
+			traderJoePool, err := traderjoev2.NewTraderjoev2(contractAddress, c)
+			if err != nil {
+				return common.Address{}, err
+			}
+			callopts.Context = ctx
+			return traderJoePool.TokenY(callopts)
+		}, common.Address{})
+	return tokenYAddress, err
 }

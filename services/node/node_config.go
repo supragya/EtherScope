@@ -118,7 +118,8 @@ var (
 				"- UniswapV3Swap",
 				"- UniswapV3Mint",
 				"- UniswapV3Burn",
-				"- ERC20Transfer"),
+				"- ERC20Transfer",
+				"- TraderJoeV2Swap"),
 			Default: "\n    - ERC20Transfer\n    - UniswapV2Swap",
 		},
 		{

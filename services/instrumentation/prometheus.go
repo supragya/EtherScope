@@ -38,6 +38,9 @@ var (
 	BurnV3Processed = pc("burnv3_processed", "burn v3 processed")
 	SwapV2Processed = pc("swapv2_processed", "swapv2 processed")
 	SwapV3Processed = pc("swapv3_processed", "swapv3 processed")
+
+	TraderJoeV2SwapFound     = pc("trader_joe_v2_swap_found", "trader joe v2 swap found")
+	TraderJoeV2SwapProcessed = pc("trader_joe_v2_swap_processed", "trader joe v2 swap processed")
 )
 
 func pc(name string, help string) prometheus.Counter {

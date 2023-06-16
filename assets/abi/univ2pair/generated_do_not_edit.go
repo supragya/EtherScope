@@ -26,6 +26,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 // Univ2pairMetaData contains all meta data concerning the Univ2pair contract.
@@ -134,11 +135,11 @@ func NewUniv2pairFilterer(address common.Address, filterer bind.ContractFilterer
 
 // bindUniv2pair binds a generic wrapper to an already deployed contract.
 func bindUniv2pair(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(Univ2pairABI))
+	parsed, err := Univ2pairMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and

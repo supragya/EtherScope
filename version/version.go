@@ -26,7 +26,8 @@ var gover string = "unknownver"
 
 // Persistence version -- database compatibility index.
 // NOT TO be supplied compile time. Should be hardcoded.
-var PersistenceVersion uint8 = 5
+// PersistenceVersion 6 added ExtraData in itypes.Swap to accomodate arbitrary data between the DEXes
+var PersistenceVersion uint8 = 6
 
 var RootCmdVersion string = prepareVersionString()
 

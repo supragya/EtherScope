@@ -29,4 +29,6 @@ type EthRPC interface {
 	GetChainlinkRoundData(contractAddress common.Address, callopts *bind.CallOpts) (itypes.ChainlinkLatestRoundData, error)
 	IsContract(address common.Address, callopts *bind.CallOpts) (bool, error)
 	GetChainlinkDecimals(contractAddress common.Address, callopts *bind.CallOpts) (uint8, error)
+	GetTraderJoeTokenX(contractAddress common.Address, callopts *bind.CallOpts) (common.Address, error)
+	GetTraderJoeTokenY(contractAddress common.Address, callopts *bind.CallOpts) (common.Address, error)
 }
