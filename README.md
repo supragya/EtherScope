@@ -1,4 +1,4 @@
-# supragya Geth Indexer
+# EtherScope Go-Ethereum Indexer
 `escope` program aims to index an EVM like chain using go-ethereum clients via RPCs.
 
 ![Test run status](https://github.com/supragya/EtherScope/actions/workflows/gotest.yaml/badge.svg?branch=feat/v0.3.0)
