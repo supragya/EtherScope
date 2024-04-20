@@ -3,10 +3,10 @@ package uniswapv2
 import (
 	"math/big"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/instrumentation"
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
+	"github.com/supragya/EtherScope/libs/util"
+	"github.com/supragya/EtherScope/services/ethrpc"
+	"github.com/supragya/EtherScope/services/instrumentation"
+	itypes "github.com/supragya/EtherScope/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

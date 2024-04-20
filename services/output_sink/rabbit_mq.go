@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"time"
 
-	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
-	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
+	iamqp "github.com/supragya/EtherScope/libs/amqp"
+	cfg "github.com/supragya/EtherScope/libs/config"
+	logger "github.com/supragya/EtherScope/libs/log"
+	"github.com/supragya/EtherScope/libs/service"
+	"github.com/supragya/EtherScope/version"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
 )
@@ -28,7 +28,7 @@ var (
 			Type:      "string",
 			Necessity: "always needed",
 			Info:      cfg.SArr("queue to output processed info onto"),
-			Default:   "bgidx_processed",
+			Default:   "escope_processed",
 		},
 		{
 			Name:      "secureConnection",

@@ -9,14 +9,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/common"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/logger"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/pricing"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/rpc"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/service"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/sink"
-	types "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/types"
-	util "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/util"
+	"github.com/supragya/EtherScope/algorand/common"
+	"github.com/supragya/EtherScope/algorand/logger"
+	"github.com/supragya/EtherScope/algorand/pricing"
+	"github.com/supragya/EtherScope/algorand/rpc"
+	"github.com/supragya/EtherScope/algorand/service"
+	"github.com/supragya/EtherScope/algorand/sink"
+	types "github.com/supragya/EtherScope/algorand/types"
+	util "github.com/supragya/EtherScope/algorand/util"
 	"github.com/google/uuid"
 )
 

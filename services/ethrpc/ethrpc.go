@@ -3,8 +3,8 @@ package ethrpc
 import (
 	"math/big"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
+	"github.com/supragya/EtherScope/libs/service"
+	itypes "github.com/supragya/EtherScope/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

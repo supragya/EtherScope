@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/config"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/logger"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/service"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/version"
+	"github.com/supragya/EtherScope/algorand/config"
+	"github.com/supragya/EtherScope/algorand/logger"
+	"github.com/supragya/EtherScope/algorand/service"
+	"github.com/supragya/EtherScope/algorand/version"
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
 )
@@ -23,7 +23,7 @@ var (
 			Name:      "queue",
 			Type:      "string",
 			Necessity: "always needed",
-			Default:   "bgidx_processed",
+			Default:   "escope_processed",
 		},
 		{
 			Name:      "secureConnection",

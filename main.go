@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/Blockpour/Blockpour-Geth-Indexer/cmd"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
+	"github.com/supragya/EtherScope/cmd"
+	"github.com/supragya/EtherScope/libs/util"
 )
 
 func main() {

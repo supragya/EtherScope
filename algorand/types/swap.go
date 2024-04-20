@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/util"
+	"github.com/supragya/EtherScope/algorand/util"
 )
 
 type Swap struct {

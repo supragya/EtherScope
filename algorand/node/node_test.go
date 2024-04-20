@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/common"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/logger"
-	types "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/types"
-	util "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/util"
+	"github.com/supragya/EtherScope/algorand/common"
+	"github.com/supragya/EtherScope/algorand/logger"
+	types "github.com/supragya/EtherScope/algorand/types"
+	util "github.com/supragya/EtherScope/algorand/util"
 	"github.com/stretchr/testify/assert"
 )
 

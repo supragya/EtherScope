@@ -1,6 +1,6 @@
 package common
 
-import "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/types"
+import "github.com/supragya/EtherScope/algorand/types"
 
 const tinymanV1AppId = 552635992
 const tinymanV2AppId = 1002541853

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"sync"
 
-	types "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/types"
+	types "github.com/supragya/EtherScope/algorand/types"
 )
 
 /*

@@ -7,12 +7,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/instrumentation"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
+	"github.com/supragya/EtherScope/libs/config"
+	logger "github.com/supragya/EtherScope/libs/log"
+	"github.com/supragya/EtherScope/libs/service"
+	"github.com/supragya/EtherScope/libs/util"
+	"github.com/supragya/EtherScope/services/instrumentation"
+	"github.com/supragya/EtherScope/services/node"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +25,7 @@ var RealtimeCmd = &cobra.Command{
 	Long:  `run geth indexer in realtime`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if cfgFile == "" {
-			cfgFile = util.GetUserHomedir() + "/.blockpour/bgidx/config.yaml"
+			cfgFile = util.GetUserHomedir() + "/.supragya/escope/config.yaml"
 		}
 		util.ENOK(config.LoadViperConfig(cfgFile))
 

@@ -9,9 +9,9 @@ import (
 	"github.com/spf13/viper"
 	"github.com/streadway/amqp"
 
-	iamqp "github.com/Blockpour/Blockpour-Geth-Indexer/libs/amqp"
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	outs "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
+	iamqp "github.com/supragya/EtherScope/libs/amqp"
+	logger "github.com/supragya/EtherScope/libs/log"
+	outs "github.com/supragya/EtherScope/services/output_sink"
 )
 
 /* Struct definitions with stubbing functions */

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	"github.com/supragya/EtherScope/libs/log"
 )
 
 var (

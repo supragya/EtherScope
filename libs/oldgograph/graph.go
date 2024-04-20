@@ -5,7 +5,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/types"
+	"github.com/supragya/EtherScope/types"
 
 	"github.com/alecthomas/binary"
 )

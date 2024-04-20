@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/common"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/types"
+	"github.com/supragya/EtherScope/algorand/common"
+	"github.com/supragya/EtherScope/algorand/types"
 	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
 	"github.com/stretchr/testify/assert"
 )

@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/gograph"
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
-	lb "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
+	"github.com/supragya/EtherScope/libs/gograph"
+	logger "github.com/supragya/EtherScope/libs/log"
+	"github.com/supragya/EtherScope/libs/util"
+	"github.com/supragya/EtherScope/services/ethrpc"
+	lb "github.com/supragya/EtherScope/services/local_backend"
+	itypes "github.com/supragya/EtherScope/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 )

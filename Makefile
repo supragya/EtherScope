@@ -2,7 +2,7 @@ GO=go
 GOVER=$(shell go version)
 GOBUILD=$(GO) build
 BINDIR=build
-BINCLI=bgidx
+BINCLI=escope
 INSTALLLOC=/usr/local/bin/$(BINCLI)
 RELEASE=$(shell git describe --tags --abbrev=0)
 BUILDCOMMIT=$(shell git rev-parse HEAD | cut -c 1-7)
@@ -13,11 +13,11 @@ BUILDER=$(shell uname -n)
 
 build:
 	$(GOBUILD) -ldflags="\
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildCommit=$(BUILDLINE)@$(BUILDCOMMIT)' \
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.gittag=$(CURRENTTAG)' \
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildTime=$(CURRENTTIME)' \
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.builder=$(BUILDER)' \
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.gover=$(GOVER)' \
+	-X 'github.com/supragya/EtherScope/version.buildCommit=$(BUILDLINE)@$(BUILDCOMMIT)' \
+	-X 'github.com/supragya/EtherScope/version.gittag=$(CURRENTTAG)' \
+	-X 'github.com/supragya/EtherScope/version.buildTime=$(CURRENTTIME)' \
+	-X 'github.com/supragya/EtherScope/version.builder=$(BUILDER)' \
+	-X 'github.com/supragya/EtherScope/version.gover=$(GOVER)' \
 	-linkmode=external" \
 	-o $(BINDIR)/$(BINCLI)
 clean:

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"math"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/common"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/rpc"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/types"
+	"github.com/supragya/EtherScope/algorand/common"
+	"github.com/supragya/EtherScope/algorand/rpc"
+	"github.com/supragya/EtherScope/algorand/types"
 )
 
 type PricingEngine struct {

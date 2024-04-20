@@ -1,6 +1,6 @@
 package sink
 
-import "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/service"
+import "github.com/supragya/EtherScope/algorand/service"
 
 type OutputSink interface {
 	service.Service

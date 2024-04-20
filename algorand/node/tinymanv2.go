@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"sync"
 
-	types "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/types"
+	types "github.com/supragya/EtherScope/algorand/types"
 )
 
 func (n *Node) processTinymanV2Swap(g types.TxGroup, index int, results map[int][]types.Swap, wg *sync.WaitGroup, mt *sync.Mutex) error {

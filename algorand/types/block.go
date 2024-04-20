@@ -1,6 +1,6 @@
 package types
 
-import "github.com/Blockpour/Blockpour-Geth-Indexer/algorand/util"
+import "github.com/supragya/EtherScope/algorand/util"
 
 type BlockSynopsis struct {
 	Type                    string

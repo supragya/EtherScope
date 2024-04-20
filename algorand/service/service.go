@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/logger"
+	"github.com/supragya/EtherScope/algorand/logger"
 )
 
 var (

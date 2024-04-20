@@ -25,21 +25,21 @@ COPY ./version version
 COPY ./algorand algorand
 
 RUN env GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="\
-  -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildCommit=$buildCommit' \
-  -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.gittag=$gittag' \
-  -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.buildTime=$buildtime' \
-  -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.builder=$builder' \
-  -X 'github.com/Blockpour/Blockpour-Geth-Indexer/version.gover=$gover'" \
-  -o build/bgidx
+  -X 'github.com/supragya/EtherScope/version.buildCommit=$buildCommit' \
+  -X 'github.com/supragya/EtherScope/version.gittag=$gittag' \
+  -X 'github.com/supragya/EtherScope/version.buildTime=$buildtime' \
+  -X 'github.com/supragya/EtherScope/version.builder=$builder' \
+  -X 'github.com/supragya/EtherScope/version.gover=$gover'" \
+  -o build/escope
 
 FROM --platform=$TARGETPLATFORM golang:1.19.3
 
 WORKDIR /geth-indexer
 
-COPY --from=build /geth-indexer/build/bgidx /geth-indexer/bgidx
+COPY --from=build /geth-indexer/build/escope /geth-indexer/escope
 COPY --from=build /geth-indexer/libs libs
 
 ENTRYPOINT \
-mkdir -p /.blockpour/bgidx && \
+mkdir -p /.supragya/escope && \
 printf "%s" "$CONFIG" > ./config.yaml && \
-./bgidx realtime -c ./config.yaml
+./escope realtime -c ./config.yaml

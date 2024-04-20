@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
+	logger "github.com/supragya/EtherScope/libs/log"
+	"github.com/supragya/EtherScope/libs/util"
 
 	"github.com/stretchr/testify/assert"
 )

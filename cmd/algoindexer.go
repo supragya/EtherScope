@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/logger"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/node"
+	"github.com/supragya/EtherScope/algorand/logger"
+	"github.com/supragya/EtherScope/algorand/node"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

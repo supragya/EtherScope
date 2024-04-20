@@ -12,10 +12,10 @@ BUILDER=$(shell uname -n)
 
 build:
 	$(GOBUILD) -ldflags="\
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/algorand/version.buildCommit=$(BUILDLINE)@$(BUILDCOMMIT)' \
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/algorand/version.buildTime=$(CURRENTTIME)' \
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/algorand/version.builder=$(BUILDER)' \
-	-X 'github.com/Blockpour/Blockpour-Geth-Indexer/algorand/version.gover=$(GOVER)' \
+	-X 'github.com/supragya/EtherScope/algorand/version.buildCommit=$(BUILDLINE)@$(BUILDCOMMIT)' \
+	-X 'github.com/supragya/EtherScope/algorand/version.buildTime=$(CURRENTTIME)' \
+	-X 'github.com/supragya/EtherScope/algorand/version.builder=$(BUILDER)' \
+	-X 'github.com/supragya/EtherScope/algorand/version.gover=$(GOVER)' \
 	-linkmode=external" \
 	-o $(BINDIR)/$(BINCLI)
 clean:

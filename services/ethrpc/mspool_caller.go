@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
+	"github.com/supragya/EtherScope/libs/util"
 	"golang.org/x/sync/semaphore"
 )
 

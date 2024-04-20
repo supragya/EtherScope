@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	itypes "github.com/Blockpour/Blockpour-Geth-Indexer/types"
+	itypes "github.com/supragya/EtherScope/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

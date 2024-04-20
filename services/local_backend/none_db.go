@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
+	logger "github.com/supragya/EtherScope/libs/log"
+	"github.com/supragya/EtherScope/libs/service"
 )
 
 type NoneDBImpl struct {

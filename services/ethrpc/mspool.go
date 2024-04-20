@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	logger "github.com/supragya/EtherScope/libs/log"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 

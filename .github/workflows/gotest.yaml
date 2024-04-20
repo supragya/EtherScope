@@ -28,7 +28,7 @@ jobs:
 
       # -------------- Test utilities
       - name: Test util
-        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/util -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/util -coverprofile=profile.cov
+        run: go test -v github.com/supragya/EtherScope/util -v -cover -coverpkg=github.com/supragya/EtherScope/util -coverprofile=profile.cov
 
       - name: Coverage report for util
         run: go tool cover -func profile.cov 
@@ -37,7 +37,7 @@ jobs:
 
       # -------------- Test masterslave pool
       - name: Test mspool
-        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/mspool -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/mspool -coverprofile=profile.cov
+        run: go test -v github.com/supragya/EtherScope/mspool -v -cover -coverpkg=github.com/supragya/EtherScope/mspool -coverprofile=profile.cov
 
       - name: Coverage report for mspool
         run: go tool cover -func profile.cov 
@@ -46,7 +46,7 @@ jobs:
 
       # -------------- Test gograph
       - name: Test indexer
-        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/gograph -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/gograph -coverprofile=profile.cov
+        run: go test -v github.com/supragya/EtherScope/gograph -v -cover -coverpkg=github.com/supragya/EtherScope/gograph -coverprofile=profile.cov
 
       - name: Coverage report for gograph
         run: go tool cover -func profile.cov 
@@ -54,7 +54,7 @@ jobs:
 
       # -------------- Test realtime indexer
       - name: Test indexer
-        run: go test -v github.com/Blockpour/Blockpour-Geth-Indexer/indexer -v -cover -coverpkg=github.com/Blockpour/Blockpour-Geth-Indexer/indexer -coverprofile=profile.cov
+        run: go test -v github.com/supragya/EtherScope/indexer -v -cover -coverpkg=github.com/supragya/EtherScope/indexer -coverprofile=profile.cov
 
       - name: Coverage report for indexer
         run: go tool cover -func profile.cov 

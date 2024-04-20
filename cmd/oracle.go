@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/util"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/oraclenode"
+	"github.com/supragya/EtherScope/libs/config"
+	logger "github.com/supragya/EtherScope/libs/log"
+	"github.com/supragya/EtherScope/libs/util"
+	"github.com/supragya/EtherScope/services/oraclenode"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +17,7 @@ var OracleCmd = &cobra.Command{
 	Long:  `run oracle indexer`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		if cfgFile == "" {
-			cfgFile = util.GetUserHomedir() + "/.blockpour/bgidx/config.yaml"
+			cfgFile = util.GetUserHomedir() + "/.supragya/escope/config.yaml"
 		}
 		util.ENOK(config.LoadViperConfig(cfgFile))
 

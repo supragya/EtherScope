@@ -33,8 +33,8 @@ Be sure to restart the node after modifying the configuration.
 ## Indexer Config 
 
 If using self hosted node: 
-algodUrl: "http://algorand.blockpour.local:8080"
-indexerUrl:  "http://algorand.blockpour.local:8980"
+algodUrl: "http://algorand.supragya.local:8080"
+indexerUrl:  "http://algorand.supragya.local:8980"
 
 If using the quicknode, the algodUrl and indexerUrl should be in this format (including token and suffix)
 algodUrl: "https://<project-moniker>.algorand-mainnet.discover.quiknode.pro/<token>/algod"
@@ -43,4 +43,4 @@ indexerUrl: "https://<project-moniker>.algorand-mainnet.discover.quiknode.pro/<t
 
 ## Troubleshooting
 
-`curl algorand.blockpour.local:8980/health`
+`curl algorand.supragya.local:8980/health`

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/common"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/types"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/util"
+	"github.com/supragya/EtherScope/algorand/common"
+	"github.com/supragya/EtherScope/algorand/types"
+	"github.com/supragya/EtherScope/algorand/util"
 	"github.com/algorand/go-algorand-sdk/client/v2/common/models"
 )
 

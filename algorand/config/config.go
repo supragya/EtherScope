@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/Blockpour/Blockpour-Geth-Indexer/algorand/util"
+	"github.com/supragya/EtherScope/algorand/util"
 	"github.com/spf13/viper"
 )
 

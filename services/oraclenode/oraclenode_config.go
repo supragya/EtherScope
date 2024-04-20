@@ -1,13 +1,13 @@
 package oraclenode
 
 import (
-	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
+	cfg "github.com/supragya/EtherScope/libs/config"
 )
 
 var (
 	OracleNodeCFGSection   = "oraclenode"
 	OracleNodeCFGNecessity = "oracle indexing"
-	OracleNodeCFGHeader    = cfg.SArr("oraclenode is chainlink indexing service for bgidx",
+	OracleNodeCFGHeader    = cfg.SArr("oraclenode is chainlink indexing service for escope",
 		"oraclenode is tasked with initiating other services such as",
 		"localbackend (badger-db) and outputsink (rabbitmq)")
 	OracleNodeCFGFields = [...]cfg.Field{
@@ -17,13 +17,13 @@ var (
 			Necessity: "always needed",
 			Info: cfg.SArr("custom name given to node to differentiate messages",
 				"at the outputSink"),
-			Default: "blockpour-geth-node",
+			Default: "supragya-geth-node",
 		},
 		{
 			Name:      "prodcheck",
 			Type:      "bool",
 			Necessity: "always needed",
-			Info: cfg.SArr("ensures only tagged and released version of bgidx is",
+			Info: cfg.SArr("ensures only tagged and released version of escope is",
 				"allowed to run."),
 			Default: true,
 		},
@@ -31,7 +31,7 @@ var (
 			Name:      "maxCPUParallels",
 			Type:      "uint",
 			Necessity: "always needed",
-			Info:      cfg.SArr("maximum number of CPU threads to give to bgidx"),
+			Info:      cfg.SArr("maximum number of CPU threads to give to escope"),
 			Default:   4,
 		},
 		{
@@ -62,7 +62,7 @@ var (
 			Type:      "string",
 			Necessity: "always needed",
 			Info:      cfg.SArr("remoteHTTP URL for fetching blockheight to resume from"),
-			Default:   "https://myremote.blockpour.com",
+			Default:   "https://myremote.supragya.com",
 		},
 		{
 			Name:      "outputSinkType",

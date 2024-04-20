@@ -5,21 +5,21 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/ethrpc"
-	localbackend "github.com/Blockpour/Blockpour-Geth-Indexer/services/local_backend"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/node"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/services/oraclenode"
-	outputsink "github.com/Blockpour/Blockpour-Geth-Indexer/services/output_sink"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/version"
+	"github.com/supragya/EtherScope/libs/config"
+	"github.com/supragya/EtherScope/services/ethrpc"
+	localbackend "github.com/supragya/EtherScope/services/local_backend"
+	"github.com/supragya/EtherScope/services/node"
+	"github.com/supragya/EtherScope/services/oraclenode"
+	outputsink "github.com/supragya/EtherScope/services/output_sink"
+	"github.com/supragya/EtherScope/version"
 	"github.com/spf13/cobra"
 )
 
 // RootCmd represents the base command when called without any subcommands
 var ConfigGen = &cobra.Command{
 	Use:   "configgen",
-	Short: "generate config for bgidx",
-	Long:  `generate config for bgidx`,
+	Short: "generate config for escope",
+	Long:  `generate config for escope`,
 	Run:   GenConfig,
 }
 
@@ -29,7 +29,7 @@ func GenConfig(cmd *cobra.Command, args []string) {
 	content := ""
 
 	// Add metadata
-	content += "# Config file generated from bgidx configgen\n"
+	content += "# Config file generated from escope configgen\n"
 
 	content += "\n# VERSION INFO:\n"
 	for _, line := range version.GetVersionStrings() {
@@ -37,10 +37,10 @@ func GenConfig(cmd *cobra.Command, args []string) {
 	}
 
 	// Add statutory note
-	content += "\n# NOTE: Starting with v0.5.0 (enterprise), bgidx has moved to\n"
+	content += "\n# NOTE: Starting with v0.5.0 (enterprise), escope has moved to\n"
 	content += "# service based architecture and as such config sections reflect\n"
 	content += "# such separation. These configs may evolve over time and as such\n"
-	content += "# it is adviced to always use `bgidx configgen` as the utility\n"
+	content += "# it is adviced to always use `escope configgen` as the utility\n"
 	content += "# to generate example configs.\n"
 	content += "\n"
 

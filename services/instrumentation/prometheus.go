@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	logger "github.com/supragya/EtherScope/libs/log"
 )
 
 func StartPromServer(log logger.Logger) {

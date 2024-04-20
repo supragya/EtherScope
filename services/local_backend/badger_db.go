@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	cfg "github.com/Blockpour/Blockpour-Geth-Indexer/libs/config"
-	logger "github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
+	cfg "github.com/supragya/EtherScope/libs/config"
+	logger "github.com/supragya/EtherScope/libs/log"
+	"github.com/supragya/EtherScope/libs/service"
 	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dgraph-io/badger/v3/options"
 	"github.com/spf13/viper"

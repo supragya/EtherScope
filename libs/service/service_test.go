@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/log"
+	"github.com/supragya/EtherScope/libs/log"
 )
 
 type testService struct {

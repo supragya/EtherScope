@@ -1,4 +1,4 @@
-module github.com/Blockpour/Blockpour-Geth-Indexer
+module github.com/supragya/EtherScope
 
 go 1.18
 

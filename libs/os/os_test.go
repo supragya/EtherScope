@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	osutil "github.com/Blockpour/Blockpour-Geth-Indexer/libs/os"
+	osutil "github.com/supragya/EtherScope/libs/os"
 	"github.com/stretchr/testify/require"
 )
 

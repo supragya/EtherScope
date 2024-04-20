@@ -1,7 +1,7 @@
 package localbackend
 
 import (
-	"github.com/Blockpour/Blockpour-Geth-Indexer/libs/service"
+	"github.com/supragya/EtherScope/libs/service"
 )
 
 type LocalBackend interface {
