@@ -1,7 +1,9 @@
 # EtherScope Go-Ethereum Indexer
 `escope` program aims to index an EVM like chain using go-ethereum clients via RPCs.
 
-![Test run status](https://github.com/supragya/EtherScope/actions/workflows/gotest.yaml/badge.svg?branch=feat/v0.3.0)
+
+![Dashboard](assets/bpour_dashboard.png)
+
 ## Building
 Build the application using:
 - Setup golang abi modules via abigen using `./scripts/setup_abi.sh`.
